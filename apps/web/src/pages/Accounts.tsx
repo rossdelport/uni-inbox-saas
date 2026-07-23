@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { EmailAccount } from "@uni/shared";
+import type { EmailAccount } from "../lib/types.js";
 import {
   useAccounts,
   useBillingState,

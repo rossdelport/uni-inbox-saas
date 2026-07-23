@@ -11,7 +11,7 @@ import type {
   InboxPage,
   TestResult,
   ThreadDetail,
-} from "@uni/shared";
+} from "./types.js";
 import { api } from "./api.js";
 
 // All server state flows through here. 15s refetch on the inbox keeps the

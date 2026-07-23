@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { AccountInput, ProviderPreset, TestResult } from "@uni/shared";
+import type { AccountInput, ProviderPreset, TestResult } from "../lib/types.js";
 import { api } from "../lib/api.js";
 import { useConnectAccount, useTestConnection } from "../lib/queries.js";
 
