@@ -3,11 +3,20 @@
 The code in this repo is complete through billing. What remains is wiring the
 three external services and verifying against real mailboxes. In order:
 
-## 1. Supabase (~10 min)
-- [ ] Create project (region close to Railway region)
-- [ ] Apply `supabase/migrations/0001..0004` in order (SQL editor)
-- [ ] Auth: email confirmation ON
-- [ ] Copy: project URL, anon key, service role key
+## 1. Supabase (~5 min) — SHARED with ibookshelf for now
+Uni-Inbox uses the existing iBookshelf project (`afkgkmhshitfopddadbr`),
+isolated in the `uni_inbox` schema. Migrations 0001..0004 are ALREADY APPLIED
+(2026-07-23, via MCP). Remaining manual steps:
+- [ ] Dashboard -> Project Settings -> API -> Exposed schemas: add `uni_inbox`
+      (REQUIRED; every API query 404s until this is done)
+- [ ] Auth: email confirmation ON (check it doesn't conflict with ibookshelf's
+      auth settings; auth config is project-wide)
+- [ ] Copy: project URL, anon key, service role key (ibookshelf's)
+
+Caveats of sharing (accepted for now): one auth user pool across both
+products (an ibookshelf login works on Uni-Inbox and vice versa); Uni-Inbox's
+signup trigger creates a harmless profiles row for ibookshelf signups; moving
+out later = dump/restore the `uni_inbox` schema to a fresh project.
 
 ## 2. Railway (~10 min)
 - [ ] New service from this repo (Nixpacks reads `railway.json`)

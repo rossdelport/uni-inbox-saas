@@ -36,6 +36,9 @@ projects, each with its own mailbox and none worth a full client setup.
 ## State (2026-07-23)
 
 Full MVP code pushed to main (v0.1): sync engine, unified inbox, reply/compose,
-billing, security hardening. Not yet deployed; docs/launch-checklist.md walks
-Supabase -> Railway -> Vercel -> real-mailbox verification -> Stripe. Design
-restyle to the Maily north star pending the digest (see design-north-star.md).
+billing, security hardening. Database is LIVE: sharing the iBookshelf Supabase
+project (afkgkmhshitfopddadbr) inside the `uni_inbox` schema, migrations
+0001-0004 applied. One manual step outstanding there: expose `uni_inbox` in
+Settings -> API -> Exposed schemas. Not yet on Railway/Vercel/Stripe;
+docs/launch-checklist.md walks the rest. Design restyle to the Maily north
+star pending the digest (see design-north-star.md).

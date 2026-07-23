@@ -15,6 +15,10 @@ const schema = z.object({
 
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  // Uni-Inbox shares a Supabase project with ibookshelf for now; all of its
+  // tables live in this schema. The schema must be listed under the project's
+  // Settings -> API -> Exposed schemas or every query 404s.
+  SUPABASE_DB_SCHEMA: z.string().default("uni_inbox"),
 
   // 32-byte base64 key for AES-256-GCM encryption of mail passwords at rest.
   // Generate: openssl rand -base64 32. Rotating it requires users to re-enter
