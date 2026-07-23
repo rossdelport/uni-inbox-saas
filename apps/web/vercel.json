@@ -1,15 +1,9 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "echo 'prebuilt: no install'",
-  "buildCommand": "echo 'prebuilt: serving committed dist'",
-  "outputDirectory": "dist",
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
-    {
-      "source": "/((?!assets/).*)",
-      "destination": "/index.html"
-    }
+  "version": 2,
+  "builds": [{ "src": "dist/**", "use": "@vercel/static" }],
+  "routes": [
+    { "src": "/assets/(.*)", "dest": "/dist/assets/$1" },
+    { "src": "/(.*\\..+)", "dest": "/dist/$1" },
+    { "src": "/(.*)", "dest": "/dist/index.html" }
   ]
 }
