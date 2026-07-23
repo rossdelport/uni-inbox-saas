@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Inter Variable", system-ui, -apple-system, sans-serif;
+}
+
+body {
+  @apply bg-zinc-50 text-zinc-900 antialiased;
+}
+
+/* Clutter-free means quiet chrome: one accent, thin borders, lots of air. */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50;
+}
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50;
+}
+.input {
+  @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200;
+}
+.label {
+  @apply mb-1 block text-[13px] font-medium text-zinc-600;
+}

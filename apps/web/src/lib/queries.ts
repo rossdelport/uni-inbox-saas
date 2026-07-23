@@ -1,0 +1,192 @@
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type {
+  AccountInput,
+  BillingState,
+  EmailAccount,
+  InboxPage,
+  TestResult,
+  ThreadDetail,
+} from "@uni/shared";
+import { api } from "./api.js";
+
+// All server state flows through here. 15s refetch on the inbox keeps the
+// list fresh between IDLE pushes without hammering the API.
+
+export function useAccounts() {
+  return useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => api<EmailAccount[]>("/api/accounts"),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useBillingState() {
+  return useQuery({
+    queryKey: ["billing"],
+    queryFn: () =>
+      api<BillingState & { plans: { id: string; label: string; max_inboxes: number; price_usd: number }[] }>(
+        "/api/billing/state",
+      ),
+  });
+}
+
+export function useInbox(account: string | null, archived: boolean) {
+  return useInfiniteQuery({
+    queryKey: ["inbox", account ?? "all", archived],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams();
+      if (pageParam) params.set("cursor", pageParam);
+      if (account) params.set("account", account);
+      if (archived) params.set("archived", "1");
+      return api<InboxPage>(`/api/inbox?${params.toString()}`);
+    },
+    initialPageParam: "",
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useThread(threadId: string | null) {
+  return useQuery({
+    queryKey: ["thread", threadId],
+    queryFn: () => api<ThreadDetail>(`/api/threads/${threadId}`),
+    enabled: Boolean(threadId),
+  });
+}
+
+export function useThreadOp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, op }: { threadId: string; op: "archive" | "unarchive" | "read" | "unread" }) =>
+      api(`/api/inbox/threads/${threadId}/${op}`, { method: "POST" }),
+    // Optimistic: flip the row in every cached inbox page immediately.
+    onMutate: async ({ threadId, op }) => {
+      await qc.cancelQueries({ queryKey: ["inbox"] });
+      const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      for (const [key, data] of snapshots) {
+        if (!data) continue;
+        qc.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            threads: page.threads
+              .map((t) =>
+                t.id === threadId
+                  ? {
+                      ...t,
+                      unread: op === "unread" ? true : op === "read" ? false : t.unread,
+                      archived: op === "archive" ? true : op === "unarchive" ? false : t.archived,
+                    }
+                  : t,
+              )
+              // Archive/unarchive removes the row from the current view.
+              .filter((t) =>
+                op === "archive" || op === "unarchive" ? t.id !== threadId : true,
+              ),
+          })),
+        });
+      }
+      return { snapshots };
+    },
+    onError: (_err, _vars, ctx) => {
+      for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["thread"] });
+    },
+  });
+}
+
+export function useTestConnection() {
+  return useMutation({
+    mutationFn: (input: AccountInput) =>
+      api<TestResult>("/api/accounts/test", { method: "POST", body: JSON.stringify(input) }),
+  });
+}
+
+export function useConnectAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AccountInput) =>
+      api<EmailAccount>("/api/accounts", { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+    },
+  });
+}
+
+export function useUpdateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: { id: string; label?: string; password?: string; status?: "active" | "disabled" }) =>
+      api<EmailAccount>(`/api/accounts/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+    },
+  });
+}
+
+export function useRemoveAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/api/accounts/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+    },
+  });
+}
+
+export function useReply() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, body_text }: { threadId: string; body_text: string }) =>
+      api(`/api/threads/${threadId}/reply`, {
+        method: "POST",
+        body: JSON.stringify({ body_text }),
+      }),
+    onSuccess: (_data, { threadId }) => {
+      void qc.invalidateQueries({ queryKey: ["thread", threadId] });
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+    },
+  });
+}
+
+export function useCompose() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string }) =>
+      api<{ thread_id: string }>("/api/messages/send", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["inbox"] }),
+  });
+}
+
+export function useCheckout() {
+  return useMutation({
+    mutationFn: (tier: string) =>
+      api<{ url: string }>("/api/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ tier }),
+      }),
+    onSuccess: ({ url }) => window.location.assign(url),
+  });
+}
+
+export function usePortal() {
+  return useMutation({
+    mutationFn: () => api<{ url: string }>("/api/billing/portal", { method: "POST" }),
+    onSuccess: ({ url }) => window.location.assign(url),
+  });
+}

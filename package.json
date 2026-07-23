@@ -1,0 +1,22 @@
+{
+  "name": "uni-inbox",
+  "private": true,
+  "version": "0.1.0",
+  "description": "One clutter-free inbox for all your project emails — built for solo founders and indie hackers",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:api": "npm run dev --workspace @uni/api",
+    "dev:web": "npm run dev --workspace @uni/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

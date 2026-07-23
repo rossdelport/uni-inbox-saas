@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "echo 'no build step — api runs via tsx'"
+  },
+  "deploy": {
+    "startCommand": "sh -c 'if [ \"$SERVICE_ROLE\" = \"worker\" ]; then npm run start:worker --workspace @uni/api; elif [ \"$SERVICE_ROLE\" = \"api\" ]; then npm run start --workspace @uni/api; else npm run start:all --workspace @uni/api; fi'",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
