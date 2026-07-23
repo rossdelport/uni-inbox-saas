@@ -94,17 +94,25 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const webDist = resolve(repoRoot, "dist");
 const marketing = resolve(repoRoot, "site");
 
+// HTML must never be browser-cached (deploys have to show up on refresh);
+// everything else (images, fonts, hashed JS/CSS) can cache for a day.
+const staticHeaders = (res: express.Response, filePath: string) => {
+  if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-cache");
+  else res.setHeader("Cache-Control", "public, max-age=86400");
+};
+
 if (existsSync(webDist)) {
-  app.use("/app", express.static(webDist, { index: "index.html", maxAge: "1h" }));
+  app.use("/app", express.static(webDist, { index: "index.html", setHeaders: staticHeaders }));
   // SPA fallback: /app/anything renders the app shell.
   app.get(["/app", "/app/*"], (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(resolve(webDist, "index.html"));
   });
   logger.info({ webDist }, "serving dashboard at /app");
 }
 
 if (existsSync(marketing)) {
-  app.use(express.static(marketing, { extensions: ["html"], maxAge: "1h" }));
+  app.use(express.static(marketing, { extensions: ["html"], setHeaders: staticHeaders }));
   // Unknown non-API pages get the site's own 404.
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path === "/health") return next();
