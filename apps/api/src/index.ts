@@ -12,6 +12,7 @@ import { inboxRouter } from "./routes/inbox.js";
 import { messagesRouter } from "./routes/messages.js";
 import { sendRouter } from "./routes/send.js";
 import { billingRouter } from "./routes/billing.js";
+import { contactRouter } from "./routes/contact.js";
 
 const app = express();
 // Railway terminates TLS at its proxy; trust exactly one hop so req.ip is the
@@ -72,6 +73,9 @@ app.use(
 );
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// Public: marketing-site contact form (rate limited inside the router).
+app.use("/api/contact", contactRouter);
 
 // Everything below requires a valid Supabase Auth JWT from the dashboard.
 app.use("/api", requireAuth);

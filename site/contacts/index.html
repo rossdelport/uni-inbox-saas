@@ -101,6 +101,13 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
 @keyframes uniBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
 </style>
+
+<style id="uni-overrides">
+/* Uni-Inbox overrides: footer removed, favicon used as the nav logo */
+footer.framer-sP0dz{display:none!important}
+[data-framer-name="logo"] a > div{display:none!important}
+[data-framer-name="logo"] a{background:url(https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png) center/contain no-repeat!important}
+</style>
 </head>
 <body class="framer-body-c5xplPYwt-framer-pcFAj">
     
@@ -537,6 +544,14 @@ setTimeout(patchAll, 3000);
 
 </script>
 
+<style id="uni-contact-style">
+.uni-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);
+  background:#16a34a;color:#fff;font:600 15px/1 Inter,system-ui,sans-serif;
+  padding:14px 22px;border-radius:999px;box-shadow:0 10px 30px rgba(22,163,74,.35);
+  opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.22,1,.36,1);z-index:9999}
+.uni-toast.uni-toast-err{background:#dc2626;box-shadow:0 10px 30px rgba(220,38,38,.35)}
+.uni-toast.uni-show{opacity:1;transform:translate(-50%,0)}
+</style>
 <script>
 (function(){
   function fix(){
@@ -549,6 +564,60 @@ setTimeout(patchAll, 3000);
   }
   fix();
   new MutationObserver(fix).observe(document.body, {childList: true, subtree: true});
+
+  var toast;
+  function showToast(msg, isErr){
+    if (!toast){
+      toast = document.createElement("div");
+      toast.className = "uni-toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.toggle("uni-toast-err", !!isErr);
+    requestAnimationFrame(function(){ toast.classList.add("uni-show"); });
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ toast.classList.remove("uni-show"); }, 4000);
+  }
+
+  // The Framer form is a visual shell: intercept submit and post to our API.
+  document.addEventListener("submit", async function(e){
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var inputs = form.querySelectorAll("input, textarea");
+    var name = "", email = "", message = "";
+    inputs.forEach(function(el){
+      var ph = (el.placeholder || "").toLowerCase();
+      if (el.type === "email" || ph.indexOf("@") !== -1) email = el.value.trim();
+      else if (el.tagName === "TEXTAREA" || ph.indexOf("message") !== -1) message = el.value.trim();
+      else if (!name) name = el.value.trim();
+    });
+    if (!email || !message){
+      showToast("Add your email and a message first.", true);
+      return;
+    }
+    var btn = form.querySelector('[type="submit"], button');
+    if (btn) btn.disabled = true;
+    try {
+      var r = await fetch("/api/contact", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({name: name, email: email, message: message})
+      });
+      var data = await r.json().catch(function(){ return {}; });
+      if (r.ok){
+        showToast("Message sent. We'll get back to you soon. \u2713");
+        inputs.forEach(function(el){ el.value = ""; });
+      } else {
+        showToast(data.error || "Could not send, try again in a minute.", true);
+      }
+    } catch (err) {
+      showToast("Could not send, try again in a minute.", true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }, true);
 })();
 </script>
 </body>

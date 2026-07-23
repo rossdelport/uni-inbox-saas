@@ -53,6 +53,13 @@ const schema = z.object({
 
   // Per-user daily outbound send cap (protects against runaway clients).
   SEND_DAILY_CAP: z.coerce.number().default(50),
+
+  // Marketing-site contact form. Optional: without the key the endpoint
+  // returns 503 instead of blocking boot.
+  RESEND_API_KEY: z.string().optional(),
+  CONTACT_TO_EMAIL: z.string().email().default("rossdelport1998@gmail.com"),
+  // Sender must be on a Resend-verified domain (trynoisy.com is verified).
+  CONTACT_FROM_EMAIL: z.string().default("Uni-Inbox contact form <uniinbox@trynoisy.com>"),
 });
 
 export const env = schema.parse(process.env);
