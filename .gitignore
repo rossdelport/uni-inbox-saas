@@ -1,5 +1,9 @@
 node_modules/
 dist/
+# The web dashboard's build output is committed on purpose: Vercel serves it
+# as-is with no build step (see vercel.json), so deploys cannot fail.
+!apps/web/dist/
+!apps/web/dist/**
 .env
 .env.*
 !.env.example
