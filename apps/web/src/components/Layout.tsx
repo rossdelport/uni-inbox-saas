@@ -183,15 +183,12 @@ export function Layout() {
           ☰
         </button>
         <NavLink to="/" className="flex items-center gap-2">
-          <span
-            className="grid h-8 w-8 place-items-center rounded-[9px]"
-            style={{ background: "linear-gradient(180deg, #4da3ff 0%, #1c7ef7 100%)" }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M3 9.5 12 4l9 5.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V9.5Z" fill="#fff" />
-              <path d="M3 9.5 12 15l9-5.5" stroke="#1c7ef7" strokeWidth="1.6" strokeLinejoin="round" />
-            </svg>
-          </span>
+          <img
+            src="https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png"
+            alt=""
+            className="h-8 w-8 rounded-[9px]"
+            draggable={false}
+          />
           <span className="hidden text-[17px] font-bold tracking-tight text-zinc-900 sm:block">
             uni-inbox
           </span>

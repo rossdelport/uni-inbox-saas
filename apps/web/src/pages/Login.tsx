@@ -87,15 +87,7 @@ export function Login() {
       <div className="relative z-10 w-full max-w-[440px] rounded-[28px] bg-white px-7 py-9 shadow-[0_24px_60px_rgba(9,58,125,0.28)] sm:px-10">
         {/* Logo */}
         <a href="/" className="flex items-center justify-center gap-2">
-          <span
-            className="grid h-9 w-9 place-items-center rounded-[10px]"
-            style={{ background: "linear-gradient(180deg, #4da3ff 0%, #1c7ef7 100%)" }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M3 9.5 12 4l9 5.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V9.5Z" fill="#fff" />
-              <path d="M3 9.5 12 15l9-5.5" stroke="#1c7ef7" strokeWidth="1.6" strokeLinejoin="round" />
-            </svg>
-          </span>
+          <img src={LOGO_SRC} alt="" className="h-9 w-9 rounded-[10px]" draggable={false} />
           <span className="text-[19px] font-bold tracking-tight text-zinc-900">uni-inbox</span>
         </a>
 
@@ -211,16 +203,18 @@ export function Login() {
   );
 }
 
-// CSS-built 3D envelope (white body + folded flap) so we match the mock
-// without shipping image assets.
+// The same assets the landing page uses: its 3D envelope and its favicon mark.
+const ENVELOPE_SRC = "https://framerusercontent.com/images/OEgOgKnJfYyJzdDPysfJV8oaYI.png";
+const LOGO_SRC = "https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png";
+
 function Envelope({ className, tilt, delay }: { className: string; tilt: string; delay?: string }) {
   return (
-    <span
-      className={`envelope3d ${className}`}
+    <img
+      src={ENVELOPE_SRC}
+      alt=""
+      draggable={false}
+      className={`envelope-img ${className}`}
       style={{ ["--tilt" as never]: tilt, animationDelay: delay }}
-    >
-      <span className="envelope3d-flap" />
-      <span className="envelope3d-fold" />
-    </span>
+    />
   );
 }

@@ -97,6 +97,28 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
 @keyframes uniBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
 </style>
+
+<style id="uni-overrides">
+/* Uni-Inbox overrides: footer removed, favicon used as the nav logo */
+footer.framer-sP0dz{display:none!important}
+[data-framer-name="logo"] a > div{display:none!important}
+[data-framer-name="logo"] a{background:url(https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png) center/contain no-repeat!important}
+</style>
+
+<style id="uni-overrides-home">
+/* Centered FAQ */
+@media(min-width:834px){section[data-framer-name="faq"]{justify-content:center!important}}
+/* Hero copy floats above the envelope illustrations */
+section[data-framer-name="hero"] [data-framer-name="mails"]{z-index:0!important}
+section[data-framer-name="hero"] [data-framer-name="text"]{position:relative;z-index:5!important}
+/* Giant translucent wordmark closing the blue pricing band */
+section.framer-jcnslc[data-framer-name="footer"]::after{
+  content:"UNI-INBOX";display:block;width:100%;text-align:center;
+  font-family:"M PLUS Rounded 1c","Inter",sans-serif;font-weight:800;
+  font-size:clamp(72px,15vw,230px);line-height:.85;letter-spacing:-.02em;
+  color:rgba(255,255,255,.3);user-select:none;pointer-events:none;
+}
+</style>
 </head>
 <body>
 
