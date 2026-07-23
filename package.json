@@ -11,6 +11,7 @@
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev --workspace @uni/api",
     "dev:web": "npm run dev --workspace @uni/web",
+    "site:build": "npm run build --workspace @uni/web && rm -rf dist && cp -r apps/web/dist dist",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {

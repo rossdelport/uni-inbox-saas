@@ -1,9 +1,10 @@
 node_modules/
 dist/
-# The web dashboard's build output is committed on purpose: Vercel serves it
+# The top-level dist/ is the committed, prebuilt dashboard that Vercel serves
 # as-is with no build step (see vercel.json), so deploys cannot fail.
-!apps/web/dist/
-!apps/web/dist/**
+# Rebuild + refresh it with: npm run site:build
+!/dist/
+!/dist/**
 .env
 .env.*
 !.env.example
