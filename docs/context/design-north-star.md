@@ -8,7 +8,15 @@ every visual decision. (It is published from the Maily Framer template; if we
 reuse its actual assets/layout for the marketing site rather than just the
 aesthetic, make sure the template license is on Ross's Framer account.)
 
-## Status: digest PENDING — do not guess
+## Status: digest COMPLETE (2026-07-23)
+
+The full design system lives in [`maily-design-spec.md`](maily-design-spec.md)
+(tokens, typography, radii, shadows, gradients, motion, per-page specs). The
+marketing site built from it is deployed from `site/` at the domain root; the
+dashboard at /app still uses the plain interim style and should be restyled to
+the spec. The original capture checklist below is kept for reference only.
+
+## Original status note: digest PENDING — do not guess
 
 Cloud sessions cannot reach `framer.website` (environment network policy blocks
 the domain at the proxy, archive.org too). Nothing below the checklist has been

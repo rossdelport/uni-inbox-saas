@@ -81,19 +81,38 @@ app.use("/api/inbox", inboxRouter);
 app.use("/api", messagesRouter); // /api/threads/:id, /api/messages/:id/attachments/:partId
 app.use("/api", sendRouter); // /api/threads/:id/reply, /api/messages/send
 
-// Serve the prebuilt dashboard (repo-root dist/) when present, so ONE Railway
-// service hosts the whole product: API + sync worker + web app, same origin.
-// The committed dist is built with an empty VITE_API_URL, so the browser calls
-// /api on this same host — no CORS, no cross-origin config at all.
-const webDist = resolve(dirname(fileURLToPath(import.meta.url)), "../../../dist");
+// ONE Railway service hosts the whole product on one origin:
+//   /            -> marketing site (repo-root site/, static Framer export)
+//   /app         -> dashboard SPA (repo-root dist/, built with base /app/)
+//   /api, /health-> this API + the sync worker in the same process
+// The committed dist calls /api same-origin, so there is no CORS config at all.
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const webDist = resolve(repoRoot, "dist");
+const marketing = resolve(repoRoot, "site");
+
 if (existsSync(webDist)) {
-  app.use(express.static(webDist, { index: "index.html", maxAge: "1h" }));
-  // SPA fallback: any non-API GET renders the app shell.
+  app.use("/app", express.static(webDist, { index: "index.html", maxAge: "1h" }));
+  // SPA fallback: /app/anything renders the app shell.
+  app.get(["/app", "/app/*"], (_req, res) => {
+    res.sendFile(resolve(webDist, "index.html"));
+  });
+  logger.info({ webDist }, "serving dashboard at /app");
+}
+
+if (existsSync(marketing)) {
+  app.use(express.static(marketing, { extensions: ["html"], maxAge: "1h" }));
+  // Unknown non-API pages get the site's own 404.
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path === "/health") return next();
+    res.status(404).sendFile(resolve(marketing, "404.html"));
+  });
+  logger.info({ marketing }, "serving marketing site at /");
+} else if (existsSync(webDist)) {
+  // No marketing site checked in: fall back to the dashboard at the root.
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path === "/health") return next();
     res.sendFile(resolve(webDist, "index.html"));
   });
-  logger.info({ webDist }, "serving prebuilt dashboard");
 }
 
 app.listen(env.PORT, () => {

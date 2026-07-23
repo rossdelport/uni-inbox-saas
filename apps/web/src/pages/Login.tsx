@@ -33,7 +33,12 @@ export function Login() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: name || undefined } },
+        options: {
+          data: { full_name: name || undefined },
+          // Send the confirmation link back to THIS deployment's app, not the
+          // Supabase project's default Site URL (shared with ibookshelf).
+          emailRedirectTo: `${window.location.origin}/app`,
+        },
       });
       if (error) {
         setError(error.message);

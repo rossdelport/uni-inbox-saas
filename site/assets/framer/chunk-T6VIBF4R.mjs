@@ -1,0 +1,2 @@
+function a(t,e){return{description:"All your project inboxes, in one dashboard. Connect Gmail, Outlook, and custom-domain mailboxes and see every message in one place.",favicon:"https://framerusercontent.com/assets/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png",robots:"max-image-preview:large",socialImage:"https://framerusercontent.com/assets/8svJUVpPPvvkOOMSGctyDiXgkE.jpg",title:"Uni-Inbox"}}export{a};
+//# sourceMappingURL=chunk-T6VIBF4R.mjs.map
