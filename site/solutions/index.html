@@ -1081,6 +1081,6 @@ setTimeout(patchAll, 3000);
 
 </script>
 <script>/* Uni-Inbox link patch: CTAs -> /app, drop template-author externals */
-(function(){function fix(){document.querySelectorAll("a[href]").forEach(function(a){var h=a.getAttribute("href")||"";if(h.indexOf("lemonsqueezy.com")>-1){a.setAttribute("href","/app");a.removeAttribute("target");}else if(/x\.com\/MarkKnd|instagram\.com\/markvassilevskiy|linkedin\.com\/in\/markknd/i.test(h)){a.setAttribute("href","/");a.removeAttribute("target");}})}fix();new MutationObserver(fix).observe(document.documentElement,{childList:true,subtree:true});})();
+(function(){function fix(){document.querySelectorAll("a[href]").forEach(function(a){var h=a.getAttribute("href")||"";if(h.indexOf("lemonsqueezy.com")>-1){a.setAttribute("href","/app/signup");a.removeAttribute("target");}else if(/x\.com\/MarkKnd|instagram\.com\/markvassilevskiy|linkedin\.com\/in\/markknd/i.test(h)){a.setAttribute("href","/");a.removeAttribute("target");}})}fix();new MutationObserver(fix).observe(document.documentElement,{childList:true,subtree:true});})();
 </script></body>
 </html>

@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase.js";
 
-// Email/password auth against Supabase. Email confirmation is on, so signup
-// shows a "check your email" notice instead of a session.
+// Auth screen in the Maily language: sky-gradient hero panel with floating
+// envelopes, a big rounded white card, pill tabs and the dark pill button.
+// Served for /app/login and /app/signup: the path picks the starting tab.
 export function Login() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(() =>
+    window.location.pathname.endsWith("/signup") ? "signup" : "signin",
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,6 +16,13 @@ export function Login() {
   const [busy, setBusy] = useState(false);
 
   const isSignup = mode === "signup";
+
+  function switchMode(m: "signin" | "signup") {
+    setMode(m);
+    setError(null);
+    setNotice(null);
+    window.history.replaceState(null, "", m === "signup" ? "/app/signup" : "/app/login");
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -44,38 +54,72 @@ export function Login() {
         setError(error.message);
       } else if (!data.session) {
         setNotice("Almost there. Check your email for a confirmation link, then sign in.");
-        setMode("signin");
+        switchMode("signin");
       }
     }
     setBusy(false);
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="text-2xl font-semibold tracking-tight">Uni-Inbox</div>
-          <p className="mt-2 text-sm text-zinc-500">
+    <div className="sky-panel relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-16">
+      {/* Floating envelope accents */}
+      <span className="envelope left-[8%] top-[14%] text-6xl" style={{ ["--tilt" as never]: "-10deg" }}>
+        ✉️
+      </span>
+      <span
+        className="envelope right-[10%] top-[22%] text-5xl opacity-80"
+        style={{ ["--tilt" as never]: "8deg", animationDelay: "-3s" }}
+      >
+        ✉️
+      </span>
+      <span
+        className="envelope bottom-[12%] left-[16%] text-4xl opacity-60"
+        style={{ ["--tilt" as never]: "14deg", animationDelay: "-5s" }}
+      >
+        ✉️
+      </span>
+
+      <a href="/" className="font-display mb-8 text-2xl font-extrabold tracking-tight text-white">
+        Uni-Inbox
+      </a>
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-7 text-center text-white">
+          <div className="chip mx-auto mb-4 text-[13px]" style={{ color: "var(--ink-50)" }}>
+            ✉️ Built for people who run more than one thing
+          </div>
+          <h1 className="font-display text-4xl font-extrabold leading-tight tracking-tight">
+            {isSignup ? (
+              <>
+                Every inbox. <span style={{ color: "#003C8A" }}>One place.</span>
+              </>
+            ) : (
+              <>Welcome back.</>
+            )}
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-white/85">
             {isSignup
-              ? "One clutter-free inbox for every project you run."
-              : "Welcome back. All your inboxes are waiting in one place."}
+              ? "Connect Gmail, Porkbun, or any mailbox, and always reply from the right address."
+              : "Your projects kept their inboxes tidy while you were away."}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 grid grid-cols-2 rounded-lg bg-zinc-100 p-1 text-sm font-medium">
+        <div className="card-lg p-7">
+          <div
+            className="mb-6 grid grid-cols-2 rounded-full p-1 text-sm"
+            style={{ background: "#f5f5f5", boxShadow: "var(--shadow-glow)" }}
+          >
             {(["signin", "signup"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
-                className={`rounded-md py-1.5 transition ${
-                  mode === m ? "bg-white shadow-sm" : "text-zinc-500"
-                }`}
-                onClick={() => {
-                  setMode(m);
-                  setError(null);
-                  setNotice(null);
-                }}
+                className="font-ui rounded-full py-2 font-semibold transition"
+                style={
+                  mode === m
+                    ? { background: "#fff", boxShadow: "var(--shadow-card)", color: "var(--ink)" }
+                    : { color: "var(--ink-45)" }
+                }
+                onClick={() => switchMode(m)}
               >
                 {m === "signin" ? "Log in" : "Sign up"}
               </button>
@@ -121,19 +165,22 @@ export function Login() {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
             {notice && (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              <p
+                className="rounded-2xl px-4 py-2.5 text-sm"
+                style={{ background: "var(--blue-100)", color: "#0a4fa8" }}
+              >
                 {notice}
               </p>
             )}
 
-            <button type="submit" className="btn w-full" disabled={busy}>
-              {busy ? "Working…" : isSignup ? "Create account" : "Sign in"}
+            <button type="submit" className="btn w-full py-3" disabled={busy}>
+              {busy ? "Working…" : isSignup ? "Create your account" : "Sign in"}
             </button>
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
-          14-day free trial. No card needed. Connect Gmail, Porkbun, or any IMAP mailbox.
+        <p className="mt-6 text-center text-[13px] leading-relaxed text-white/80">
+          14 day free trial, no card needed. Your mail passwords are encrypted, always.
         </p>
       </div>
     </div>

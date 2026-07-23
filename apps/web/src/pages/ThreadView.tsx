@@ -66,7 +66,7 @@ export function ThreadView() {
           const isLast = i === lastIdx;
           const open = isLast || expanded.has(m.id);
           return (
-            <div key={m.id} className="rounded-xl border border-zinc-200 bg-white">
+            <div key={m.id} className="card">
               <button
                 className="flex w-full items-baseline gap-2 px-4 py-3 text-left"
                 onClick={() => {
@@ -110,7 +110,7 @@ export function ThreadView() {
         })}
       </div>
 
-      <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+      <div className="card mt-4 p-5">
         <div className="mb-2 flex items-center gap-1.5 text-xs text-zinc-500">
           Replying as
           <AccountBadge color={thread.account_color} size={7} />

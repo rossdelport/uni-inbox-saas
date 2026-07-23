@@ -39,8 +39,8 @@ export function Compose() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-4 text-lg font-semibold">New message</h1>
-      <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5">
+      <h1 className="font-display mb-5 text-2xl font-bold tracking-tight">New message</h1>
+      <form onSubmit={onSubmit} className="card-lg space-y-4 p-6">
         <div>
           <label className="label">From</label>
           <div className="grid gap-2 sm:grid-cols-2">

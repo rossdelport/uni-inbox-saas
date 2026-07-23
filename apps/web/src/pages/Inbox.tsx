@@ -16,19 +16,38 @@ export function Inbox({ archived = false }: { archived?: boolean }) {
   const navigate = useNavigate();
   const [connectOpen, setConnectOpen] = useState(false);
 
-  // First-run: no accounts yet -> connect flow front and center.
+  // First-run onboarding: the sky-gradient hero panel, front and center.
   if (!accountsLoading && accounts && accounts.length === 0) {
     return (
-      <div className="grid h-full place-items-center p-8">
-        <div className="max-w-md text-center">
-          <div className="text-xl font-semibold">Connect your first inbox</div>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-            Add Gmail, a Porkbun mailbox, or any IMAP account. Your mail shows up here
-            in one clean list, color-coded per project.
+      <div className="grid h-full place-items-center p-6">
+        <div className="sky-panel relative w-full max-w-2xl overflow-hidden rounded-[48px] px-8 py-14 text-center text-white">
+          <span className="envelope left-[6%] top-[10%] text-5xl" style={{ ["--tilt" as never]: "-12deg" }}>
+            ✉️
+          </span>
+          <span
+            className="envelope bottom-[14%] right-[8%] text-4xl opacity-80"
+            style={{ ["--tilt" as never]: "10deg", animationDelay: "-4s" }}
+          >
+            ✉️
+          </span>
+          <div className="chip mx-auto mb-5 text-[13px]" style={{ color: "var(--ink-50)" }}>
+            👋 Let's set you up
+          </div>
+          <h1 className="font-display mx-auto max-w-md text-4xl font-extrabold leading-tight tracking-tight">
+            Connect your first inbox.
+          </h1>
+          <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/85">
+            Gmail, Porkbun, or any mailbox with IMAP. Your mail lands here in one clean
+            list, color coded per project, and replies always come from the right address.
           </p>
-          <button className="btn mt-5" onClick={() => setConnectOpen(true)}>
-            Connect an inbox
+          <button className="btn-ghost mt-7 px-7 py-3 text-[15px]" onClick={() => setConnectOpen(true)}>
+            ✉️ Connect an inbox
           </button>
+          <div className="mt-6 flex items-center justify-center gap-2 text-[12.5px] text-white/75">
+            <span>Takes about a minute</span>
+            <span>·</span>
+            <span>Passwords stored encrypted</span>
+          </div>
         </div>
         {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
       </div>
@@ -40,26 +59,26 @@ export function Inbox({ archived = false }: { archived?: boolean }) {
     !inbox.isLoading && threads.length === 0 && (accounts?.length ?? 0) > 0 && !archived;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">
+    <div className="mx-auto max-w-4xl px-6 py-6">
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="font-display text-2xl font-bold tracking-tight">
           {archived ? "Archived" : account ? accounts?.find((a) => a.id === account)?.label : "Inbox"}
         </h1>
-        {inbox.isFetching && <span className="text-xs text-zinc-400">Syncing…</span>}
+        {inbox.isFetching && <span className="chip text-[11px]" style={{ color: "var(--ink-45)" }}>⏳ Syncing</span>}
       </div>
 
       {inbox.isLoading ? (
         <ListSkeleton />
       ) : syncingFirstBatch ? (
-        <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500">
+        <div className="card p-10 text-center text-sm" style={{ color: "var(--ink-50)" }}>
           Syncing your recent mail. The first pass usually lands within a minute.
         </div>
       ) : threads.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500">
-          {archived ? "Nothing archived yet." : "You're at inbox zero. Enjoy it."}
+        <div className="card p-10 text-center text-sm" style={{ color: "var(--ink-50)" }}>
+          {archived ? "Nothing archived yet." : "You're at inbox zero. Enjoy it. 🎉"}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        <ul className="card divide-y overflow-hidden" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
           {threads.map((t) => (
             <li
               key={t.id}

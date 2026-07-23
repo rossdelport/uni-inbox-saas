@@ -22,7 +22,7 @@ export function Accounts() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Connected inboxes</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">Connected inboxes</h1>
           {billing && (
             <p className="text-sm text-zinc-500">
               {billing.connected_inboxes} of {billing.max_inboxes} on the {billing.plan_label} plan
@@ -67,7 +67,7 @@ function AccountCard({ account }: { account: EmailAccount }) {
   const [password, setPassword] = useState("");
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+    <div className="card p-5">
       <div className="flex items-center gap-3">
         <AccountBadge color={account.color} size={10} />
         <div className="min-w-0 flex-1">

@@ -1,23 +1,128 @@
 @import "tailwindcss";
 
+/* Maily design system (docs/context/maily-design-spec.md): soft blues, pill
+   shapes, chunky rounded display type, layered soft shadows + blue inner glow. */
 :root {
-  font-family: "Inter Variable", system-ui, -apple-system, sans-serif;
+  --blue-primary: #0c7dff;
+  --blue-secondary: #2786ff;
+  --blue-bright: #0099ff;
+  --blue-100: #e8f0ff;
+  --blue-300: #abe2ff;
+  --off-white: #fbfbf8;
+  --ink: #000000;
+  --ink-83: rgba(0, 0, 0, 0.83);
+  --ink-50: rgba(0, 0, 0, 0.5);
+  --ink-45: rgba(0, 0, 0, 0.45);
+  --ink-10: rgba(0, 0, 0, 0.1);
+  --shadow-glow: inset 0px -1px 1px 0px rgba(10, 114, 237, 0.64);
+  --shadow-card: 0px 1px 1px 0px rgba(0, 0, 0, 0.1), 0px 2px 2px 0px rgba(0, 0, 0, 0.09),
+    0px 4.5px 2.5px 0px rgba(0, 0, 0, 0.05);
+  --shadow-float: 0px 5px 10px 0px rgba(0, 0, 0, 0.1), 0px 20px 15px 0px rgba(0, 0, 0, 0.17);
+  --shadow-pill: 0px 2px 0px 0px rgba(183, 183, 183, 1),
+    inset 0px 5px 14px 0px rgba(255, 255, 255, 0.5);
+  --shadow-pill-dark: inset 0px 2.4px 4.9px 0px rgba(255, 255, 255, 1),
+    inset 0px -1.2px 2.9px 0px rgba(0, 102, 255, 0.39);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+.font-display {
+  font-family: "M PLUS Rounded 1c", "Inter Variable", system-ui, sans-serif;
+}
+.font-ui {
+  font-family: "M PLUS 1", "Inter Variable", system-ui, sans-serif;
 }
 
 body {
-  @apply bg-zinc-50 text-zinc-900 antialiased;
+  background: var(--off-white);
+  color: var(--ink-83);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Clutter-free means quiet chrome: one accent, thin borders, lots of air. */
+/* Primary: the dark pill. */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm text-white transition disabled:cursor-not-allowed disabled:opacity-50;
+  font-family: "M PLUS 1", sans-serif;
+  font-weight: 600;
+  background: linear-gradient(182deg, #3c3c3c 0%, #000000 100%);
+  box-shadow: var(--shadow-pill-dark);
+  transition: transform 0.2s var(--ease-out-quint), box-shadow 0.2s var(--ease-out-quint);
 }
+.btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+/* Secondary: the white pill with the signature glow. */
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm transition disabled:opacity-50;
+  font-family: "M PLUS 1", sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  background: #ffffff;
+  border-color: var(--ink-10);
+  box-shadow: var(--shadow-pill), var(--shadow-glow);
+  transition: transform 0.2s var(--ease-out-quint);
 }
+.btn-ghost:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
 .input {
-  @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200;
+  @apply w-full rounded-2xl border px-4 py-2.5 text-sm outline-none transition;
+  background: #f9f9f9;
+  border-color: var(--ink-10);
 }
+.input:focus {
+  border-color: var(--blue-primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px var(--blue-100);
+}
+
 .label {
-  @apply mb-1 block text-[13px] font-medium text-zinc-600;
+  @apply mb-1.5 block text-[13px];
+  font-family: "M PLUS 1", sans-serif;
+  font-weight: 600;
+  color: var(--ink-50);
+}
+
+.card {
+  @apply rounded-[24px] border bg-white;
+  border-color: rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
+}
+.card-lg {
+  @apply rounded-[40px] border bg-white;
+  border-color: rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
+}
+
+/* Small glowing pill chip (badges, filters, statuses). */
+.chip {
+  @apply inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium;
+  border: 1px solid var(--ink-10);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Hero gradient panel (onboarding, auth backdrop). */
+.sky-panel {
+  background: linear-gradient(180deg, #2786ff 0%, #abe2ff 100%);
+}
+.fade-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #e8f0ff 100%);
+}
+
+/* Floating envelope accents for hero panels. */
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--tilt, -6deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(var(--tilt, -6deg));
+  }
+}
+.envelope {
+  @apply pointer-events-none absolute select-none;
+  animation: floaty 8s var(--ease-out-quint) infinite;
+  filter: drop-shadow(0px 10px 12px rgba(0, 0, 0, 0.15));
 }

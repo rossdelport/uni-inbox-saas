@@ -39,9 +39,14 @@ export function Billing() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="mb-1 text-lg font-semibold">Plan and billing</h1>
-      <p className="mb-6 text-sm text-zinc-500">
+    <div className="fade-panel mx-auto min-h-full max-w-4xl rounded-[24px] px-6 py-8">
+      <div className="chip mb-3 text-[12px]" style={{ color: "var(--ink-45)" }}>
+        💳 Pricing
+      </div>
+      <h1 className="font-display mb-1 text-3xl font-extrabold tracking-tight">
+        Simple <span style={{ color: "var(--blue-primary)" }}>pricing</span>.
+      </h1>
+      <p className="mb-7 max-w-lg text-sm leading-relaxed" style={{ color: "var(--ink-50)" }}>
         {isPaid ? (
           <>
             You're on <span className="font-medium text-zinc-700">{billing.plan_label}</span>
@@ -61,27 +66,61 @@ export function Billing() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {billing.plans.map((p) => {
+      <div className="grid gap-5 sm:grid-cols-3">
+        {billing.plans.map((p, i) => {
           const current = billing.plan === p.id;
+          const featured = i === 1; // middle card gets the spotlight
+          const perks = [
+            `${p.max_inboxes} connected inbox${p.max_inboxes === 1 ? "" : "es"}`,
+            "Unified color coded inbox",
+            "Reply from the right address",
+            "Two way read and archive sync",
+            ...(i >= 1 ? ["Priority sync"] : []),
+            ...(i >= 2 ? ["Room for every side project"] : []),
+          ];
           return (
             <div
               key={p.id}
-              className={`rounded-xl border bg-white p-5 ${
-                current ? "border-zinc-900" : "border-zinc-200"
-              }`}
+              className="card-lg relative p-6"
+              style={
+                featured
+                  ? { boxShadow: "var(--shadow-float)", border: "1.5px solid var(--blue-primary)" }
+                  : undefined
+              }
             >
-              <div className="text-sm font-semibold">{p.label}</div>
-              <div className="mt-1 text-2xl font-semibold">
+              {featured && (
+                <span
+                  className="font-ui absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full px-3.5 py-1 text-[11px] font-bold text-white"
+                  style={{ background: "var(--blue-primary)", boxShadow: "var(--shadow-card)" }}
+                >
+                  🏅 Most popular
+                </span>
+              )}
+              <div className="font-ui text-sm font-bold">{p.label}</div>
+              <div className="font-display mt-2 text-4xl font-extrabold tracking-tight">
                 ${p.price_usd}
-                <span className="text-sm font-normal text-zinc-400">/mo</span>
+                <span className="font-ui text-sm font-medium" style={{ color: "var(--ink-45)" }}>
+                  /month
+                </span>
               </div>
-              <div className="mt-2 text-sm text-zinc-500">
-                {p.max_inboxes} connected inbox{p.max_inboxes === 1 ? "" : "es"}
-              </div>
-              <div className="mt-4">
+              <ul className="mt-4 space-y-2.5">
+                {perks.map((perk) => (
+                  <li key={perk} className="flex items-start gap-2 text-[13.5px]" style={{ color: "var(--ink-83)" }}>
+                    <span
+                      className="mt-0.5 grid h-4.5 w-4.5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                      style={{ background: "var(--blue-primary)", width: 18, height: 18 }}
+                    >
+                      ✓
+                    </span>
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-5">
                 {current ? (
-                  <span className="text-xs font-medium text-zinc-500">Current plan</span>
+                  <span className="chip w-full justify-center py-2" style={{ color: "var(--ink-50)" }}>
+                    Current plan
+                  </span>
                 ) : isPaid ? (
                   <button
                     className="btn-ghost w-full"
@@ -96,7 +135,7 @@ export function Billing() {
                     disabled={checkout.isPending}
                     onClick={() => checkout.mutate(p.id)}
                   >
-                    {checkout.isPending ? "Redirecting…" : "Choose"}
+                    {checkout.isPending ? "Redirecting…" : "Get started today"}
                   </button>
                 )}
               </div>

@@ -89,12 +89,16 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="card-lg max-h-[90vh] w-full max-w-lg overflow-y-auto p-7"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Connect an inbox</h2>
-          <button className="text-zinc-400 hover:text-zinc-600" onClick={onClose}>
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold tracking-tight">Connect an inbox</h2>
+          <button
+            className="grid h-8 w-8 place-items-center rounded-full transition hover:bg-[#f5f5f5]"
+            style={{ color: "var(--ink-45)" }}
+            onClick={onClose}
+          >
             ✕
           </button>
         </div>
@@ -104,17 +108,28 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
             {presets.map((p) => (
               <button
                 key={p.id}
-                className="rounded-xl border border-zinc-200 px-4 py-3 text-left transition hover:border-zinc-400"
+                className="group flex items-center gap-3 rounded-3xl border px-5 py-4 text-left transition hover:scale-[1.01]"
+                style={{ borderColor: "var(--ink-10)", boxShadow: "var(--shadow-card)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--blue-primary)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--ink-10)")}
                 onClick={() => pickPreset(p)}
               >
-                <div className="text-sm font-medium">{p.label}</div>
-                <div className="mt-0.5 text-xs text-zinc-500">
-                  {p.id === "gmail"
-                    ? "Uses an app password (2-step verification required)"
-                    : p.id === "porkbun"
-                      ? "Porkbun-hosted email on your own domain"
-                      : "Any provider with IMAP and SMTP"}
-                </div>
+                <span
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg"
+                  style={{ background: "var(--blue-100)" }}
+                >
+                  {p.id === "gmail" ? "📮" : p.id === "porkbun" ? "🐷" : "✉️"}
+                </span>
+                <span>
+                  <span className="font-ui block text-sm font-bold">{p.label}</span>
+                  <span className="mt-0.5 block text-xs" style={{ color: "var(--ink-50)" }}>
+                    {p.id === "gmail"
+                      ? "Uses an app password (2 step verification required)"
+                      : p.id === "porkbun"
+                        ? "Porkbun hosted email on your own domain"
+                        : "Any provider with IMAP and SMTP"}
+                  </span>
+                </span>
               </button>
             ))}
           </div>
