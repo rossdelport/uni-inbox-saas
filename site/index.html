@@ -111,11 +111,26 @@ footer.framer-sP0dz{display:none!important}
 /* Hero copy floats above the envelope illustrations */
 section[data-framer-name="hero"] [data-framer-name="mails"]{z-index:0!important}
 section[data-framer-name="hero"] [data-framer-name="text"]{position:relative;z-index:5!important}
-/* Giant translucent wordmark closing the blue pricing band */
+/* Push the hero envelopes clear of the headline (margins, so the float
+   animation's transform keeps working) */
+@media(min-width:834px){
+  .framer-1gqber0{margin-left:-150px}
+  .framer-17eq9d7{margin-left:170px}
+  .framer-oszwwy{margin-right:-170px}
+}
+@media(max-width:833px){
+  .framer-1gqber0{margin-left:-70px}
+  .framer-17eq9d7{margin-left:80px}
+  .framer-oszwwy{margin-right:-80px}
+}
+/* Giant translucent wordmark closing the blue pricing band, page ends at
+   the last pixel of the text */
+section.framer-jcnslc[data-framer-name="footer"]{padding-bottom:0!important;overflow:hidden!important}
 section.framer-jcnslc[data-framer-name="footer"]::after{
   content:"UNI-INBOX";display:block;width:100%;text-align:center;
   font-family:"M PLUS Rounded 1c","Inter",sans-serif;font-weight:800;
-  font-size:clamp(72px,15vw,230px);line-height:.85;letter-spacing:-.02em;
+  font-size:clamp(72px,15vw,230px);line-height:1;letter-spacing:-.02em;
+  margin-bottom:-0.21em;
   color:rgba(255,255,255,.3);user-select:none;pointer-events:none;
 }
 </style>
