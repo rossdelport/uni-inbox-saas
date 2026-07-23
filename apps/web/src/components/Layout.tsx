@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom"
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
 import { useAccounts, useBillingState, useInbox } from "../lib/queries.js";
+import { LOGO_SRC } from "../lib/assets.js";
 import { PlansModal } from "./PlansModal.js";
 import { ConnectAccountModal } from "./ConnectAccountModal.js";
 
@@ -10,12 +11,12 @@ export interface AppOutletContext {
   search: string;
 }
 
-// App chrome: white top bar (logo, global search, avatar menu) and a flat
-// white sidebar (views, accounts with unread counts, add account, plan promo).
+// App chrome in the uni-ui kit: .dash-top bar (logo, search, avatar menu) and
+// the .dash-side sidebar (views, accounts, add account, plan upsell card).
 export function Layout() {
   const { data: accounts } = useAccounts();
   const { data: billing } = useBillingState();
-  const inbox = useInbox(null, false);
+  const inbox = useInbox({});
   const [params] = useSearchParams();
   const activeAccount = params.get("account");
   const navigate = useNavigate();
@@ -25,14 +26,26 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
-  const [mobileNav, setMobileNav] = useState(false);
+  const [drawer, setDrawer] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
-  // Close the avatar menu on any outside click.
+  // Toast bus: any component fires toast("...") and it shows here.
+  useEffect(() => {
+    function onToast(e: Event) {
+      setToastMsg((e as CustomEvent<string>).detail);
+      clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToastMsg(null), 2600);
+    }
+    document.addEventListener("uni:toast", onToast);
+    return () => document.removeEventListener("uni:toast", onToast);
+  }, []);
+
   useEffect(() => {
     if (!menuOpen) return;
     function onDown(e: MouseEvent) {
@@ -57,276 +70,270 @@ export function Layout() {
     ? Math.max(0, Math.ceil((new Date(billing.trial_ends_at).getTime() - Date.now()) / 86_400_000))
     : null;
 
-  const sidebar = (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-zinc-100 bg-white">
-      <nav className="flex-1 overflow-y-auto px-4 py-4">
-        <button className="btn-dark mb-4 w-full" onClick={() => { setMobileNav(false); navigate("/compose"); }}>
-          ✏️ New message
-        </button>
-
-        <NavLink
-          to="/"
-          end
-          onClick={() => setMobileNav(false)}
-          className={({ isActive }) => `side-item ${isActive && !activeAccount ? "active" : ""}`}
-        >
-          <InboxIcon />
-          All inboxes
-          {totalUnread > 0 && <span className="count-pill">{totalUnread}</span>}
-        </NavLink>
-        <NavLink
-          to="/archived"
-          onClick={() => setMobileNav(false)}
-          className={({ isActive }) => `side-item mt-0.5 ${isActive ? "active" : ""}`}
-        >
-          <ArchiveIcon />
-          Archived
-        </NavLink>
-
-        <div className="mt-6">
-          <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
-            Accounts
-          </div>
-          {(accounts ?? []).map((a) => {
-            const unread = unreadByAccount.get(a.id) ?? 0;
-            return (
-              <NavLink
-                key={a.id}
-                to={`/?account=${a.id}`}
-                onClick={() => setMobileNav(false)}
-                className={`side-item mt-0.5 ${activeAccount === a.id ? "active" : ""}`}
-              >
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: a.color }}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-semibold text-zinc-800">
-                    {a.label}
-                  </span>
-                  <span className="block truncate text-[12px] font-normal text-zinc-400">
-                    {a.email_address}
-                  </span>
-                </span>
-                {a.status !== "active" ? (
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full bg-red-500"
-                    title={a.status === "auth_failed" ? "Sign in failed" : "Paused"}
-                  />
-                ) : (
-                  unread > 0 && <span className="count-pill">{unread}</span>
-                )}
-              </NavLink>
-            );
-          })}
-
-          <button
-            className="mt-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#9ec5f8] px-3 py-2.5 text-[14px] font-medium text-[#1c7ef7] transition hover:bg-[#f2f7ff]"
-            onClick={() => {
-              setMobileNav(false);
-              setConnectOpen(true);
-            }}
-          >
-            <span className="grid h-5 w-5 place-items-center rounded-full border border-[#9ec5f8] text-[13px]">
-              +
-            </span>
-            Add account
-          </button>
-        </div>
-      </nav>
-
-      {/* Plan promo card, pinned to the bottom like the mock */}
-      <div className="px-4 pb-4">
-        {billing?.plan === "trial" ? (
-          <div className="rounded-2xl p-4 text-white" style={{ background: "#1c7ef7" }}>
-            <div className="text-[15px] font-bold">
-              {billing.trial_expired ? "Trial ended" : "Free trial"}
-            </div>
-            <p className="mt-1 text-[13px] leading-snug text-white/85">
-              {billing.trial_expired
-                ? "Pick a plan to keep your inboxes syncing."
-                : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. Up to 12 accounts on a plan, one clean inbox.`}
-            </p>
-            <button
-              className="mt-3 w-full rounded-full bg-black py-2 text-[14px] font-semibold text-white transition hover:opacity-90"
-              onClick={() => setPlansOpen(true)}
-            >
-              See plans
-            </button>
-          </div>
-        ) : billing ? (
-          <button
-            className="w-full rounded-2xl bg-zinc-50 px-4 py-3 text-left transition hover:bg-zinc-100"
-            onClick={() => setPlansOpen(true)}
-          >
-            <span className="block text-[13px] font-semibold text-zinc-800">
-              {billing.plan_label} plan
-            </span>
-            <span className="block text-[12px] text-zinc-400">
-              {billing.connected_inboxes} of {billing.max_inboxes} accounts used
-            </span>
-          </button>
-        ) : null}
-      </div>
-    </aside>
-  );
+  function go(path: string) {
+    setDrawer(false);
+    navigate(path);
+  }
 
   return (
-    <div className="flex h-screen flex-col bg-white">
-      {/* Top bar */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-zinc-100 bg-white px-4 sm:px-6">
-        <button
-          className="grid h-9 w-9 place-items-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 md:hidden"
-          onClick={() => setMobileNav(true)}
-          aria-label="Open menu"
-        >
-          ☰
+    <div className="dash">
+      <header className="dash-top">
+        <button className="dash-burger" aria-label="Menu" onClick={() => setDrawer((d) => !d)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
         </button>
-        <NavLink to="/" className="flex items-center gap-2">
-          <img
-            src="https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png"
-            alt=""
-            className="h-8 w-8 rounded-[9px]"
-            draggable={false}
+        <a className="logo-lock" href="/">
+          <img src={LOGO_SRC} alt="Uni-Inbox logo" />
+          <span>uni-inbox</span>
+        </a>
+        <div className="dash-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search every inbox at once..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-          <span className="hidden text-[17px] font-bold tracking-tight text-zinc-900 sm:block">
-            uni-inbox
-          </span>
-        </NavLink>
-
-        <div className="mx-auto w-full max-w-xl">
-          <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search every inbox at once..."
-              className="w-full rounded-full border border-transparent bg-[#f1f5f9] py-2.5 pl-10 pr-4 text-[14px] text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-[#1c7ef7] focus:bg-white"
-            />
-          </div>
         </div>
-
-        {/* Avatar + dropdown */}
-        <div className="relative" ref={menuRef}>
-          <button
-            className="grid h-10 w-10 place-items-center rounded-full text-[15px] font-bold text-white transition hover:opacity-90"
-            style={{ background: "#1c7ef7" }}
-            onClick={() => setMenuOpen((o) => !o)}
-          >
+        <div className="dd-wrap" style={{ marginLeft: "auto" }} ref={menuRef}>
+          <div className="dash-avatar" onClick={() => setMenuOpen((o) => !o)}>
             {initial}
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-12 z-50 w-72 rounded-3xl bg-white p-3 shadow-[0_20px_50px_rgba(15,23,42,0.18)] ring-1 ring-zinc-100">
-              <div className="px-3 pb-3 pt-2">
-                <div className="text-[17px] font-bold text-zinc-900">{displayName}</div>
-                <div className="mt-0.5 truncate text-[14px] text-zinc-400">{user?.email}</div>
-              </div>
-              <div className="border-t border-zinc-100 py-2">
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigate("/settings");
-                  }}
-                >
-                  <GearIcon /> Settings
-                </button>
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setPlansOpen(true);
-                  }}
-                >
-                  <StarIcon /> Plans &amp; billing
-                </button>
-                <a className="menu-item" href="/contacts" onClick={() => setMenuOpen(false)}>
-                  <HelpIcon /> Help &amp; support
-                </a>
-              </div>
-              <div className="border-t border-zinc-100 pt-2">
-                <button
-                  className="menu-item"
-                  style={{ color: "#e11d48" }}
-                  onClick={() => void supabase.auth.signOut()}
-                >
-                  <LogoutIcon /> Log out
-                </button>
-              </div>
+          </div>
+          <div className={`uni-dd ${menuOpen ? "open" : ""}`}>
+            <div className="dd-head">
+              <div className="n">{displayName}</div>
+              <div className="e">{user?.email}</div>
             </div>
-          )}
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                navigate("/settings");
+              }}
+            >
+              <GearIcon /> Settings
+            </button>
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setPlansOpen(true);
+              }}
+            >
+              <StarIcon /> Plans &amp; billing
+            </button>
+            <a href="/contacts/" onClick={() => setMenuOpen(false)}>
+              <HelpIcon /> Help &amp; support
+            </a>
+            <div className="dd-sep" />
+            <button style={{ color: "#EA4335" }} onClick={() => void supabase.auth.signOut()}>
+              <LogoutIcon /> Log out
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="hidden md:block">{sidebar}</div>
-        {mobileNav && (
-          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileNav(false)}>
-            <div className="absolute inset-0 bg-zinc-900/30" />
-            <div className="absolute inset-y-0 left-0" onClick={(e) => e.stopPropagation()}>
-              {sidebar}
-            </div>
+      <div className="dash-main">
+        <aside className={`dash-side ${drawer ? "open" : ""}`}>
+          <SideLink to="/" label="All inboxes" active={!activeAccount} count={totalUnread} onGo={go}>
+            <InboxIcon />
+          </SideLink>
+          <SideLink to="/starred" label="Starred" onGo={go}>
+            <StarIcon />
+          </SideLink>
+          <SideLink to="/later" label="Read later" onGo={go}>
+            <ClockIcon />
+          </SideLink>
+          <SideLink to="/archived" label="Archived" onGo={go}>
+            <ArchiveIcon />
+          </SideLink>
+
+          <div className="side-head">Accounts</div>
+          <div>
+            {(accounts ?? []).map((a) => {
+              const unread = unreadByAccount.get(a.id) ?? 0;
+              return (
+                <button
+                  key={a.id}
+                  className={`side-item ${activeAccount === a.id ? "active" : ""}`}
+                  onClick={() => go(`/?account=${a.id}`)}
+                >
+                  <i className="side-dot" style={{ background: a.color }} />
+                  <span style={{ minWidth: 0 }}>
+                    {a.label}
+                    <span className="email">{a.email_address}</span>
+                  </span>
+                  {a.status !== "active" ? (
+                    <span
+                      className="cnt"
+                      style={{ background: "#fde8e6", color: "#EA4335" }}
+                      title={a.status === "auth_failed" ? "Sign in failed" : "Paused"}
+                    >
+                      !
+                    </span>
+                  ) : unread > 0 ? (
+                    <span className="cnt">{unread}</span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
-        )}
-        <main className="min-w-0 flex-1 overflow-y-auto bg-white">
-          <Outlet context={{ search } satisfies AppOutletContext} />
-        </main>
+          <button
+            className="side-item side-add"
+            onClick={() => {
+              setDrawer(false);
+              setConnectOpen(true);
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v8M8 12h8" />
+            </svg>
+            Add account
+          </button>
+
+          <div className="side-upsell">
+            {billing?.plan === "trial" ? (
+              <>
+                <h4>{billing.trial_expired ? "Trial ended" : "Free trial"}</h4>
+                <p>
+                  {billing.trial_expired
+                    ? "Pick a plan to keep every inbox syncing."
+                    : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. Up to 12 accounts on a plan, one clean inbox.`}
+                </p>
+              </>
+            ) : (
+              <>
+                <h4>{billing ? `${billing.plan_label} plan` : "Your plan"}</h4>
+                <p>
+                  {billing
+                    ? `${billing.connected_inboxes} of ${billing.max_inboxes} accounts used. Every future update included.`
+                    : ""}
+                </p>
+              </>
+            )}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setDrawer(false);
+                setPlansOpen(true);
+              }}
+            >
+              See plans
+            </a>
+          </div>
+        </aside>
+
+        <div className={`side-scrim ${drawer ? "show" : ""}`} onClick={() => setDrawer(false)} />
+
+        <Outlet context={{ search } satisfies AppOutletContext} />
       </div>
 
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
       {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
+      <div className={`uni-toast ${toastMsg ? "show" : ""}`}>{toastMsg}</div>
     </div>
   );
 }
 
+function SideLink({
+  to,
+  label,
+  count,
+  active,
+  onGo,
+  children,
+}: {
+  to: string;
+  label: string;
+  count?: number;
+  active?: boolean;
+  onGo: (path: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={to === "/"}
+      onClick={(e) => {
+        e.preventDefault();
+        onGo(to);
+      }}
+      className={({ isActive }) =>
+        `side-item ${(active !== undefined ? active && isActive : isActive) ? "active" : ""}`
+      }
+    >
+      {children}
+      {label}
+      {count !== undefined && count > 0 && <span className="cnt">{count}</span>}
+    </NavLink>
+  );
+}
+
+const S = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2.2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
 function InboxIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M3 13h4l2 3h6l2-3h4" strokeLinejoin="round" />
-      <path d="M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function ArchiveIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="4" width="18" height="5" rx="1" />
-      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" strokeLinecap="round" />
-    </svg>
-  );
-}
-function GearIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.09a1.6 1.6 0 0 0-1-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.09a1.6 1.6 0 0 0 1.47-1 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32h.01a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.09a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77v.01a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.09a1.6 1.6 0 0 0-1.47 1Z" />
+    <svg viewBox="0 0 24 24" {...S}>
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
     </svg>
   );
 }
 function StarIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 3Z" strokeLinejoin="round" />
+    <svg viewBox="0 0 24 24" {...S} width="16" height="16">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...S}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  );
+}
+function ArchiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...S}>
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" />
+    </svg>
+  );
+}
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...S} width="16" height="16">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   );
 }
 function HelpIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg viewBox="0 0 24 24" {...S} width="16" height="16">
       <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2.1-2.4 3.3M12 17h.01" strokeLinecap="round" />
+      <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   );
 }
 function LogoutIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 8l4 4-4 4M19 12H9" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="#EA4335" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   );
 }

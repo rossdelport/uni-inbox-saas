@@ -33,6 +33,8 @@ export interface ThreadSummary {
   message_count: number;
   unread: boolean;
   archived: boolean;
+  starred: boolean;
+  read_later: boolean;
 }
 
 export interface AttachmentMeta {

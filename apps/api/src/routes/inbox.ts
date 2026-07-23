@@ -23,17 +23,19 @@ function decodeCursor(cursor: string): { lastMessageAt: string; id: string } | n
   }
 }
 
-// GET /api/inbox?cursor=&account=<id>&archived=0|1
+// GET /api/inbox?cursor=&account=<id>&archived=0|1&starred=1&later=1
 inboxRouter.get("/", async (req, res) => {
   const uid = userId(res);
   const archived = String(req.query.archived ?? "0") === "1";
+  const starred = String(req.query.starred ?? "0") === "1";
+  const later = String(req.query.later ?? "0") === "1";
   const account = typeof req.query.account === "string" ? req.query.account : null;
   const cursor = typeof req.query.cursor === "string" ? decodeCursor(req.query.cursor) : null;
 
   let query = supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, email_accounts!inner(label, color, email_address)",
+      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address)",
     )
     .eq("owner_id", uid)
     .eq("archived", archived)
@@ -41,6 +43,8 @@ inboxRouter.get("/", async (req, res) => {
     .order("id", { ascending: false })
     .limit(PAGE_SIZE + 1);
   if (account) query = query.eq("account_id", account);
+  if (starred) query = query.eq("starred", true);
+  if (later) query = query.eq("read_later", true);
   if (cursor) {
     // Keyset: strictly older than the cursor row (ties broken by id).
     query = query.or(
@@ -96,6 +100,8 @@ inboxRouter.get("/", async (req, res) => {
       message_count: t.message_count,
       unread: t.unread,
       archived: t.archived,
+      starred: t.starred,
+      read_later: t.read_later,
     };
   });
 
@@ -111,7 +117,7 @@ inboxRouter.get("/", async (req, res) => {
 
 // Thread-level state flips. Local change is immediate; a flag_ops row queues
 // the same change for the IMAP server, and the account gets nudged.
-const flagOps = z.enum(["archive", "unarchive", "read", "unread"]);
+const flagOps = z.enum(["archive", "unarchive", "read", "unread", "star", "unstar", "later", "unlater"]);
 
 inboxRouter.post("/threads/:id/:op", async (req, res) => {
   const uid = userId(res);
@@ -134,7 +140,15 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
         ? { archived: false }
         : op === "read"
           ? { unread: false }
-          : { unread: true };
+          : op === "unread"
+            ? { unread: true }
+            : op === "star"
+              ? { starred: true }
+              : op === "unstar"
+                ? { starred: false }
+                : op === "later"
+                  ? { read_later: true }
+                  : { read_later: false };
   await supabase.from("threads").update(local).eq("id", thread.id);
   if (op === "read" || op === "unread") {
     await supabase
@@ -144,11 +158,15 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
       .eq("direction", "inbound");
   }
 
-  await supabase.from("flag_ops").insert({
-    account_id: thread.account_id,
-    thread_id: thread.id,
-    op,
-  });
-  await wakeAccount(thread.account_id as string);
+  // Star and read-later are app-local state; only read/archive ops mirror
+  // to the IMAP server.
+  if (op !== "star" && op !== "unstar" && op !== "later" && op !== "unlater") {
+    await supabase.from("flag_ops").insert({
+      account_id: thread.account_id,
+      thread_id: thread.id,
+      op,
+    });
+    await wakeAccount(thread.account_id as string);
+  }
   res.json({ ok: true });
 });

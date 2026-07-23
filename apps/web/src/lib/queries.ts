@@ -14,6 +14,16 @@ import type {
 } from "./types.js";
 import { api } from "./api.js";
 
+export type ThreadOpName =
+  | "archive"
+  | "unarchive"
+  | "read"
+  | "unread"
+  | "star"
+  | "unstar"
+  | "later"
+  | "unlater";
+
 // All server state flows through here. 15s refetch on the inbox keeps the
 // list fresh between IDLE pushes without hammering the API.
 
@@ -35,14 +45,24 @@ export function useBillingState() {
   });
 }
 
-export function useInbox(account: string | null, archived: boolean) {
+export interface InboxView {
+  account?: string | null;
+  archived?: boolean;
+  starred?: boolean;
+  later?: boolean;
+}
+
+export function useInbox(view: InboxView) {
+  const { account = null, archived = false, starred = false, later = false } = view;
   return useInfiniteQuery({
-    queryKey: ["inbox", account ?? "all", archived],
+    queryKey: ["inbox", account ?? "all", archived, starred, later],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set("cursor", pageParam);
       if (account) params.set("account", account);
       if (archived) params.set("archived", "1");
+      if (starred) params.set("starred", "1");
+      if (later) params.set("later", "1");
       return api<InboxPage>(`/api/inbox?${params.toString()}`);
     },
     initialPageParam: "",
@@ -62,7 +82,7 @@ export function useThread(threadId: string | null) {
 export function useThreadOp() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ threadId, op }: { threadId: string; op: "archive" | "unarchive" | "read" | "unread" }) =>
+    mutationFn: ({ threadId, op }: { threadId: string; op: ThreadOpName }) =>
       api(`/api/inbox/threads/${threadId}/${op}`, { method: "POST" }),
     // Optimistic: flip the row in every cached inbox page immediately.
     onMutate: async ({ threadId, op }) => {
@@ -81,6 +101,8 @@ export function useThreadOp() {
                       ...t,
                       unread: op === "unread" ? true : op === "read" ? false : t.unread,
                       archived: op === "archive" ? true : op === "unarchive" ? false : t.archived,
+                      starred: op === "star" ? true : op === "unstar" ? false : t.starred,
+                      read_later: op === "later" ? true : op === "unlater" ? false : t.read_later,
                     }
                   : t,
               )

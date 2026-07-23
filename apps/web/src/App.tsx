@@ -5,6 +5,7 @@ import {
   Navigate,
   Route,
   RouterProvider,
+  useParams,
   useRouteError,
 } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
@@ -21,11 +22,15 @@ function RouteError() {
   const error = useRouteError();
   const message = error instanceof Error ? error.message : String(error);
   return (
-    <div className="grid h-full place-items-center p-8">
-      <div className="max-w-md text-center">
-        <p className="text-lg font-semibold">Something broke</p>
-        <p className="mt-2 text-sm text-zinc-500">{message}</p>
-        <button className="btn mt-4" onClick={() => window.location.reload()}>
+    <div className="empty-state" style={{ flex: 1 }}>
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>Something broke</p>
+        <p style={{ marginTop: 8, fontSize: 13.5 }}>{message}</p>
+        <button
+          className="btn-black"
+          style={{ width: "auto", padding: "0 26px", height: 42, fontSize: 14, margin: "16px auto 0" }}
+          onClick={() => window.location.reload()}
+        >
           Reload
         </button>
       </div>
@@ -33,13 +38,21 @@ function RouteError() {
   );
 }
 
+// Old /t/:threadId links resolve to the query-param form.
+function ThreadRedirect() {
+  const { threadId } = useParams();
+  return <Navigate to={`/?t=${threadId}`} replace />;
+}
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Layout />} errorElement={<RouteError />}>
       <Route errorElement={<RouteError />}>
         <Route index element={<Inbox />} />
-        <Route path="/archived" element={<Inbox archived />} />
-        <Route path="/t/:threadId" element={<Inbox />} />
+        <Route path="/starred" element={<Inbox view="starred" />} />
+        <Route path="/later" element={<Inbox view="later" />} />
+        <Route path="/archived" element={<Inbox view="archived" />} />
+        <Route path="/t/:threadId" element={<ThreadRedirect />} />
         <Route path="/compose" element={<Compose />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/billing" element={<Billing />} />
@@ -67,7 +80,11 @@ export function App() {
   }, []);
 
   if (loading) {
-    return <div className="grid h-screen place-items-center text-zinc-400">Loading…</div>;
+    return (
+      <div className="empty-state" style={{ height: "100vh" }}>
+        <div>Loading…</div>
+      </div>
+    );
   }
   if (!session) return <Login />;
   return <RouterProvider router={router} />;

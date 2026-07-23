@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAccounts, useCompose } from "../lib/queries.js";
-import { AccountBadge } from "../components/AccountBadge.js";
+import { toast } from "../lib/toast.js";
 
 // Fresh compose: the ONE place where the from-account is an explicit choice.
 export function Compose() {
@@ -25,85 +25,89 @@ export function Compose() {
     if (recipients.length === 0 || !fromId) return;
     compose.mutate(
       { account_id: fromId, to: recipients, subject, body_text: body },
-      { onSuccess: ({ thread_id }) => navigate(`/t/${thread_id}`) },
+      {
+        onSuccess: ({ thread_id }) => {
+          toast("Message sent");
+          navigate(`/?t=${thread_id}`);
+        },
+      },
     );
   }
 
   if (active.length === 0) {
     return (
-      <div className="p-8 text-sm text-zinc-500">
-        Connect an inbox first, then you can send from it.
+      <div className="set-content" style={{ flex: 1 }}>
+        <div className="set-pane active">
+          <h1>New message</h1>
+          <p className="p-sub">Connect an inbox first, then you can send from it.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-5 text-2xl font-bold tracking-tight text-zinc-900">New message</h1>
-      <form
-        onSubmit={onSubmit}
-        className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6"
-      >
-        <div>
-          <label className="label">From</label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {active.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${
-                  fromId === a.id
-                    ? "border-zinc-900 bg-zinc-50"
-                    : "border-zinc-200 hover:border-zinc-400"
-                }`}
-                onClick={() => setAccountId(a.id)}
-              >
-                <AccountBadge color={a.color} />
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{a.label}</span>
-                  <span className="block truncate text-xs text-zinc-500">{a.email_address}</span>
-                </span>
-              </button>
-            ))}
+    <div className="set-content" style={{ flex: 1 }}>
+      <div className="set-pane active">
+        <h1>New message</h1>
+        <p className="p-sub">Pick which address it sends from.</p>
+
+        <form className="set-card" onSubmit={onSubmit}>
+          <div className="field">
+            <label>From</label>
+            <div className="m-provs" style={{ marginTop: 4 }}>
+              {active.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={`m-prov ${fromId === a.id ? "sel" : ""}`}
+                  onClick={() => setAccountId(a.id)}
+                >
+                  <i style={{ background: a.color }} />
+                  <span style={{ minWidth: 0, textAlign: "left" }}>
+                    {a.label}
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--ink3)" }}>
+                      {a.email_address}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="label">To</label>
-          <input
-            className="input"
-            required
-            placeholder="name@example.com, other@example.com"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="label">Subject</label>
-          <input
-            className="input"
-            required
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="label">Message</label>
-          <textarea
-            className="input min-h-48 resize-y"
-            required
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
-        </div>
-        {compose.error && (
-          <p className="text-sm text-red-600">{(compose.error as Error).message}</p>
-        )}
-        <div className="flex justify-end">
-          <button type="submit" className="btn-dark" disabled={compose.isPending}>
-            {compose.isPending ? "Sending…" : "Send"}
-          </button>
-        </div>
-      </form>
+          <div className="field">
+            <label>To</label>
+            <input
+              required
+              placeholder="name@example.com, other@example.com"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label>Subject</label>
+            <input required value={subject} onChange={(e) => setSubject(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Message</label>
+            <textarea
+              required
+              style={{ minHeight: 180, resize: "vertical" }}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
+          {compose.error && <p className="err">{(compose.error as Error).message}</p>}
+          <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="submit"
+              className="btn-black"
+              style={{ width: "auto", padding: "0 34px", height: 46, fontSize: 15 }}
+              disabled={compose.isPending}
+            >
+              {compose.isPending ? "Sending…" : "Send"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
