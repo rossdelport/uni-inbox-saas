@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import { pinoHttp } from "pino-http";
@@ -77,6 +80,21 @@ app.use("/api/accounts", accountsRouter);
 app.use("/api/inbox", inboxRouter);
 app.use("/api", messagesRouter); // /api/threads/:id, /api/messages/:id/attachments/:partId
 app.use("/api", sendRouter); // /api/threads/:id/reply, /api/messages/send
+
+// Serve the prebuilt dashboard (repo-root dist/) when present, so ONE Railway
+// service hosts the whole product: API + sync worker + web app, same origin.
+// The committed dist is built with an empty VITE_API_URL, so the browser calls
+// /api on this same host — no CORS, no cross-origin config at all.
+const webDist = resolve(dirname(fileURLToPath(import.meta.url)), "../../../dist");
+if (existsSync(webDist)) {
+  app.use(express.static(webDist, { index: "index.html", maxAge: "1h" }));
+  // SPA fallback: any non-API GET renders the app shell.
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path === "/health") return next();
+    res.sendFile(resolve(webDist, "index.html"));
+  });
+  logger.info({ webDist }, "serving prebuilt dashboard");
+}
 
 app.listen(env.PORT, () => {
   logger.info(`API listening on :${env.PORT}`);
