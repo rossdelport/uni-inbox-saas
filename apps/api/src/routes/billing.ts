@@ -41,7 +41,7 @@ billingRouter.get("/state", async (_req, res) => {
 // Start a Checkout session. Body: { tier: "solo" | "builder" | "empire" }.
 billingRouter.post("/checkout", async (req, res) => {
   const parsed = z
-    .object({ tier: z.enum(["solo", "builder", "empire"]).default("solo") })
+    .object({ tier: z.enum(["solo", "builder", "empire"]) })
     .safeParse(req.body ?? {});
   if (!parsed.success) return res.status(400).json({ error: "invalid tier" });
   try {

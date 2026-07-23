@@ -20,15 +20,18 @@ const PALETTE = [
   "#64748b", "#eab308",
 ];
 
+// No zod .default()s here on purpose: the connect form always sends every
+// field, and defaults make the inferred input type all-optional, which breaks
+// the TestInput assignability under some compiler configurations.
 const accountInput = z.object({
   label: z.string().min(1).max(80),
   email_address: z.string().email().transform((s) => s.toLowerCase()),
-  provider_preset: z.enum(["gmail", "porkbun", "custom"]).default("custom"),
+  provider_preset: z.enum(["gmail", "porkbun", "custom"]),
   imap_host: z.string().min(1).max(255),
-  imap_port: z.coerce.number().int().min(1).max(65535).default(993),
+  imap_port: z.coerce.number().int().min(1).max(65535),
   smtp_host: z.string().min(1).max(255),
-  smtp_port: z.coerce.number().int().min(1).max(65535).default(465),
-  smtp_security: z.enum(["tls", "starttls"]).default("tls"),
+  smtp_port: z.coerce.number().int().min(1).max(65535),
+  smtp_security: z.enum(["tls", "starttls"]),
   imap_username: z.string().min(1).max(255),
   password: z.string().min(1).max(1024),
 });
@@ -36,15 +39,9 @@ const accountInput = z.object({
 const SANITIZED_COLUMNS =
   "id, label, email_address, color, provider_preset, status, last_error, created_at";
 
-interface TestInput {
-  imap_host: string;
-  imap_port: number;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_security: "tls" | "starttls";
-  imap_username: string;
-  password: string;
-}
+// Derived from the schema so route parse results are assignable by
+// construction, independent of how zod's inference behaves on any compiler.
+type TestInput = z.infer<typeof accountInput>;
 
 /** Live IMAP login + SMTP verify with tight timeouts. Errors are scrubbed:
  *  never echo anything that could contain the password. */
