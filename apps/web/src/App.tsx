@@ -12,10 +12,10 @@ import { supabase } from "./lib/supabase.js";
 import { Login } from "./pages/Login.js";
 import { Layout } from "./components/Layout.js";
 import { Inbox } from "./pages/Inbox.js";
-import { ThreadView } from "./pages/ThreadView.js";
 import { Compose } from "./pages/Compose.js";
 import { Accounts } from "./pages/Accounts.js";
 import { Billing } from "./pages/Billing.js";
+import { Settings } from "./pages/Settings.js";
 
 function RouteError() {
   const error = useRouteError();
@@ -39,10 +39,11 @@ const router = createBrowserRouter(
       <Route errorElement={<RouteError />}>
         <Route index element={<Inbox />} />
         <Route path="/archived" element={<Inbox archived />} />
-        <Route path="/t/:threadId" element={<ThreadView />} />
+        <Route path="/t/:threadId" element={<Inbox />} />
         <Route path="/compose" element={<Compose />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/billing" element={<Billing />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Route>,

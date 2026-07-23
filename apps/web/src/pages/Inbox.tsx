@@ -1,156 +1,215 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { useAccounts, useInbox, useThreadOp } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
-import { AccountBadge } from "../components/AccountBadge.js";
 import { ConnectAccountModal } from "../components/ConnectAccountModal.js";
-import { useState } from "react";
+import { ReadingPane } from "./ThreadView.js";
+import type { AppOutletContext } from "../components/Layout.js";
+import type { ThreadSummary } from "../lib/types.js";
 
-// The unified list. Row anatomy: color dot, sender, subject + snippet, time.
-// Unread rows are bold; hover reveals archive / read toggles.
+// Mail surface: message list pane + reading pane side by side. Routes "/",
+// "/archived" and "/t/:threadId" all land here; the param opens a thread.
 export function Inbox({ archived = false }: { archived?: boolean }) {
   const [params] = useSearchParams();
+  const { threadId } = useParams();
   const account = params.get("account");
+  const { search } = useOutletContext<AppOutletContext>();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const inbox = useInbox(account, archived);
   const threadOp = useThreadOp();
   const navigate = useNavigate();
   const [connectOpen, setConnectOpen] = useState(false);
 
-  // First-run onboarding: the sky-gradient hero panel, front and center.
+  // First run: no accounts yet.
   if (!accountsLoading && accounts && accounts.length === 0) {
     return (
       <div className="grid h-full place-items-center p-6">
-        <div className="sky-panel relative w-full max-w-2xl overflow-hidden rounded-[48px] px-8 py-14 text-center text-white">
-          <span className="envelope left-[6%] top-[10%] text-5xl" style={{ ["--tilt" as never]: "-12deg" }}>
-            ✉️
-          </span>
+        <div className="max-w-md text-center">
           <span
-            className="envelope bottom-[14%] right-[8%] text-4xl opacity-80"
-            style={{ ["--tilt" as never]: "10deg", animationDelay: "-4s" }}
+            className="mx-auto grid h-16 w-16 place-items-center rounded-2xl text-3xl"
+            style={{ background: "linear-gradient(180deg, #4da3ff 0%, #1c7ef7 100%)" }}
           >
             ✉️
           </span>
-          <div className="chip mx-auto mb-5 text-[13px]" style={{ color: "var(--ink-50)" }}>
-            👋 Let's set you up
-          </div>
-          <h1 className="font-display mx-auto max-w-md text-4xl font-extrabold leading-tight tracking-tight">
-            Connect your first inbox.
+          <h1 className="mt-5 text-[26px] font-bold tracking-tight text-zinc-900">
+            Connect your first inbox
           </h1>
-          <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/85">
-            Gmail, Porkbun, or any mailbox with IMAP. Your mail lands here in one clean
-            list, color coded per project, and replies always come from the right address.
+          <p className="mt-2 text-[15px] leading-relaxed text-zinc-500">
+            Gmail, iCloud, Porkbun, or any mailbox with IMAP. Your mail lands here in one clean
+            list and replies always come from the right address.
           </p>
-          <button className="btn-ghost mt-7 px-7 py-3 text-[15px]" onClick={() => setConnectOpen(true)}>
-            ✉️ Connect an inbox
+          <button className="btn-dark mt-6 px-7 py-3" onClick={() => setConnectOpen(true)}>
+            Add account
           </button>
-          <div className="mt-6 flex items-center justify-center gap-2 text-[12.5px] text-white/75">
-            <span>Takes about a minute</span>
-            <span>·</span>
-            <span>Passwords stored encrypted</span>
-          </div>
+          <p className="mt-4 text-[13px] text-zinc-400">
+            Takes about a minute. Passwords stored encrypted.
+          </p>
         </div>
         {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
       </div>
     );
   }
 
-  const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
-  const syncingFirstBatch =
-    !inbox.isLoading && threads.length === 0 && (accounts?.length ?? 0) > 0 && !archived;
+  const all = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
+  const q = search.trim().toLowerCase();
+  const threads = q
+    ? all.filter((t) =>
+        [t.subject, t.snippet, t.from_name, t.from_address, t.account_email, t.account_label]
+          .filter(Boolean)
+          .some((s) => (s as string).toLowerCase().includes(q)),
+      )
+    : all;
+  const unread = threads.filter((t) => t.unread).length;
+  const accountCount = accounts?.length ?? 0;
+  const syncingFirstBatch = !inbox.isLoading && all.length === 0 && accountCount > 0 && !archived;
+
+  const title = archived
+    ? "Archived"
+    : account
+      ? (accounts?.find((a) => a.id === account)?.label ?? "Inbox")
+      : "All inboxes";
+
+  function openThread(t: ThreadSummary) {
+    if (t.unread) threadOp.mutate({ threadId: t.id, op: "read" });
+    navigate(`/t/${t.id}`);
+  }
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-6">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-tight">
-          {archived ? "Archived" : account ? accounts?.find((a) => a.id === account)?.label : "Inbox"}
-        </h1>
-        {inbox.isFetching && <span className="chip text-[11px]" style={{ color: "var(--ink-45)" }}>⏳ Syncing</span>}
-      </div>
+    <div className="flex h-full">
+      {/* Message list pane */}
+      <section
+        className={`w-full flex-col border-r border-zinc-100 md:flex md:w-[400px] md:shrink-0 ${
+          threadId ? "hidden" : "flex"
+        }`}
+        style={{ background: "#f7f9fb" }}
+      >
+        <div className="px-5 pb-3 pt-5">
+          <h1 className="text-[22px] font-bold tracking-tight text-zinc-900">{title}</h1>
+          <p className="mt-0.5 text-[13.5px] text-zinc-500">
+            {q
+              ? `${threads.length} result${threads.length === 1 ? "" : "s"} for "${search.trim()}"`
+              : `${threads.length} conversation${threads.length === 1 ? "" : "s"}, ${unread} unread across ${accountCount} account${accountCount === 1 ? "" : "s"}`}
+          </p>
+        </div>
 
-      {inbox.isLoading ? (
-        <ListSkeleton />
-      ) : syncingFirstBatch ? (
-        <div className="card p-10 text-center text-sm" style={{ color: "var(--ink-50)" }}>
-          Syncing your recent mail. The first pass usually lands within a minute.
-        </div>
-      ) : threads.length === 0 ? (
-        <div className="card p-10 text-center text-sm" style={{ color: "var(--ink-50)" }}>
-          {archived ? "Nothing archived yet." : "You're at inbox zero. Enjoy it. 🎉"}
-        </div>
-      ) : (
-        <ul className="card divide-y overflow-hidden" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-          {threads.map((t) => (
-            <li
-              key={t.id}
-              className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition hover:bg-zinc-50"
-              onClick={() => {
-                if (t.unread) threadOp.mutate({ threadId: t.id, op: "read" });
-                navigate(`/t/${t.id}`);
-              }}
-            >
-              <span title={t.account_label}>
-                <AccountBadge color={t.account_color} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className={`truncate text-sm ${t.unread ? "font-semibold" : "text-zinc-700"}`}
-                  >
-                    {senderLabel(t.from_name, t.from_address)}
-                  </span>
-                  {t.message_count > 1 && (
-                    <span className="text-xs text-zinc-400">{t.message_count}</span>
-                  )}
-                </div>
-                <div className="truncate text-sm">
-                  <span className={t.unread ? "font-medium" : "text-zinc-600"}>
-                    {t.subject || "(no subject)"}
-                  </span>
-                  {t.snippet && <span className="text-zinc-400"> — {t.snippet}</span>}
-                </div>
-              </div>
-              <span className="shrink-0 text-xs text-zinc-400">{formatWhen(t.last_message_at)}</span>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+          {inbox.isLoading ? (
+            <ListSkeleton />
+          ) : syncingFirstBatch ? (
+            <p className="px-4 py-10 text-center text-sm text-zinc-500">
+              Syncing your recent mail. The first pass usually lands within a minute.
+            </p>
+          ) : threads.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-zinc-500">
+              {q
+                ? "Nothing matches your search."
+                : archived
+                  ? "Nothing archived yet."
+                  : "You're at inbox zero. Enjoy it. 🎉"}
+            </p>
+          ) : (
+            threads.map((t) => (
               <div
-                className="hidden shrink-0 gap-1 group-hover:flex"
-                onClick={(e) => e.stopPropagation()}
+                key={t.id}
+                className={`group relative mt-1 cursor-pointer rounded-xl px-3 py-3 transition ${
+                  threadId === t.id ? "bg-[#dfeaff]" : "hover:bg-white"
+                }`}
+                onClick={() => openThread(t)}
               >
-                <RowButton
-                  label={t.unread ? "Mark read" : "Mark unread"}
-                  onClick={() => threadOp.mutate({ threadId: t.id, op: t.unread ? "read" : "unread" })}
+                <div className="flex gap-3">
+                  <div className="relative shrink-0 pt-0.5">
+                    {t.unread && (
+                      <span className="absolute -left-2 top-4 h-1.5 w-1.5 rounded-full bg-[#1c7ef7]" />
+                    )}
+                    <span
+                      className="grid h-10 w-10 place-items-center rounded-full text-[15px] font-semibold text-white"
+                      style={{ background: t.account_color }}
+                    >
+                      {(senderLabel(t.from_name, t.from_address) || "?").charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span
+                        className={`truncate text-[14.5px] ${
+                          t.unread ? "font-bold text-zinc-900" : "font-semibold text-zinc-700"
+                        }`}
+                      >
+                        {senderLabel(t.from_name, t.from_address)}
+                        {t.message_count > 1 && (
+                          <span className="ml-1.5 text-[12px] font-normal text-zinc-400">
+                            {t.message_count}
+                          </span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-[12px] text-zinc-400">
+                        {formatWhen(t.last_message_at)}
+                      </span>
+                    </div>
+                    <div
+                      className={`mt-0.5 truncate text-[13.5px] ${
+                        t.unread ? "font-semibold text-zinc-800" : "text-zinc-600"
+                      }`}
+                    >
+                      {t.subject || "(no subject)"}
+                    </div>
+                    {t.snippet && (
+                      <div className="mt-0.5 truncate text-[13px] text-zinc-400">{t.snippet}</div>
+                    )}
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-zinc-500">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: t.account_color }}
+                      />
+                      {t.account_email}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hover actions */}
+                <div
+                  className="absolute right-2 top-2 hidden gap-1 group-hover:flex"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {t.unread ? "✓" : "●"}
-                </RowButton>
-                <RowButton
-                  label={archived ? "Move to inbox" : "Archive"}
-                  onClick={() =>
-                    threadOp.mutate({ threadId: t.id, op: archived ? "unarchive" : "archive" })
-                  }
-                >
-                  {archived ? "↩" : "⌄"}
-                </RowButton>
+                  <RowButton
+                    label={t.unread ? "Mark read" : "Mark unread"}
+                    onClick={() =>
+                      threadOp.mutate({ threadId: t.id, op: t.unread ? "read" : "unread" })
+                    }
+                  >
+                    {t.unread ? "✓" : "●"}
+                  </RowButton>
+                  <RowButton
+                    label={archived ? "Move to inbox" : "Archive"}
+                    onClick={() =>
+                      threadOp.mutate({ threadId: t.id, op: archived ? "unarchive" : "archive" })
+                    }
+                  >
+                    {archived ? "↩" : "🗂"}
+                  </RowButton>
+                </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+            ))
+          )}
 
-      {inbox.hasNextPage && (
-        <div className="mt-4 text-center">
-          <button
-            className="btn-ghost"
-            disabled={inbox.isFetchingNextPage}
-            onClick={() => void inbox.fetchNextPage()}
-          >
-            {inbox.isFetchingNextPage ? "Loading…" : "Load more"}
-          </button>
+          {inbox.hasNextPage && (
+            <div className="py-3 text-center">
+              <button
+                className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-[13px] font-medium text-zinc-600 transition hover:bg-zinc-50"
+                disabled={inbox.isFetchingNextPage}
+                onClick={() => void inbox.fetchNextPage()}
+              >
+                {inbox.isFetchingNextPage ? "Loading…" : "Load more"}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </section>
 
-      <p className="mt-6 text-center">
-        <Link to="/accounts" className="text-xs text-zinc-400 hover:text-zinc-600">
-          Manage connected inboxes
-        </Link>
-      </p>
+      {/* Reading pane */}
+      <section className={`min-w-0 flex-1 ${threadId ? "block" : "hidden md:block"}`}>
+        <ReadingPane threadId={threadId ?? null} />
+      </section>
     </div>
   );
 }
@@ -168,7 +227,7 @@ function RowButton({
     <button
       title={label}
       aria-label={label}
-      className="grid h-7 w-7 place-items-center rounded-md border border-zinc-200 bg-white text-xs text-zinc-500 hover:bg-zinc-100"
+      className="grid h-7 w-7 place-items-center rounded-lg border border-zinc-200 bg-white text-xs text-zinc-500 shadow-sm hover:bg-zinc-50"
       onClick={onClick}
     >
       {children}
@@ -178,13 +237,14 @@ function RowButton({
 
 function ListSkeleton() {
   return (
-    <div className="space-y-px overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <div className="space-y-2 px-2 pt-1">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3.5">
-          <div className="h-2 w-2 rounded-full bg-zinc-200" />
-          <div className="h-3 w-32 rounded bg-zinc-100" />
-          <div className="h-3 flex-1 rounded bg-zinc-50" />
-          <div className="h-3 w-8 rounded bg-zinc-100" />
+        <div key={i} className="flex items-center gap-3 rounded-xl px-2 py-3">
+          <div className="h-10 w-10 rounded-full bg-zinc-200/70" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-32 rounded bg-zinc-200/70" />
+            <div className="h-3 w-full rounded bg-zinc-100" />
+          </div>
         </div>
       ))}
     </div>

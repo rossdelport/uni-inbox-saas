@@ -39,8 +39,11 @@ export function Compose() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="font-display mb-5 text-2xl font-bold tracking-tight">New message</h1>
-      <form onSubmit={onSubmit} className="card-lg space-y-4 p-6">
+      <h1 className="mb-5 text-2xl font-bold tracking-tight text-zinc-900">New message</h1>
+      <form
+        onSubmit={onSubmit}
+        className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6"
+      >
         <div>
           <label className="label">From</label>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -96,7 +99,7 @@ export function Compose() {
           <p className="text-sm text-red-600">{(compose.error as Error).message}</p>
         )}
         <div className="flex justify-end">
-          <button type="submit" className="btn" disabled={compose.isPending}>
+          <button type="submit" className="btn-dark" disabled={compose.isPending}>
             {compose.isPending ? "Sending…" : "Send"}
           </button>
         </div>

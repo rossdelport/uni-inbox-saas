@@ -111,6 +111,99 @@ body {
   background: linear-gradient(180deg, #ffffff 0%, #e8f0ff 100%);
 }
 
+/* ---- Auth screen (login/signup): blue backdrop, rings, 3D envelopes ---- */
+.auth-bg {
+  background:
+    radial-gradient(120% 90% at 50% 42%, #7fc0fa 0%, #4a9bf5 52%, #3d8cef 100%);
+}
+.auth-ring {
+  @apply pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+}
+
+/* CSS-built white 3D envelope: body + triangular flap + bottom folds. */
+.envelope3d {
+  @apply pointer-events-none absolute block select-none;
+  aspect-ratio: 10 / 7;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #ececec 100%);
+  box-shadow: 0 18px 32px rgba(9, 58, 125, 0.28);
+  animation: floaty 9s var(--ease-out-quint) infinite;
+  transform: rotate(var(--tilt, -8deg));
+}
+.envelope3d-flap {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 58%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: linear-gradient(180deg, #fdfdfd 0%, #dcdcdc 100%);
+  border-radius: 12px 12px 0 0;
+}
+.envelope3d-fold {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 62%;
+  background:
+    linear-gradient(115deg, #f6f6f6 0%, #f6f6f6 49%, transparent 50%),
+    linear-gradient(-115deg, #efefef 0%, #efefef 49%, transparent 50%);
+  border-radius: 0 0 12px 12px;
+}
+
+/* OAuth pill button on the auth card. */
+.btn-oauth {
+  @apply flex w-full items-center justify-center gap-2.5 rounded-full border bg-white py-3 text-[15px] font-semibold transition;
+  border-color: #e4e4e7;
+  color: #18181b;
+}
+.btn-oauth:hover {
+  background: #fafafa;
+}
+
+/* Soft blue-filled input on the auth card. */
+.input-auth {
+  @apply w-full rounded-xl px-4 py-3 text-[15px] outline-none transition;
+  background: #eef2fe;
+  border: 1px solid transparent;
+  color: #18181b;
+}
+.input-auth::placeholder {
+  color: #9ca3af;
+}
+.input-auth:focus {
+  background: #ffffff;
+  border-color: #1c7ef7;
+  box-shadow: 0 0 0 3px rgba(28, 126, 247, 0.15);
+}
+
+/* ---- Flat dashboard components (topbar + 3 pane mail app) ---- */
+.btn-dark {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
+  background: #0f0f0f;
+}
+.menu-item {
+  @apply flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] font-medium transition;
+  color: #27272a;
+}
+.menu-item:hover {
+  background: #f4f4f5;
+}
+.side-item {
+  @apply flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition;
+  color: #3f3f46;
+}
+.side-item:hover {
+  background: #f4f4f5;
+}
+.side-item.active {
+  background: #e8f0ff;
+  color: #1c7ef7;
+}
+.count-pill {
+  @apply ml-auto rounded-full px-2 py-0.5 text-[12px] font-semibold;
+  background: #eef2f7;
+  color: #52525b;
+}
+
 /* Floating envelope accents for hero panels. */
 @keyframes floaty {
   0%,

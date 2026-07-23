@@ -23,6 +23,15 @@ export const PRESETS: Record<ProviderPreset, PresetConfig> = {
     smtp_port: 465,
     smtp_security: "tls",
   },
+  icloud: {
+    id: "icloud",
+    label: "iCloud Mail",
+    imap_host: "imap.mail.me.com",
+    imap_port: 993,
+    smtp_host: "smtp.mail.me.com",
+    smtp_port: 587,
+    smtp_security: "starttls",
+  },
   porkbun: {
     id: "porkbun",
     label: "Porkbun email hosting",

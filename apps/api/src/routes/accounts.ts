@@ -26,7 +26,7 @@ const PALETTE = [
 const accountInput = z.object({
   label: z.string().min(1).max(80),
   email_address: z.string().email().transform((s) => s.toLowerCase()),
-  provider_preset: z.enum(["gmail", "porkbun", "custom"]),
+  provider_preset: z.enum(["gmail", "icloud", "porkbun", "custom"]),
   imap_host: z.string().min(1).max(255),
   imap_port: z.coerce.number().int().min(1).max(65535),
   smtp_host: z.string().min(1).max(255),

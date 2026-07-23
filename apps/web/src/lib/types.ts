@@ -3,7 +3,7 @@
 
 export type PlanId = "trial" | "solo" | "builder" | "empire";
 
-export type ProviderPreset = "gmail" | "porkbun" | "custom";
+export type ProviderPreset = "gmail" | "icloud" | "porkbun" | "custom";
 
 export type AccountStatus = "active" | "auth_failed" | "disabled";
 

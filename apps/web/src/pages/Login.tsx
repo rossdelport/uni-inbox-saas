@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase.js";
 
-// Auth screens styled as a continuation of the marketing site: floating pill
-// nav, a 48px-radius sky-gradient hero panel with floating envelopes, the
-// form in a big rounded white card inside the panel, chips and a footer.
-// Served for /app/login and /app/signup: the path picks the starting mode.
+// Auth screen: full-bleed blue backdrop with concentric rings and floating
+// 3D envelopes, one centered white card. Served for /app/login and
+// /app/signup: the path picks the starting mode.
 export function Login() {
   const [mode, setMode] = useState<"signin" | "signup">(() =>
     window.location.pathname.endsWith("/signup") ? "signup" : "signin",
@@ -23,6 +22,18 @@ export function Login() {
     setError(null);
     setNotice(null);
     window.history.replaceState(null, "", m === "signup" ? "/app/signup" : "/app/login");
+  }
+
+  async function oauth(provider: "google" | "azure") {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/app` },
+    });
+    if (error) {
+      const label = provider === "google" ? "Google" : "Outlook";
+      setError(`${label} sign in is not available right now. Use email and password below.`);
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -62,218 +73,154 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--off-white)" }}>
-      {/* Floating pill nav, same as the landing page */}
-      <nav
-        className="fixed left-1/2 top-6 z-50 flex w-[min(700px,calc(100vw-32px))] -translate-x-1/2 items-center gap-1 rounded-full border bg-white py-2 pl-3 pr-2"
-        style={{
-          borderColor: "var(--ink-10)",
-          boxShadow: "var(--shadow-card), var(--shadow-glow)",
-        }}
-      >
-        <a href="/" className="flex items-center gap-2.5">
+    <div className="auth-bg relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      {/* Concentric rings radiating from the card */}
+      <span className="auth-ring h-[46rem] w-[46rem]" />
+      <span className="auth-ring h-[72rem] w-[72rem]" />
+      <span className="auth-ring h-[100rem] w-[100rem]" />
+
+      {/* Floating 3D envelopes */}
+      <Envelope className="left-[7%] top-[12%] w-40" tilt="-18deg" />
+      <Envelope className="bottom-[8%] left-[13%] w-28" tilt="8deg" delay="-3.5s" />
+      <Envelope className="right-[6%] top-[58%] w-48" tilt="12deg" delay="-5s" />
+
+      <div className="relative z-10 w-full max-w-[440px] rounded-[28px] bg-white px-7 py-9 shadow-[0_24px_60px_rgba(9,58,125,0.28)] sm:px-10">
+        {/* Logo */}
+        <a href="/" className="flex items-center justify-center gap-2">
           <span
-            className="grid h-8 w-8 place-items-center rounded-[10px] text-sm"
-            style={{ background: "linear-gradient(160deg, #0c7dff 0%, #003c8a 100%)" }}
+            className="grid h-9 w-9 place-items-center rounded-[10px]"
+            style={{ background: "linear-gradient(180deg, #4da3ff 0%, #1c7ef7 100%)" }}
           >
-            ✉️
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M3 9.5 12 4l9 5.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V9.5Z" fill="#fff" />
+              <path d="M3 9.5 12 15l9-5.5" stroke="#1c7ef7" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
           </span>
-          <span className="font-display text-[17px] font-extrabold tracking-tight" style={{ color: "var(--ink)" }}>
-            Uni-Inbox
-          </span>
+          <span className="text-[19px] font-bold tracking-tight text-zinc-900">uni-inbox</span>
         </a>
-        <div className="font-ui ml-4 hidden items-center gap-5 text-[15px] font-medium sm:flex" style={{ color: "#444343" }}>
-          <a className="transition hover:text-black" href="/">
-            Home
-          </a>
-          <a className="transition hover:text-black" href="/pricing">
-            Pricing
-          </a>
-          <a className="transition hover:text-black" href="/contacts">
-            Contacts
-          </a>
-        </div>
-        <button
-          type="button"
-          className="btn ml-auto px-5 py-2 text-[14px]"
-          onClick={() => switchMode(isSignup ? "signin" : "signup")}
-        >
-          {isSignup ? "Log in" : "Start Today"}
-        </button>
-      </nav>
 
-      <main className="mx-auto max-w-6xl px-4 pb-10 pt-28">
-        {/* Sky hero panel, the same big rounded gradient block as the landing hero */}
-        <section className="sky-panel relative overflow-hidden rounded-[48px] px-5 py-12 sm:px-10 sm:py-16">
-          <span className="envelope left-[5%] top-[9%] text-6xl" style={{ ["--tilt" as never]: "-11deg" }}>
-            ✉️
-          </span>
-          <span
-            className="envelope right-[7%] top-[16%] text-5xl opacity-85"
-            style={{ ["--tilt" as never]: "9deg", animationDelay: "-3s" }}
-          >
-            ✉️
-          </span>
-          <span
-            className="envelope bottom-[10%] left-[12%] hidden text-4xl opacity-70 sm:block"
-            style={{ ["--tilt" as never]: "15deg", animationDelay: "-5s" }}
-          >
-            ✉️
-          </span>
-          <span
-            className="envelope bottom-[20%] right-[13%] hidden text-3xl opacity-60 sm:block"
-            style={{ ["--tilt" as never]: "-7deg", animationDelay: "-6.5s" }}
-          >
-            ✉️
-          </span>
+        <h1 className="mt-6 text-center text-[32px] font-bold tracking-tight text-zinc-900">
+          {isSignup ? "Create your account" : "Welcome back"}
+        </h1>
+        <p className="mx-auto mt-2 max-w-[300px] text-center text-[15px] leading-relaxed text-zinc-500">
+          {isSignup
+            ? "One dashboard for every project inbox. Free for 14 days, no card needed."
+            : "Log in to your unified inbox. Every account, one dashboard."}
+        </p>
 
-          <div className="relative z-10 mx-auto max-w-xl text-center text-white">
-            <div className="chip mb-5 text-[13px]" style={{ color: "var(--ink-50)" }}>
-              ✉️ One inbox for every project you run
-            </div>
-            <h1 className="font-display text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
-              {isSignup ? (
-                <>
-                  Every inbox. <span style={{ color: "#003c8a" }}>One place.</span>
-                </>
-              ) : (
-                <>
-                  Welcome <span style={{ color: "#003c8a" }}>back.</span>
-                </>
-              )}
-            </h1>
-            <p className="mx-auto mt-4 max-w-md text-[16px] leading-relaxed text-white/90">
-              {isSignup ? (
-                <>
-                  Connect Gmail, Porkbun, or any mailbox, and always{" "}
-                  <span className="font-semibold text-white">reply from the right address</span>.
-                </>
-              ) : (
-                <>Your projects kept their inboxes tidy while you were away.</>
-              )}
-            </p>
-
-            {/* The form card, floating inside the hero like the landing mock cards */}
-            <div
-              className="card-lg mx-auto mt-8 max-w-md p-7 text-left sm:p-8"
-              style={{ boxShadow: "var(--shadow-float)" }}
+        {/* OAuth */}
+        <div className="mt-7 space-y-3">
+          <button type="button" className="btn-oauth" onClick={() => void oauth("google")}>
+            <svg width="20" height="15" viewBox="0 0 24 18">
+              <path d="M1.6 18h3.2V8.3L0 4.9v11.5C0 17.3.7 18 1.6 18Z" fill="#4285F4" />
+              <path d="M19.2 18h3.2c.9 0 1.6-.7 1.6-1.6V4.9l-4.8 3.4V18Z" fill="#34A853" />
+              <path d="M19.2 1.6v6.7L24 4.9V2.4c0-2-2.3-3.1-3.9-1.9l-.9.7v.4Z" fill="#FBBC04" />
+              <path d="M4.8 8.3V1.6L12 7l7.2-5.4v6.7L12 13.7 4.8 8.3Z" fill="#EA4335" />
+              <path d="M0 2.4v2.5l4.8 3.4V1.6l-.9-.7C2.3-.3 0 .9 0 2.4Z" fill="#C5221F" />
+            </svg>
+            Continue with Google
+          </button>
+          <button type="button" className="btn-oauth" onClick={() => void oauth("azure")}>
+            <span
+              className="grid h-5 w-5 place-items-center rounded-[6px] text-[13px] font-bold text-white"
+              style={{ background: "#0f6cbd" }}
             >
-              <h2 className="font-display text-xl font-bold tracking-tight" style={{ color: "var(--ink)" }}>
-                {isSignup ? "Create your free account" : "Log in to your inbox"}
-              </h2>
-              <p className="mt-1 text-[13.5px]" style={{ color: "var(--ink-50)" }}>
-                {isSignup
-                  ? "14 day free trial. No card needed."
-                  : "Good to see you again."}
-              </p>
-
-              <form onSubmit={onSubmit} className="mt-5 space-y-4">
-                {isSignup && (
-                  <div>
-                    <label className="label">Name</label>
-                    <input
-                      type="text"
-                      autoComplete="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="input rounded-full px-5"
-                      placeholder="What should we call you?"
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="label">Email</label>
-                  <input
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input rounded-full px-5"
-                    placeholder="you@yourproject.com"
-                  />
-                </div>
-                <div>
-                  <label className="label">Password</label>
-                  <input
-                    type="password"
-                    required
-                    autoComplete={isSignup ? "new-password" : "current-password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={isSignup ? "At least 8 characters" : "Your password"}
-                    className="input rounded-full px-5"
-                  />
-                </div>
-
-                {error && <p className="text-sm text-red-600">{error}</p>}
-                {notice && (
-                  <p
-                    className="rounded-2xl px-4 py-2.5 text-sm"
-                    style={{ background: "var(--blue-100)", color: "#0a4fa8" }}
-                  >
-                    {notice}
-                  </p>
-                )}
-
-                <button type="submit" className="btn w-full py-3 text-[15px]" disabled={busy}>
-                  {busy ? "Working…" : isSignup ? "Get Started" : "Log in"}
-                </button>
-              </form>
-
-              <p className="mt-5 text-center text-[13px]" style={{ color: "var(--ink-50)" }}>
-                {isSignup ? "Already have an account?" : "New here?"}{" "}
-                <button
-                  type="button"
-                  className="font-semibold underline-offset-2 hover:underline"
-                  style={{ color: "var(--blue-primary)" }}
-                  onClick={() => switchMode(isSignup ? "signin" : "signup")}
-                >
-                  {isSignup ? "Log in" : "Create your free account"}
-                </button>
-              </p>
-            </div>
-
-            <p className="mt-6 text-[13px] leading-relaxed text-white/80">
-              Your mail passwords are stored encrypted, always.
-            </p>
-          </div>
-        </section>
-
-        {/* Feature chips, echoing the landing feature grid */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
-          {[
-            "🎨 Color coded per project",
-            "↩️ Reply from the right address",
-            "🔐 Encrypted passwords",
-            "📮 Gmail, Porkbun and any IMAP",
-            "🗓 14 day free trial",
-          ].map((f) => (
-            <span key={f} className="chip text-[12.5px]" style={{ color: "var(--ink-50)" }}>
-              {f}
+              o
             </span>
-          ))}
+            Continue with Outlook
+          </button>
         </div>
 
-        {/* Footer strip in the landing footer's voice */}
-        <footer
-          className="mt-12 flex flex-col items-center gap-2 border-t pt-6 text-[12.5px] sm:flex-row sm:justify-between"
-          style={{ borderColor: "var(--ink-10)", color: "var(--ink-45)" }}
-        >
-          <span className="font-ui font-medium">Uni-Inbox · every project, one inbox</span>
-          <div className="flex items-center gap-4">
-            <a className="hover:text-black" href="/">
-              Home
-            </a>
-            <a className="hover:text-black" href="/pricing">
-              Pricing
-            </a>
-            <a className="hover:text-black" href="/privacy-policy">
-              Privacy Policy
-            </a>
+        {/* Divider */}
+        <div className="mt-6 flex items-center gap-3 text-[13px] text-zinc-400">
+          <span className="h-px flex-1 bg-zinc-200" />
+          or with email
+          <span className="h-px flex-1 bg-zinc-200" />
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-5 space-y-4">
+          {isSignup && (
+            <div>
+              <label className="mb-1.5 block text-[14px] font-semibold text-zinc-800">Name</label>
+              <input
+                type="text"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="input-auth"
+                placeholder="Your name"
+              />
+            </div>
+          )}
+          <div>
+            <label className="mb-1.5 block text-[14px] font-semibold text-zinc-800">Email</label>
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-auth"
+              placeholder="you@yourproject.com"
+            />
           </div>
-        </footer>
-      </main>
+          <div>
+            <label className="mb-1.5 block text-[14px] font-semibold text-zinc-800">Password</label>
+            <input
+              type="password"
+              required
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isSignup ? "At least 8 characters" : "••••••••"}
+              className="input-auth"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {notice && (
+            <p className="rounded-xl bg-[#e8f0ff] px-4 py-2.5 text-sm text-[#0a4fa8]">{notice}</p>
+          )}
+
+          <button
+            type="submit"
+            className="w-full rounded-full py-3.5 text-[16px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: "#0f0f0f" }}
+            disabled={busy}
+          >
+            {busy ? "Working…" : isSignup ? "Create account" : "Log in"}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-[14px] text-zinc-500">
+          {isSignup ? "Already have an account?" : "New to Uni-Inbox?"}{" "}
+          <button
+            type="button"
+            className="font-medium text-[#1c7ef7] hover:underline"
+            onClick={() => switchMode(isSignup ? "signin" : "signup")}
+          >
+            {isSignup ? "Log in" : "Create an account"}
+          </button>
+        </p>
+
+        <p className="mx-auto mt-4 max-w-[280px] text-center text-[12.5px] leading-relaxed text-zinc-400">
+          Protected by AES-256 encryption. Only you ever see your messages.
+        </p>
+      </div>
     </div>
+  );
+}
+
+// CSS-built 3D envelope (white body + folded flap) so we match the mock
+// without shipping image assets.
+function Envelope({ className, tilt, delay }: { className: string; tilt: string; delay?: string }) {
+  return (
+    <span
+      className={`envelope3d ${className}`}
+      style={{ ["--tilt" as never]: tilt, animationDelay: delay }}
+    >
+      <span className="envelope3d-flap" />
+      <span className="envelope3d-fold" />
+    </span>
   );
 }
