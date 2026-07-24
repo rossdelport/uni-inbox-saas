@@ -136,7 +136,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
       {/* Single-account view washes the list pane in that account's color. */}
       <section
         className="dash-list"
-        style={activeAcct ? { background: `color-mix(in srgb, ${activeAcct.color} 7%, #fdfefe)` } : undefined}
+        style={activeAcct ? { background: `color-mix(in srgb, ${activeAcct.color} 5%, #fdfefe)` } : undefined}
       >
         <div className="list-head">
           <h2>{title}</h2>
