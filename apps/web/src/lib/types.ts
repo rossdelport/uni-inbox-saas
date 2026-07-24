@@ -105,6 +105,7 @@ export interface AccountInput {
   smtp_security: "tls" | "starttls";
   imap_username: string;
   password: string;
+  color?: string;
 }
 
 export interface TestResult {

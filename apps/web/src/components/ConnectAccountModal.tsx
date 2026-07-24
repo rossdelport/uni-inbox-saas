@@ -11,6 +11,7 @@ import {
   useTestConnection,
 } from "../lib/queries.js";
 import { ModalShell, PlansModal } from "./PlansModal.js";
+import { ColorDots } from "./ColorDots.js";
 import { toast } from "../lib/toast.js";
 
 type ProviderKey = "gmail" | "icloud" | "outlook" | "custom";
@@ -170,7 +171,14 @@ export function ConnectForm({
       return next;
     });
     // Own-domain flow: look up where this domain's mail routes and prefill.
-    if (key === "email_address" && sel === "custom" && typeof value === "string" && value.includes("@")) {
+    // Only once the address is complete (has a dot in the domain), so we
+    // never guess against a half-typed domain.
+    if (
+      key === "email_address" &&
+      sel === "custom" &&
+      typeof value === "string" &&
+      /@[^@\s]+\.[^@\s]{2,}$/.test(value)
+    ) {
       clearTimeout(discoverTimer.current);
       discoverTimer.current = setTimeout(() => {
         discover.mutate(value, {
@@ -311,6 +319,15 @@ export function ConnectForm({
             />
           </div>
 
+          {sel === "custom" &&
+            form.email_address.includes("@") &&
+            !/@[^@\s]+\.[^@\s]{2,}$/.test(form.email_address) && (
+              <div className="m-note" style={{ marginTop: 10 }}>
+                Finish typing your full address including the ending, like <b>.com</b> or{" "}
+                <b>.com.au</b>. We detect your email host and fill in the servers automatically.
+              </div>
+            )}
+
           {sel === "custom" && (discover.isPending || discovery) && (
             <div className="m-note" style={{ marginTop: 10 }}>
               {discover.isPending ? (
@@ -347,6 +364,11 @@ export function ConnectForm({
                 placeholder="e.g. Solar Cleaning"
               />
             </div>
+          </div>
+
+          <div className="field">
+            <label>Colour</label>
+            <ColorDots value={form.color} onChange={(c) => set("color", c)} />
           </div>
 
           <details className="m-server" open={sel === "custom" && !discovery?.detected && Boolean(form.email_address)}>

@@ -20,6 +20,29 @@ const ACCOUNT_COLUMNS =
 
 const emailList = z.array(z.string().email()).min(1).max(20);
 
+// Attachments arrive base64 in the JSON body (express.json limit covers the
+// envelope). 5 files, 15 MB decoded total.
+const attachmentInput = z.object({
+  filename: z.string().min(1).max(255),
+  content_type: z.string().max(150).optional(),
+  data_base64: z.string().min(1).max(21_000_000),
+});
+const attachmentList = z.array(attachmentInput).max(5).optional();
+
+function decodeAttachments(
+  list: z.infer<typeof attachmentList>,
+): { filename: string; contentType?: string; content: Buffer }[] | { error: string } {
+  if (!list || list.length === 0) return [];
+  const out = list.map((a) => ({
+    filename: a.filename,
+    contentType: a.content_type,
+    content: Buffer.from(a.data_base64, "base64"),
+  }));
+  const total = out.reduce((n, a) => n + a.content.length, 0);
+  if (total > 15 * 1024 * 1024) return { error: "Attachments are limited to 15 MB per message." };
+  return out;
+}
+
 async function sendGate(uid: string): Promise<string | null> {
   const billing = await getBilling(uid);
   if (billing.trialExpired) {
@@ -54,6 +77,7 @@ const replyInput = z.object({
   body_text: z.string().min(1).max(100_000),
   body_html: z.string().max(500_000).optional(),
   cc: z.array(z.string().email()).max(20).optional(),
+  attachments: attachmentList,
 });
 
 sendRouter.post("/threads/:id/reply", async (req, res) => {
@@ -111,12 +135,16 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
     ...(replyTo.message_id ? [replyTo.message_id as string] : []),
   ];
 
+  const attachments = decodeAttachments(parsed.data.attachments);
+  if ("error" in attachments) return res.status(413).json({ error: attachments.error });
+
   const input = {
     to,
     cc,
     subject,
     bodyText: parsed.data.body_text,
     bodyHtml: parsed.data.body_html,
+    attachments,
     inReplyTo: (replyTo.message_id as string | null) ?? null,
     references,
     fromName: await displayName(uid),
@@ -141,6 +169,7 @@ const composeInput = z.object({
   subject: z.string().min(1).max(500),
   body_text: z.string().min(1).max(100_000),
   body_html: z.string().max(500_000).optional(),
+  attachments: attachmentList,
 });
 
 sendRouter.post("/messages/send", async (req, res) => {
@@ -163,12 +192,16 @@ sendRouter.post("/messages/send", async (req, res) => {
     return res.status(409).json({ error: "This inbox is paused, so it can't send right now." });
   }
 
+  const attachments = decodeAttachments(parsed.data.attachments);
+  if ("error" in attachments) return res.status(413).json({ error: attachments.error });
+
   const input = {
     to: parsed.data.to,
     cc: parsed.data.cc,
     subject: parsed.data.subject,
     bodyText: parsed.data.body_text,
     bodyHtml: parsed.data.body_html,
+    attachments,
     fromName: await displayName(uid),
   };
 

@@ -222,13 +222,29 @@ export function useRemoveAccount() {
   });
 }
 
+export interface OutgoingAttachment {
+  filename: string;
+  content_type?: string;
+  data_base64: string;
+}
+
 export function useReply() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ threadId, body_text }: { threadId: string; body_text: string }) =>
+    mutationFn: ({
+      threadId,
+      body_text,
+      body_html,
+      attachments,
+    }: {
+      threadId: string;
+      body_text: string;
+      body_html?: string;
+      attachments?: OutgoingAttachment[];
+    }) =>
       api(`/api/threads/${threadId}/reply`, {
         method: "POST",
-        body: JSON.stringify({ body_text }),
+        body: JSON.stringify({ body_text, body_html, attachments }),
       }),
     onSuccess: (_data, { threadId }) => {
       void qc.invalidateQueries({ queryKey: ["thread", threadId] });

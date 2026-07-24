@@ -36,7 +36,8 @@ app.post("/api/billing/webhook", express.raw({ type: () => true }), async (req, 
   }
 });
 
-app.use(express.json({ limit: "2mb" }));
+// 24mb: reply/compose bodies can carry up to 15 MB of base64 attachments.
+app.use(express.json({ limit: "24mb" }));
 app.use(
   pinoHttp({
     logger,

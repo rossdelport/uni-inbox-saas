@@ -26,7 +26,8 @@ export const PALETTE = [
 const accountInput = z.object({
   label: z.string().min(1).max(80),
   email_address: z.string().email().transform((s) => s.toLowerCase()),
-  provider_preset: z.enum(["gmail", "icloud", "porkbun", "custom"]),
+  provider_preset: z.enum(["gmail", "icloud", "outlook", "porkbun", "custom"]),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   imap_host: z.string().min(1).max(255),
   imap_port: z.coerce.number().int().min(1).max(65535),
   smtp_host: z.string().min(1).max(255),
@@ -275,13 +276,13 @@ accountsRouter.post("/", async (req, res) => {
     return res.status(422).json({ error: test.error ?? "connection test failed", test });
   }
 
-  const { password, ...rest } = parsed.data;
+  const { password, color, ...rest } = parsed.data;
   const { data: created, error } = await supabase
     .from("email_accounts")
     .insert({
       ...rest,
       owner_id: uid,
-      color: PALETTE[(count ?? 0) % PALETTE.length],
+      color: color ?? PALETTE[(count ?? 0) % PALETTE.length],
       credentials_enc: encryptCredentials({ imap_password: password }),
       status: "active",
       next_sync_at: new Date().toISOString(),

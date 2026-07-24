@@ -421,6 +421,29 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .read-reply .rr-bar{padding-top:9px}
 .rr-note{font-size:10.8px}
 .btn-sm{height:31px;padding:0 16px;font-size:12px}
+.btn-sm:disabled{background:#c9d3de;color:#fff;cursor:default;box-shadow:none}
+
+/* Rich reply composer */
+.rc-bar{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid rgba(0,0,0,.07)}
+.rc-btn{width:27px;height:27px;border-radius:7px;border:none;background:none;color:var(--ink2);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.rc-btn svg{width:14px;height:14px}
+.rc-btn:hover{background:#f1f4f8;color:var(--ink)}
+.rc-sep{width:1px;height:16px;background:rgba(0,0,0,.09);margin:0 5px}
+.rc-size{border:none;background:none;font-family:inherit;font-size:11.5px;font-weight:600;color:var(--ink2);cursor:pointer;outline:none}
+.rc-edit{min-height:64px;max-height:240px;overflow-y:auto;outline:none;font-size:12.8px;line-height:1.6;color:var(--ink);word-break:break-word}
+.rc-edit:empty::before{content:attr(data-placeholder);color:var(--ink3);pointer-events:none}
+.rc-edit a{color:var(--b1);text-decoration:underline}
+.rc-edit ul,.rc-edit ol{padding-left:20px;margin:6px 0}
+.rc-atts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.rc-att{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;background:#f4f7fa;border:1px solid var(--line);border-radius:999px;padding:4px 11px;color:var(--ink2)}
+.rc-att button{border:none;background:none;cursor:pointer;color:var(--ink3);font-size:13px;padding:0;line-height:1}
+.rc-att button:hover{color:#d93025}
+
+/* Colour picker dots */
+.cdots{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 2px}
+.cdot{width:24px;height:24px;border-radius:50%;border:none;padding:0;cursor:pointer;transition:transform .12s ease}
+.cdot:hover{transform:scale(1.12)}
+.cdot.sel{box-shadow:0 0 0 2px #fff,0 0 0 4.5px var(--ink)}
 .read-back{font-size:12.5px}
 .empty-state img{width:96px}
 .empty-state{font-size:12.8px}

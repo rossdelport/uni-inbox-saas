@@ -102,14 +102,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const syncingFirstBatch =
     !inbox.isLoading && all.length === 0 && (accounts?.length ?? 0) > 0 && view === "all" && !q;
 
-  const title =
-    view === "all" && account
-      ? (accounts?.find((a) => a.id === account)?.label ?? "Inbox")
-      : VIEW_TITLES[view];
+  const activeAcct = account ? accounts?.find((a) => a.id === account) : undefined;
+  const title = view === "all" && account ? (activeAcct?.label ?? "Inbox") : VIEW_TITLES[view];
 
   return (
     <>
-      <section className="dash-list">
+      {/* Single-account view washes the list pane in that account's color. */}
+      <section
+        className="dash-list"
+        style={activeAcct ? { background: `${activeAcct.color}0e` } : undefined}
+      >
         <div className="list-head">
           <h2>{title}</h2>
           <p>
@@ -166,10 +168,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   </div>
                   <div className="subj">{t.subject || "(no subject)"}</div>
                   {t.snippet && <div className="prev">{t.snippet}</div>}
-                  <div className="via">
-                    <i style={{ background: t.account_color }} />
-                    {t.account_email}
-                  </div>
                 </div>
                 <div className="acts" onClick={(e) => e.stopPropagation()}>
                   <button

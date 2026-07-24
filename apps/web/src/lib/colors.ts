@@ -1,5 +1,10 @@
 import type { CSSProperties } from "react";
 
+/** Account colour palette (mirrors the server's PALETTE for auto-assign). */
+export const ACCOUNT_COLORS = [
+  "#EA4335", "#0078D4", "#3693F3", "#00B050", "#6001D2", "#EF5DA8", "#F5A623", "#0E7490",
+];
+
 /**
  * Premium tinted-avatar treatment: soft wash of the account color with the
  * initial in the full-strength color, ringed by a faint inset stroke.

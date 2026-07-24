@@ -183,6 +183,7 @@ export function Layout() {
                 <button
                   key={a.id}
                   className={`side-item ${activeAccount === a.id ? "active" : ""}`}
+                  style={activeAccount === a.id ? { background: `${a.color}1c` } : undefined}
                   onClick={() => go(`/?account=${a.id}`)}
                 >
                   <i className="side-dot" style={{ background: a.color }} />

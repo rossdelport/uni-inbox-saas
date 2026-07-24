@@ -30,12 +30,19 @@ export interface SendAccount {
   auth_method?: string;
 }
 
+export interface OutboundAttachment {
+  filename: string;
+  contentType?: string;
+  content: Buffer;
+}
+
 export interface OutboundInput {
   to: string[];
   cc?: string[];
   subject: string;
   bodyText: string;
   bodyHtml?: string;
+  attachments?: OutboundAttachment[];
   inReplyTo?: string | null;
   references?: string[];
   fromName?: string | null;
@@ -59,6 +66,14 @@ export async function smtpSend(account: SendAccount, input: OutboundInput): Prom
     subject: input.subject,
     text: input.bodyText,
     html: input.bodyHtml,
+    attachments:
+      input.attachments && input.attachments.length > 0
+        ? input.attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.contentType,
+          }))
+        : undefined,
     inReplyTo: input.inReplyTo ?? undefined,
     references:
       input.references && input.references.length > 0 ? input.references : undefined,
@@ -141,7 +156,14 @@ export async function recordOutbound(
     snippet,
     seen: true,
     direction: "outbound",
-    attachments: [],
+    // Metadata only, so the thread shows what was attached. partId "sent"
+    // marks these as not fetchable from IMAP (the sender already has them).
+    attachments: (input.attachments ?? []).map((a, i) => ({
+      partId: `sent-${i + 1}`,
+      filename: a.filename,
+      contentType: a.contentType ?? "application/octet-stream",
+      size: a.content.length,
+    })),
   });
   if (error) logger.error({ error, threadId }, "outbound message record failed");
   await touchThread(threadId);

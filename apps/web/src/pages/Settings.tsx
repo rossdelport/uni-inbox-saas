@@ -12,6 +12,7 @@ import {
 } from "../lib/queries.js";
 import { PlansModal } from "../components/PlansModal.js";
 import { ConnectAccountModal } from "../components/ConnectAccountModal.js";
+import { ColorDots } from "../components/ColorDots.js";
 import { toast } from "../lib/toast.js";
 
 type Pane = "profile" | "accounts" | "plan";
@@ -194,10 +195,6 @@ function AccountsPane() {
   );
 }
 
-const ACCOUNT_COLORS = [
-  "#EA4335", "#0078D4", "#3693F3", "#00B050", "#6001D2", "#EF5DA8", "#F5A623", "#0E7490",
-];
-
 function AccountRow({ account }: { account: EmailAccount }) {
   const update = useUpdateAccount();
   const remove = useRemoveAccount();
@@ -301,24 +298,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label in your sidebar"
           />
-          <span style={{ display: "flex", gap: 6 }}>
-            {ACCOUNT_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={`Color ${c}`}
-                onClick={() => setColor(c)}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: "50%",
-                  background: c,
-                  border: color === c ? "2.5px solid var(--ink)" : "2.5px solid transparent",
-                  padding: 0,
-                }}
-              />
-            ))}
-          </span>
+          <ColorDots value={color} onChange={setColor} />
           <button className="btn-mini" type="submit" disabled={update.isPending}>
             {update.isPending ? "Saving…" : "Save"}
           </button>

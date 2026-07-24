@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useDeleteThread, useReply, useThread, useThreadOp } from "../lib/queries.js";
+import { useDeleteThread, useThread, useThreadOp } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { tint } from "../lib/colors.js";
 import { MessageBody } from "../components/MessageBody.js";
+import { ReplyComposer } from "../components/ReplyComposer.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import { toast } from "../lib/toast.js";
 import type { Message } from "../lib/types.js";
@@ -13,8 +14,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const { data, isLoading, error } = useThread(threadId);
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
-  const reply = useReply();
-  const [draft, setDraft] = useState("");
   // Toggled message ids. The latest message defaults open, older ones closed;
   // a toggle flips whichever default applies (so the last one can collapse too).
   const [toggled, setToggled] = useState<Set<string>>(new Set());
@@ -53,19 +52,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const last = messages[lastIdx];
   const replyTo =
     last?.direction === "outbound" ? "them" : senderLabel(last?.from_name ?? null, last?.from_address ?? null);
-
-  function sendReply() {
-    if (!draft.trim() || !threadId) return;
-    reply.mutate(
-      { threadId, body_text: draft },
-      {
-        onSuccess: () => {
-          setDraft("");
-          toast(`Reply sent from ${data?.thread.account_email}`, "success");
-        },
-      },
-    );
-  }
 
   return (
     <div className="read-wrap">
@@ -159,22 +145,7 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       </div>
       </div>
 
-      <div className="read-reply">
-        <textarea
-          placeholder={`Reply to ${replyTo}...`}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-        {reply.error && <p className="err">{(reply.error as Error).message}</p>}
-        <div className="rr-bar">
-          <span className="rr-note">
-            Sends from {thread.account_email}
-          </span>
-          <button className="btn-sm" disabled={reply.isPending || !draft.trim()} onClick={sendReply}>
-            {reply.isPending ? "Sending…" : "Reply"}
-          </button>
-        </div>
-      </div>
+      <ReplyComposer threadId={thread.id} replyTo={replyTo} accountEmail={thread.account_email} />
     </div>
   );
 }
