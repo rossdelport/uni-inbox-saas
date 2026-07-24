@@ -33,7 +33,11 @@ const accountInput = z.object({
   smtp_port: z.coerce.number().int().min(1).max(65535),
   smtp_security: z.enum(["tls", "starttls"]),
   imap_username: z.string().min(1).max(255),
-  password: z.string().min(1).max(1024),
+  password: z
+    .string()
+    .min(1)
+    .max(1024)
+    .transform((s) => (/^[a-z]{4}( [a-z]{4}){3}$/i.test(s.trim()) ? s.replace(/\s+/g, "") : s)),
 });
 
 const SANITIZED_COLUMNS =
@@ -66,6 +70,10 @@ async function testConnection(input: TestInput): Promise<{ imap_ok: boolean; smt
     imapOk = true;
     await imap.logout().catch(() => imap.close());
   } catch (err) {
+    logger.warn(
+      { host: input.imap_host, reason: err instanceof Error ? err.message : String(err) },
+      "imap test failed",
+    );
     error = scrub(err, "IMAP");
   }
 
@@ -83,6 +91,10 @@ async function testConnection(input: TestInput): Promise<{ imap_ok: boolean; smt
     await transport.verify();
     smtpOk = true;
   } catch (err) {
+    logger.warn(
+      { host: input.smtp_host, reason: err instanceof Error ? err.message : String(err) },
+      "smtp test failed",
+    );
     error = error ?? scrub(err, "SMTP");
   } finally {
     transport.close();
@@ -94,6 +106,9 @@ async function testConnection(input: TestInput): Promise<{ imap_ok: boolean; smt
 function scrub(err: unknown, protocol: string): string {
   const raw = err instanceof Error ? err.message : String(err);
   const text = raw.toLowerCase();
+  if (text.includes("web login") || text.includes("browser") || text.includes("application-specific")) {
+    return `${protocol}: the provider wants an app password here, not your normal password.`;
+  }
   if (text.includes("auth") || text.includes("credentials") || text.includes("password")) {
     return `${protocol} sign-in failed. Check the username and password.`;
   }
@@ -199,7 +214,12 @@ accountsRouter.post("/", async (req, res) => {
 const patchInput = z.object({
   label: z.string().min(1).max(80).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  password: z.string().min(1).max(1024).optional(),
+  password: z
+    .string()
+    .min(1)
+    .max(1024)
+    .transform((s) => (/^[a-z]{4}( [a-z]{4}){3}$/i.test(s.trim()) ? s.replace(/\s+/g, "") : s))
+    .optional(),
   status: z.enum(["active", "disabled"]).optional(),
 });
 
