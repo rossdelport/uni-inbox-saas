@@ -60,6 +60,10 @@ const schema = z.object({
   MS_CLIENT_ID: z.string().optional(),
   MS_CLIENT_SECRET: z.string().optional(),
 
+  // Founder dashboard (/users) second gate on top of the owner-email check.
+  // Override in Railway to rotate.
+  ADMIN_PASSWORD: z.string().default("123456789"),
+
   // Marketing-site contact form. Optional: without the key the endpoint
   // returns 503 instead of blocking boot.
   RESEND_API_KEY: z.string().optional(),

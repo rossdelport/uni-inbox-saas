@@ -16,6 +16,7 @@ import { billingRouter } from "./routes/billing.js";
 import { contactRouter } from "./routes/contact.js";
 import { oauthRouter } from "./routes/oauth.js";
 import { metricsRouter } from "./routes/metrics.js";
+import { adminRouter } from "./routes/admin.js";
 
 const app = express();
 // Railway terminates TLS at its proxy; trust exactly one hop so req.ip is the
@@ -108,6 +109,7 @@ app.get("/api/oauth/:provider/callback", (req, res) => {
 app.use("/api", requireAuth);
 app.use("/api/oauth", oauthRouter);
 app.use("/api/metrics", metricsRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/accounts", accountsRouter);
 app.use("/api/inbox", inboxRouter);

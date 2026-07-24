@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase.js";
 import { LOGO_SRC, MAIL_SRC } from "../lib/assets.js";
+
+const SRC_KEY = "oi-signup-src";
 
 // Auth screen in the uni-ui kit: blue radial backdrop, rings, floating
 // envelopes, one centered white card. /app/signup and /app/login pick the mode.
@@ -16,6 +18,13 @@ export function Login() {
   const [busy, setBusy] = useState(false);
 
   const isSignup = mode === "signup";
+
+  // Attribution: landing-page buttons arrive with ?src=<page:button>. Keep it
+  // through the confirm-email round trip so signup can record it.
+  useEffect(() => {
+    const src = new URLSearchParams(window.location.search).get("src");
+    if (src) localStorage.setItem(SRC_KEY, src.slice(0, 80));
+  }, []);
 
   function switchMode(m: "signin" | "signup") {
     setMode(m);
@@ -70,7 +79,10 @@ export function Login() {
         email,
         password,
         options: {
-          data: { full_name: name || undefined },
+          data: {
+            full_name: name || undefined,
+            signup_source: localStorage.getItem(SRC_KEY) ?? undefined,
+          },
           // Send the confirmation link back to THIS deployment's app, not the
           // Supabase project's default Site URL (shared with ibookshelf).
           emailRedirectTo: `${window.location.origin}/app`,

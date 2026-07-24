@@ -472,6 +472,22 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .side-item .paint:hover{background:rgba(0,0,0,.08);color:var(--ink)}
 .cpop{position:absolute;left:8px;top:calc(100% - 2px);z-index:70;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 10px;box-shadow:0 14px 34px rgba(13,40,80,.2);width:max-content;max-width:236px}
 
+/* Founder dashboard (/users) */
+.adm-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px}
+.adm-tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(13,40,80,.05)}
+.adm-tile .t-num{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.adm-tile .t-lab{margin-top:3px;font-size:11.3px;color:var(--ink3);font-weight:600}
+.adm-table{width:100%;border-collapse:collapse;font-size:12.3px}
+.adm-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);padding:12px 14px;border-bottom:1px solid var(--line)}
+.adm-table td{padding:10px 14px;border-bottom:1px solid rgba(0,0,0,.045);color:var(--ink2);white-space:nowrap}
+.adm-table tr:last-child td{border-bottom:none}
+.adm-table td:first-child{font-weight:600;color:var(--ink)}
+.adm-plan{display:inline-block;padding:2.5px 9px;border-radius:999px;font-size:10.8px;font-weight:700}
+.adm-plan.trial{background:#f1f4f8;color:var(--ink2)}
+.adm-plan.monthly{background:#e3f0e6;color:#1e8e3e}
+.adm-plan.lifetime{background:#efe6fa;color:#6001D2}
+.adm-src{font-size:11px;color:var(--ink3);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+
 /* Colour picker dots */
 .cdots{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 2px}
 .cdot{width:24px;height:24px;border-radius:50%;border:none;padding:0;cursor:pointer;transition:transform .12s ease}

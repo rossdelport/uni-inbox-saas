@@ -21,6 +21,11 @@ function stripe(): Stripe {
   return client;
 }
 
+/** Shared Stripe client for read-only admin lookups. */
+export function getStripe(): Stripe {
+  return stripe();
+}
+
 export type CheckoutTier = "monthly" | "lifetime";
 
 // Prices are resolved (and created on first run) by lookup key, so the only
