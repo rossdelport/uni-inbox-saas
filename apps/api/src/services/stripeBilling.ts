@@ -23,6 +23,67 @@ function stripe(): Stripe {
 
 export type CheckoutTier = "monthly" | "lifetime";
 
+// Prices are resolved (and created on first run) by lookup key, so the only
+// required env is STRIPE_SECRET_KEY. STRIPE_PRICE_* env vars act as manual
+// overrides if ever needed.
+const LOOKUP = { monthly: "oneinbox_monthly", lifetime: "oneinbox_lifetime" } as const;
+let priceIds: { monthly: string; lifetime: string } | null = null;
+
+export async function ensurePrices(): Promise<{ monthly: string; lifetime: string }> {
+  if (priceIds) return priceIds;
+  if (env.STRIPE_PRICE_MONTHLY && env.STRIPE_PRICE_LIFETIME) {
+    priceIds = { monthly: env.STRIPE_PRICE_MONTHLY, lifetime: env.STRIPE_PRICE_LIFETIME };
+    return priceIds;
+  }
+  const s = stripe();
+  const existing = await s.prices.list({
+    lookup_keys: [LOOKUP.monthly, LOOKUP.lifetime],
+    limit: 10,
+  });
+  let monthly = existing.data.find((p) => p.lookup_key === LOOKUP.monthly)?.id;
+  let lifetime = existing.data.find((p) => p.lookup_key === LOOKUP.lifetime)?.id;
+  if (!monthly || !lifetime) {
+    const products = await s.products.search({ query: `name:"OneInbox" AND active:"true"` });
+    const product =
+      products.data[0] ??
+      (await s.products.create({
+        name: "OneInbox",
+        description: "All your project inboxes in one clutter-free place.",
+      }));
+    if (!monthly) {
+      monthly = (
+        await s.prices.create({
+          product: product.id,
+          currency: "usd",
+          nickname: "Monthly (3 included, $2 per extra account)",
+          lookup_key: LOOKUP.monthly,
+          recurring: { interval: "month" },
+          billing_scheme: "tiered",
+          tiers_mode: "graduated",
+          tiers: [
+            { up_to: 3, flat_amount: 500, unit_amount: 0 },
+            { up_to: "inf", unit_amount: 200 },
+          ],
+        })
+      ).id;
+    }
+    if (!lifetime) {
+      lifetime = (
+        await s.prices.create({
+          product: product.id,
+          currency: "usd",
+          nickname: "Lifetime (10 accounts, one-time)",
+          lookup_key: LOOKUP.lifetime,
+          unit_amount: 5000,
+        })
+      ).id;
+    }
+  }
+  priceIds = { monthly, lifetime };
+  logger.info(priceIds, "stripe prices resolved");
+  return priceIds;
+}
+
 // Subscription statuses that count as "paying" (past_due keeps access during
 // the retry window rather than yanking the account on one failed card).
 const ACTIVE_STATUSES = new Set(["trialing", "active", "past_due"]);
@@ -53,12 +114,13 @@ export async function createCheckoutSession(uid: string, tier: CheckoutTier): Pr
   const customer = await getOrCreateCustomer(uid);
   const base = env.DASHBOARD_URL;
 
+  const prices = await ensurePrices();
+
   if (tier === "lifetime") {
-    if (!env.STRIPE_PRICE_LIFETIME) throw new Error("Lifetime price not configured.");
     const session = await stripe().checkout.sessions.create({
       mode: "payment",
       customer,
-      line_items: [{ price: env.STRIPE_PRICE_LIFETIME, quantity: 1 }],
+      line_items: [{ price: prices.lifetime, quantity: 1 }],
       metadata: { user_id: uid, tier: "lifetime" },
       allow_promotion_codes: true,
       success_url: `${base}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -74,7 +136,6 @@ export async function createCheckoutSession(uid: string, tier: CheckoutTier): Pr
   if (ACTIVE_STATUSES.has(billing.subscriptionStatus ?? "")) {
     throw new Error("You already have an active subscription. Manage it in Settings, Plan and Billing.");
   }
-  if (!env.STRIPE_PRICE_MONTHLY) throw new Error("Monthly price not configured.");
 
   // Start with enough seats for what's already connected (>= 3).
   const { count } = await supabase
@@ -90,7 +151,7 @@ export async function createCheckoutSession(uid: string, tier: CheckoutTier): Pr
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     customer,
-    line_items: [{ price: env.STRIPE_PRICE_MONTHLY, quantity }],
+    line_items: [{ price: prices.monthly, quantity }],
     subscription_data: { metadata: { user_id: uid } },
     metadata: { user_id: uid, tier: "monthly" },
     allow_promotion_codes: true,
@@ -172,14 +233,14 @@ async function applyLifetime(uid: string, sessionId: string): Promise<void> {
       plan: "lifetime",
       subscription_status: null,
       stripe_subscription_id: null,
-      stripe_price_id: env.STRIPE_PRICE_LIFETIME ?? null,
+      stripe_price_id: priceIds?.lifetime ?? env.STRIPE_PRICE_LIFETIME ?? null,
     })
     .eq("user_id", uid);
   await supabase.from("billing_events").insert({
     user_id: uid,
     event_type: "lifetime.purchased",
     stripe_id: sessionId,
-    detail: { price_id: env.STRIPE_PRICE_LIFETIME },
+    detail: { price_id: priceIds?.lifetime ?? null },
   });
   logger.info({ uid }, "lifetime applied to profile");
 }

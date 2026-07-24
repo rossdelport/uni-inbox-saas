@@ -137,3 +137,12 @@ if (existsSync(marketing)) {
 app.listen(env.PORT, () => {
   logger.info(`API listening on :${env.PORT}`);
 });
+
+// With a Stripe key present, self-provision the product + prices at boot
+// (idempotent by lookup key) so billing works with zero manual setup.
+if (env.STRIPE_SECRET_KEY) {
+  void import("./services/stripeBilling.js")
+    .then((m) => m.ensurePrices())
+    .then((ids) => logger.info(ids, "stripe billing ready"))
+    .catch((err) => logger.error({ err }, "stripe price provisioning failed"));
+}

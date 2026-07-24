@@ -29,7 +29,7 @@ async function main() {
 
   // Monthly: graduated tiers, quantity = allowed accounts.
   const monthlyExisting = await stripe.prices.list({
-    lookup_keys: ["uni_monthly"],
+    lookup_keys: ["oneinbox_monthly"],
     active: true,
     limit: 1,
   });
@@ -39,7 +39,7 @@ async function main() {
       product: product.id,
       currency: "usd",
       nickname: "Monthly (3 included, $2 per extra account)",
-      lookup_key: "uni_monthly",
+      lookup_key: "oneinbox_monthly",
       recurring: { interval: "month" },
       billing_scheme: "tiered",
       tiers_mode: "graduated",
@@ -52,7 +52,7 @@ async function main() {
 
   // Lifetime: $50 one-time.
   const lifetimeExisting = await stripe.prices.list({
-    lookup_keys: ["uni_lifetime"],
+    lookup_keys: ["oneinbox_lifetime"],
     active: true,
     limit: 1,
   });
@@ -62,7 +62,7 @@ async function main() {
       product: product.id,
       currency: "usd",
       nickname: "Lifetime (10 accounts, one-time)",
-      lookup_key: "uni_lifetime",
+      lookup_key: "oneinbox_lifetime",
       unit_amount: 5000,
     }));
   console.log(`STRIPE_PRICE_LIFETIME=${lifetime.id}`);
