@@ -40,7 +40,19 @@ const SANITIZE_OPTS: sanitizeHtml.IOptions = {
 
 function toSnippet(text: string | null): string | null {
   if (!text) return null;
-  return text.replace(/\s+/g, " ").trim().slice(0, 140) || null;
+  // HTML-only mail (no text part) would otherwise preview as "<!DOCTYPE...".
+  // Strip tags/styles down to readable words before truncating.
+  const plain = /<[a-z!/]/i.test(text)
+    ? text
+        .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&#\d+;|&[a-z]+;/gi, " ")
+    : text;
+  return plain.replace(/\s+/g, " ").trim().slice(0, 140) || null;
 }
 
 function addrList(v: { value?: { address?: string }[] } | undefined | null): string[] {

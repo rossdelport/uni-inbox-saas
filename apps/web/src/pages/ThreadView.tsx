@@ -97,7 +97,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
           <button
             className="chip"
             onClick={() => {
-              if (!window.confirm("Delete this conversation from OneInbox? Your real mailbox is untouched.")) return;
               deleteThread.mutate(thread.id, { onSuccess: () => toast("Conversation deleted", "danger") });
               onBack();
             }}
