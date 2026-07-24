@@ -378,7 +378,9 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .act-btn{width:25px;height:25px;border-radius:8px;font-size:11px}
 
 /* Reading pane: Gmail-style thread history */
-.read-wrap{max-width:none;margin:0;padding:26px 38px 60px}
+/* Reading pane fills its container: messages scroll, composer pinned below */
+.read-wrap{max-width:none;margin:0;padding:0;height:100%;display:flex;flex-direction:column}
+.read-scroll{flex:1;min-height:0;overflow-y:auto;padding:26px 38px 24px}
 .read-wrap h1{font-size:19.5px;margin-top:2px}
 .read-wrap .via-chips{margin-bottom:12px;gap:6px}
 .chip{font-size:10.8px;padding:3px 9px 3px 7px}
@@ -398,7 +400,7 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .gm-older:hover{border-color:var(--b1);color:var(--b1)}
 
 /* White reply composer, no blue tint */
-.read-reply{margin-top:18px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px rgba(13,40,80,.05)}
+.read-reply{flex:none;margin:10px 38px 22px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px rgba(13,40,80,.05)}
 .read-reply textarea{font-size:12.8px;height:56px}
 .read-reply .rr-bar{padding-top:9px}
 .rr-note{font-size:10.8px}

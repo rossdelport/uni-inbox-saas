@@ -40,19 +40,27 @@ export function MessageBody({
         )}
         <iframe
           title="message"
-          sandbox=""
+          // allow-same-origin WITHOUT allow-scripts: content is inert (script
+          // execution stays blocked) but the parent can measure its height.
+          // With a fully opaque sandbox, contentDocument is unreachable and
+          // the frame would be stuck at minHeight.
+          sandbox="allow-same-origin"
           srcDoc={doc}
           className="w-full rounded-md border-0"
           style={{ minHeight: 120 }}
           onLoad={(e) => {
-            // Size the frame to its content (sandbox blocks scripts inside).
             const frame = e.currentTarget;
-            try {
-              const h = frame.contentDocument?.body?.scrollHeight;
-              if (h) frame.style.height = `${Math.min(h + 24, 1600)}px`;
-            } catch {
-              frame.style.height = "480px";
-            }
+            const size = () => {
+              try {
+                const h = frame.contentDocument?.body?.scrollHeight;
+                if (h) frame.style.height = `${Math.min(h + 24, 5000)}px`;
+              } catch {
+                frame.style.height = "480px";
+              }
+            };
+            size();
+            // Late-loading images change the content height; re-measure.
+            setTimeout(size, 600);
           }}
         />
       </div>
