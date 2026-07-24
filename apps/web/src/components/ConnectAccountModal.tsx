@@ -206,16 +206,20 @@ export function ConnectForm({
     return result;
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    const result = test ?? (await runTest());
-    if (!result.imap_ok || !result.smtp_ok) return;
+  function doConnect() {
     connect.mutate(form, {
       onSuccess: (acct) => {
         toast(`${acct.label} connected: ${acct.email_address}`);
         onConnected(acct.label, acct.email_address);
       },
     });
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    const result = test ?? (await runTest());
+    if (!result.imap_ok || !result.smtp_ok) return;
+    doConnect();
   }
 
   const sel = form.provider_preset;
@@ -338,6 +342,23 @@ export function ConnectForm({
             {test.imap_ok ? "✓ IMAP" : "✕ IMAP"} · {test.smtp_ok ? "✓ SMTP" : "✕ SMTP"}
             {test.error ? ` · ${test.error}` : ""}
           </p>
+        )}
+        {test && test.imap_ok && !test.smtp_ok && (
+          <div style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ width: "100%" }}
+              disabled={connect.isPending}
+              onClick={doConnect}
+            >
+              {connect.isPending ? "Connecting…" : "Connect anyway, receive only for now"}
+            </button>
+            <p style={{ marginTop: 8, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
+              Your mail will sync and read normally. Sending turns on by itself once the
+              outgoing server is reachable.
+            </p>
+          </div>
         )}
         {connect.error && <p className="err">{(connect.error as Error).message}</p>}
 

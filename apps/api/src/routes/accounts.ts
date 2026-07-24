@@ -182,7 +182,10 @@ accountsRouter.post("/", async (req, res) => {
     return res.status(429).json({ error: "Too many connection attempts. Try again in an hour." });
   }
   const test = await testConnection(parsed.data);
-  if (!test.imap_ok || !test.smtp_ok) {
+  // IMAP is the hard requirement (no mail without it). A failed SMTP check
+  // still connects read-only: sync works now, sending starts working the
+  // moment outbound SMTP reaches the provider (e.g. host unblocks the port).
+  if (!test.imap_ok) {
     return res.status(422).json({ error: test.error ?? "connection test failed", test });
   }
 
