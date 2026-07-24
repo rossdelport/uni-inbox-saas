@@ -188,6 +188,12 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
 <style id="uni-overrides">
 /* OneInbox overrides: footer removed, favicon used as the nav logo */
 footer.framer-sP0dz{display:none!important}
+/* Hero envelopes stay hidden until the overlap fix has positioned them,
+   then fade in at their final spots (no touch-the-text flash). JS-gated so
+   they still show if scripts ever fail. */
+html.uni-js [data-framer-name="mails"]{opacity:0}
+html.uni-js [data-framer-name="mails"].uni-hero-ready{opacity:1;transition:opacity .7s ease}
+
 [data-framer-name="logo"] a > div{display:none!important}
 [data-framer-name="logo"] a{background:url(https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png) center/contain no-repeat!important}
 </style>
@@ -699,8 +705,16 @@ if (!window.__uniClickGuard){
 function patchHero(){
   var canvas = document.querySelector('[data-framer-name="mails"]');
   if (!canvas) return;
+  // Reveal only after Framer's entrance animations settle AND a final
+  // overlap pass has run, so envelopes first appear already clear of text.
+  if (!canvas.__uniRevealT){
+    canvas.__uniRevealT = setTimeout(function(){
+      try{ patchHero(); }catch(e){}
+      canvas.classList.add('uni-hero-ready');
+    }, 1800);
+  }
   var heads = Array.prototype.slice.call(document.querySelectorAll('h1[data-styles-preset="UJJoASFq5"]'));
-  if (!heads.length) return;
+  if (!heads.length){ canvas.classList.add('uni-hero-ready'); return; }
   heads.forEach(function(h){
     if ((h.style.textShadow || '').indexOf('rgba(13,61,150') < 0)
       h.style.textShadow = '0 2px 26px rgba(13,61,150,.5), 0 0 12px rgba(13,61,150,.3)';
@@ -738,6 +752,11 @@ if (!window.__uniHeroResize){
   var __heroT = null;
   window.addEventListener('resize', function(){ clearTimeout(__heroT); __heroT = setTimeout(function(){ try{ patchHero(); }catch(e){} try{ patchFlow(); }catch(e){} }, 160); });
   window.addEventListener('load', function(){ try{ patchHero(); }catch(e){} try{ patchFlow(); }catch(e){} });
+  // Safety net: never leave the envelopes hidden.
+  setTimeout(function(){
+    var c = document.querySelector('[data-framer-name="mails"]');
+    if (c) c.classList.add('uni-hero-ready');
+  }, 3200);
 }
 
 // Providers section rebuilt as a branded flow: account chips at the top,
@@ -900,6 +919,7 @@ setTimeout(patchAll, 3000);
 .uni-toast.uni-show{opacity:1;transform:translate(-50%,0)}
 </style>
 <script>
+document.documentElement.classList.add('uni-js');
 (function(){
   function fix(){
     document.querySelectorAll("a").forEach(function(a){

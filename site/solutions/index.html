@@ -188,6 +188,12 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
 <style id="uni-overrides">
 /* OneInbox overrides: footer removed, favicon used as the nav logo */
 footer.framer-sP0dz{display:none!important}
+/* Hero envelopes stay hidden until the overlap fix has positioned them,
+   then fade in at their final spots (no touch-the-text flash). JS-gated so
+   they still show if scripts ever fail. */
+html.uni-js [data-framer-name="mails"]{opacity:0}
+html.uni-js [data-framer-name="mails"].uni-hero-ready{opacity:1;transition:opacity .7s ease}
+
 [data-framer-name="logo"] a > div{display:none!important}
 [data-framer-name="logo"] a{background:url(https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png) center/contain no-repeat!important}
 </style>
@@ -805,7 +811,7 @@ footer.framer-sP0dz{display:none!important}
     <!-- Start of bodyEnd -->
     
     <!-- End of bodyEnd -->
-<script>(function(){
+<script>document.documentElement.classList.add('uni-js');(function(){
 "use strict";
 var UNI_PAGES = {
   signup: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Sign up | OneInbox<\/title>\n<meta name=\"description\" content=\"Create your OneInbox account and see every project inbox in one dashboard.\">\n<link rel=\"icon\" href=\"https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap\" rel=\"stylesheet\">\n<link rel=\"stylesheet\" href=\"/assets/uni-ui-v4.css\">\n<\/head>\n<body class=\"auth-body\">\n  <div class=\"auth-ring\" style=\"width:640px;height:640px\"><\/div>\n  <div class=\"auth-ring\" style=\"width:1020px;height:1020px\"><\/div>\n  <div class=\"auth-ring\" style=\"width:1420px;height:1420px\"><\/div>\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:150px;left:8%;top:14%;transform:rotate(-14deg)\">\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:190px;right:7%;top:60%;transform:rotate(13deg)\">\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:110px;left:13%;bottom:9%;transform:rotate(9deg)\">\n\n  <div class=\"auth-card\">\n    <a class=\"logo-link\" href=\"/\" aria-label=\"OneInbox home\">\n      <div class=\"logo-lock\"><img src=\"/assets/logo.png\" alt=\"OneInbox logo\"><span>oneinbox<\/span><\/div>\n    <\/a>\n    <h1>Create your account<\/h1>\n    <p class=\"auth-sub\">Start seeing every project inbox in one dashboard.<\/p>\n    <p class=\"auth-trial\"><b>7-day free trial<\/b>, credit card on file.<\/p>\n\n    <div class=\"oauth\">\n      <a href=\"/dashboard/\">\n        <svg viewBox=\"0 0 24 24\"><path fill=\"#EA4335\" d=\"M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z\"/><\/svg>\n        Continue with Google\n      <\/a>\n      <a href=\"/dashboard/\">\n        <svg viewBox=\"0 0 24 24\"><rect width=\"24\" height=\"24\" rx=\"6\" fill=\"#0078D4\"/><text x=\"12\" y=\"16.5\" font-family=\"Inter, Arial, sans-serif\" font-size=\"11\" font-weight=\"700\" fill=\"#ffffff\" text-anchor=\"middle\">O<\/text><\/svg>\n        Continue with Outlook\n      <\/a>\n    <\/div>\n\n    <div class=\"divider\">or with email<\/div>\n\n    <form id=\"signup-form\">\n      <div class=\"field\">\n        <label for=\"name\">Name<\/label>\n        <input id=\"name\" type=\"text\" placeholder=\"Ross Miller\" autocomplete=\"name\">\n      <\/div>\n      <div class=\"field\">\n        <label for=\"email\">Email<\/label>\n        <input id=\"email\" type=\"email\" placeholder=\"ross@acmestudio.com\" autocomplete=\"email\" required>\n      <\/div>\n      <div class=\"field\">\n        <label for=\"password\">Password<\/label>\n        <input id=\"password\" type=\"password\" placeholder=\"8+ characters\" autocomplete=\"new-password\" required>\n      <\/div>\n      <div class=\"auth-cta\">\n        <button class=\"btn-black\" type=\"submit\">Create free account<\/button>\n      <\/div>\n    <\/form>\n\n    <p class=\"auth-swap\">Already have an account? <a href=\"/login/\">Log in<\/a><\/p>\n    <p class=\"auth-legal\">By continuing you agree to the OneInbox Terms and <a href=\"/privacy-policy/\">Privacy Policy<\/a>.<\/p>\n  <\/div>\n\n<script>\ndocument.getElementById('signup-form').addEventListener('submit', function(e){\n  e.preventDefault();\n  window.location.href = '/dashboard/';\n});\n<\/script>\n<\/body>\n<\/html>\n",
@@ -1243,8 +1249,16 @@ if (!window.__uniClickGuard){
 function patchHero(){
   var canvas = document.querySelector('[data-framer-name="mails"]');
   if (!canvas) return;
+  // Reveal only after Framer's entrance animations settle AND a final
+  // overlap pass has run, so envelopes first appear already clear of text.
+  if (!canvas.__uniRevealT){
+    canvas.__uniRevealT = setTimeout(function(){
+      try{ patchHero(); }catch(e){}
+      canvas.classList.add('uni-hero-ready');
+    }, 1800);
+  }
   var heads = Array.prototype.slice.call(document.querySelectorAll('h1[data-styles-preset="UJJoASFq5"]'));
-  if (!heads.length) return;
+  if (!heads.length){ canvas.classList.add('uni-hero-ready'); return; }
   heads.forEach(function(h){
     if ((h.style.textShadow || '').indexOf('rgba(13,61,150') < 0)
       h.style.textShadow = '0 2px 26px rgba(13,61,150,.5), 0 0 12px rgba(13,61,150,.3)';
@@ -1282,6 +1296,11 @@ if (!window.__uniHeroResize){
   var __heroT = null;
   window.addEventListener('resize', function(){ clearTimeout(__heroT); __heroT = setTimeout(function(){ try{ patchHero(); }catch(e){} try{ patchFlow(); }catch(e){} }, 160); });
   window.addEventListener('load', function(){ try{ patchHero(); }catch(e){} try{ patchFlow(); }catch(e){} });
+  // Safety net: never leave the envelopes hidden.
+  setTimeout(function(){
+    var c = document.querySelector('[data-framer-name="mails"]');
+    if (c) c.classList.add('uni-hero-ready');
+  }, 3200);
 }
 
 // Providers section rebuilt as a branded flow: account chips at the top,
