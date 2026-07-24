@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
 import { useAccounts, useBillingState, useInbox } from "../lib/queries.js";
 import { LOGO_SRC } from "../lib/assets.js";
-import { toast } from "../lib/toast.js";
+import { toast, type ToastKind } from "../lib/toast.js";
 import { PlansModal } from "./PlansModal.js";
 import { ConnectAccountModal } from "./ConnectAccountModal.js";
 
@@ -30,9 +30,10 @@ export function Layout() {
   const [plansOpen, setPlansOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [drawer, setDrawer] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastState, setToastState] = useState<{ msg: string; kind: ToastKind; key: number } | null>(
+    null,
+  );
   const menuRef = useRef<HTMLDivElement>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -44,11 +45,11 @@ export function Layout() {
     const connectError = params.get("connect_error");
     if (!connected && !connectError) return;
     if (connected) {
-      toast(`${connected} connected. Syncing now.`);
+      toast(`${connected} connected. Syncing now.`, "success");
     } else if (connectError === "plan_full") {
-      toast("Your plan is full. Open Plans and billing to add room.");
+      toast("Your plan is full. Open Plans and billing to add room.", "warn");
     } else {
-      toast("Could not connect the account. Try again.");
+      toast("Could not connect the account. Try again.", "danger");
     }
     const next = new URLSearchParams(params);
     next.delete("connected");
@@ -59,12 +60,12 @@ export function Layout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
-  // Toast bus: any component fires toast("...") and it shows here.
+  // Toast bus: any component fires toast("...", kind) and it shows here. The
+  // key remount resets the countdown when a new toast replaces a visible one.
   useEffect(() => {
     function onToast(e: Event) {
-      setToastMsg((e as CustomEvent<string>).detail);
-      clearTimeout(toastTimer.current);
-      toastTimer.current = setTimeout(() => setToastMsg(null), 2600);
+      const d = (e as CustomEvent<{ message: string; kind: ToastKind }>).detail;
+      setToastState({ msg: d.message, kind: d.kind, key: Date.now() });
     }
     document.addEventListener("uni:toast", onToast);
     return () => document.removeEventListener("uni:toast", onToast);
@@ -264,7 +265,71 @@ export function Layout() {
 
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
       {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
-      <div className={`uni-toast ${toastMsg ? "show" : ""}`}>{toastMsg}</div>
+      {toastState && (
+        <Toast
+          key={toastState.key}
+          msg={toastState.msg}
+          kind={toastState.kind}
+          onClose={() => setToastState(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+const TOAST_MS = 6000;
+
+// Notification card (top right): kind-coloured icon ring and progress bar,
+// close button, and a countdown footer that can stop the auto-close.
+function Toast({ msg, kind, onClose }: { msg: string; kind: ToastKind; onClose: () => void }) {
+  const [left, setLeft] = useState(TOAST_MS);
+  const [stopped, setStopped] = useState(false);
+
+  useEffect(() => {
+    if (stopped) return;
+    const t0 = Date.now();
+    const start = left;
+    const iv = setInterval(() => {
+      const rem = start - (Date.now() - t0);
+      if (rem <= 0) onClose();
+      else setLeft(rem);
+    }, 100);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopped]);
+
+  const seconds = Math.ceil(left / 1000);
+  return (
+    <div className={`uni-toast show ${kind}`}>
+      <div className="t-row">
+        <span className="t-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+            {kind === "success" ? (
+              <path d="M20 6L9 17l-5-5" />
+            ) : kind === "danger" ? (
+              <path d="M18 6L6 18M6 6l12 12" />
+            ) : kind === "warn" ? (
+              <path d="M12 5v9M12 18h.01" />
+            ) : (
+              <path d="M12 11v7M12 6h.01" />
+            )}
+          </svg>
+        </span>
+        <span className="t-msg">{msg}</span>
+        <button className="t-x" aria-label="Dismiss" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <button className="t-foot" onClick={() => setStopped(true)}>
+        {stopped ? (
+          "Auto close stopped."
+        ) : (
+          <>
+            This message will close in {seconds} second{seconds === 1 ? "" : "s"}. <b>Click to stop.</b>
+          </>
+        )}
+      </button>
+      {!stopped && <span className="t-bar" style={{ width: `${(left / TOAST_MS) * 100}%` }} />}
     </div>
   );
 }

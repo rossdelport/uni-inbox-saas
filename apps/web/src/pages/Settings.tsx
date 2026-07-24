@@ -71,7 +71,7 @@ function ProfilePane() {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
     if (error) setErr(error.message);
-    else toast("Profile saved");
+    else toast("Profile saved", "success");
     setBusy(false);
   }
 
@@ -84,7 +84,7 @@ function ProfilePane() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) setErr(error.message);
     else {
-      toast("Password updated");
+      toast("Password updated", "success");
       setPassword("");
       setPassword2("");
     }
@@ -266,7 +266,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
                 `Remove ${account.email_address}? Its synced mail disappears from OneInbox (the mailbox itself is untouched).`,
               )
             ) {
-              remove.mutate(account.id, { onSuccess: () => toast("Account removed") });
+              remove.mutate(account.id, { onSuccess: () => toast("Account removed", "danger") });
             }
           }}
         >
@@ -289,7 +289,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
               {
                 onSuccess: () => {
                   setEditOpen(false);
-                  toast("Account updated");
+                  toast("Account updated", "success");
                 },
               },
             );
@@ -337,7 +337,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
                 onSuccess: () => {
                   setFixOpen(false);
                   setPassword("");
-                  toast("Password updated, reconnecting");
+                  toast("Password updated, reconnecting", "success");
                 },
               },
             );

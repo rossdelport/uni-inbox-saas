@@ -61,7 +61,7 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       {
         onSuccess: () => {
           setDraft("");
-          toast(`Reply sent from ${data?.thread.account_email}`);
+          toast(`Reply sent from ${data?.thread.account_email}`, "success");
         },
       },
     );
@@ -112,7 +112,7 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
             className="chip"
             onClick={() => {
               if (!window.confirm("Delete this conversation from OneInbox? Your real mailbox is untouched.")) return;
-              deleteThread.mutate(thread.id, { onSuccess: () => toast("Conversation deleted") });
+              deleteThread.mutate(thread.id, { onSuccess: () => toast("Conversation deleted", "danger") });
               onBack();
             }}
           >

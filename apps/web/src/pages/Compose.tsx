@@ -27,7 +27,7 @@ export function Compose() {
       { account_id: fromId, to: recipients, subject, body_text: body },
       {
         onSuccess: ({ thread_id }) => {
-          toast("Message sent");
+          toast("Message sent", "success");
           navigate(`/?t=${thread_id}`);
         },
       },

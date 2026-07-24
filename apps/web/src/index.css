@@ -209,11 +209,28 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .m-limit-txt{margin-top:6px;font-size:14px;color:var(--ink2)}
 .m-upsell{display:flex;flex-direction:column;gap:10px}
 
-/* ---------- toast ---------- */
-.uni-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);background:#111;color:#fff;
-  font-size:14px;font-weight:600;padding:13px 24px;border-radius:999px;box-shadow:0 12px 30px rgba(0,0,0,.3);
-  opacity:0;transition:opacity .22s ease,transform .22s ease;z-index:300;pointer-events:none;max-width:calc(100vw - 40px);text-align:center}
-.uni-toast.show{opacity:1;transform:translateX(-50%)}
+/* ---------- toast: top-right card, kind-coloured ---------- */
+.uni-toast{position:fixed;top:64px;right:20px;background:#fff;color:var(--ink);border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;box-shadow:0 18px 44px rgba(13,40,80,.18);width:330px;max-width:calc(100vw - 40px);
+  opacity:0;transform:translateY(-10px);transition:opacity .22s ease,transform .22s ease;z-index:300;
+  pointer-events:none;overflow:hidden;text-align:left}
+.uni-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.uni-toast.success{--tk:#1e8e3e}
+.uni-toast.danger{--tk:#d93025}
+.uni-toast.warn{--tk:#f9ab00}
+.uni-toast.info{--tk:#111}
+.uni-toast .t-row{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.uni-toast .t-ico{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+  color:var(--tk);border:2px solid currentColor}
+.uni-toast .t-ico svg{width:12px;height:12px}
+.uni-toast .t-msg{flex:1;min-width:0;font-size:13px;font-weight:700;line-height:1.4}
+.uni-toast .t-x{flex:none;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  color:var(--ink3);font-size:16px;line-height:1;cursor:pointer;background:none;border:none;padding:0}
+.uni-toast .t-x:hover{background:#f1f4f8;color:var(--ink)}
+.uni-toast .t-foot{display:block;width:100%;text-align:left;padding:7px 14px 8px;background:#f7f9fb;
+  border:none;border-top:1px solid rgba(0,0,0,.05);font-size:11px;font-weight:500;color:var(--ink3);cursor:pointer;font-family:inherit}
+.uni-toast .t-foot b{font-weight:700;color:var(--ink2)}
+.uni-toast .t-bar{position:absolute;left:0;bottom:0;height:3px;background:var(--tk);transition:width .1s linear;border-radius:0 2px 2px 0}
 
 /* ---------- settings page ---------- */
 .set-main{flex:1;display:flex;min-height:0}
@@ -337,7 +354,6 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 /* Details/summary server settings block in the connect modal */
 .m-server{margin-top:16px;border:1px solid var(--line);border-radius:16px;padding:12px 16px}
 .m-server summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--ink2)}
-.uni-toast.show{opacity:1;transform:translateX(-50%)}
 
 /* ==== Premium pass: condensed type (~20%), calm surfaces, refined color ==== */
 .dash-top{height:54px;gap:16px;padding:0 16px}

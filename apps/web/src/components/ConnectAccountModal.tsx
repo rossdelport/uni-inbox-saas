@@ -70,7 +70,7 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
                 disabled={addSeat.isPending}
                 onClick={() =>
                   addSeat.mutate(undefined, {
-                    onSuccess: ({ quantity }) => toast(`Plan updated: up to ${quantity} accounts`),
+                    onSuccess: ({ quantity }) => toast(`Plan updated: up to ${quantity} accounts`, "success"),
                   })
                 }
               >
@@ -206,7 +206,7 @@ export function ConnectForm({
   function doConnect() {
     connect.mutate(form, {
       onSuccess: (acct) => {
-        toast(`${acct.label} connected: ${acct.email_address}`);
+        toast(`${acct.label} connected: ${acct.email_address}`, "success");
         onConnected(acct.label, acct.email_address);
       },
     });

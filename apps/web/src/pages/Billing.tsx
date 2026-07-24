@@ -19,7 +19,7 @@ export function Billing() {
     if (!isReturn || confirmed.current) return;
     confirmed.current = true;
     void api(`/api/billing/confirm?session_id=${encodeURIComponent(sessionId!)}`)
-      .then(() => toast("Subscription active. Welcome aboard."))
+      .then(() => toast("Subscription active. Welcome aboard.", "success"))
       .catch(() => undefined)
       .finally(() => {
         void qc.invalidateQueries({ queryKey: ["billing"] });
