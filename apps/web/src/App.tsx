@@ -17,6 +17,7 @@ import { Compose } from "./pages/Compose.js";
 import { Accounts } from "./pages/Accounts.js";
 import { Billing } from "./pages/Billing.js";
 import { Settings } from "./pages/Settings.js";
+import { ResetPassword } from "./pages/ResetPassword.js";
 
 function RouteError() {
   const error = useRouteError();
@@ -53,6 +54,7 @@ const router = createBrowserRouter(
         <Route path="/later" element={<Inbox view="later" />} />
         <Route path="/archived" element={<Inbox view="archived" />} />
         <Route path="/deleted" element={<Inbox view="deleted" />} />
+        <Route path="/reset" element={<ResetPassword />} />
         <Route path="/t/:threadId" element={<ThreadRedirect />} />
         <Route path="/compose" element={<Compose />} />
         <Route path="/accounts" element={<Accounts />} />

@@ -36,6 +36,20 @@ export function Login() {
     }
   }
 
+  async function forgotPassword() {
+    setError(null);
+    setNotice(null);
+    if (!email) {
+      setError("Type your email above first, then click the reset link again.");
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/app/reset`,
+    });
+    if (error) setError(error.message);
+    else setNotice("Reset link sent. Check your email, then follow it to set a new password.");
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -176,6 +190,21 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+
+          {!isSignup && (
+            <p style={{ marginTop: 8, textAlign: "right", fontSize: 12.5 }}>
+              <a
+                href="#"
+                style={{ color: "var(--ink3)", fontWeight: 600 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void forgotPassword();
+                }}
+              >
+                Forgot password?
+              </a>
+            </p>
+          )}
 
           {error && <p className="err">{error}</p>}
           {notice && <p className="ok-note">{notice}</p>}

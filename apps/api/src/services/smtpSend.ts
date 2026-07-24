@@ -39,6 +39,7 @@ export interface OutboundAttachment {
 export interface OutboundInput {
   to: string[];
   cc?: string[];
+  bcc?: string[];
   subject: string;
   bodyText: string;
   bodyHtml?: string;
@@ -63,6 +64,7 @@ export async function smtpSend(account: SendAccount, input: OutboundInput): Prom
       : account.email_address,
     to: input.to,
     cc: input.cc && input.cc.length > 0 ? input.cc : undefined,
+    bcc: input.bcc && input.bcc.length > 0 ? input.bcc : undefined,
     subject: input.subject,
     text: input.bodyText,
     html: input.bodyHtml,
@@ -103,7 +105,7 @@ export async function smtpSend(account: SendAccount, input: OutboundInput): Prom
     await transport.sendMail({
       envelope: {
         from: account.email_address,
-        to: [...input.to, ...(input.cc ?? [])],
+        to: [...input.to, ...(input.cc ?? []), ...(input.bcc ?? [])],
       },
       raw,
     });

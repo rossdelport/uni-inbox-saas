@@ -21,6 +21,9 @@ export function ReplyComposer({
   const fileRef = useRef<HTMLInputElement>(null);
   const [empty, setEmpty] = useState(true);
   const [files, setFiles] = useState<File[]>([]);
+  const [showCc, setShowCc] = useState(false);
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
 
   const canSend = (!empty || files.length > 0) && !reply.isPending;
 
@@ -57,9 +60,17 @@ export function ReplyComposer({
     setFiles(next);
   }
 
+  const splitAddrs = (s: string) =>
+    s
+      .split(/[,;\s]+/)
+      .map((a) => a.trim())
+      .filter((a) => a.includes("@"));
+
   async function send() {
     const el = editRef.current;
     if (!el || !canSend) return;
+    const ccList = splitAddrs(cc);
+    const bccList = splitAddrs(bcc);
     const body_text = el.innerText.replace(/ /g, " ").trim();
     const attachments: OutgoingAttachment[] = await Promise.all(
       files.map(async (f) => ({
@@ -74,12 +85,17 @@ export function ReplyComposer({
         body_text: body_text || "(attachment)",
         body_html: `<div style="font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.6">${el.innerHTML}</div>`,
         attachments: attachments.length > 0 ? attachments : undefined,
+        cc: ccList.length > 0 ? ccList : undefined,
+        bcc: bccList.length > 0 ? bccList : undefined,
       },
       {
         onSuccess: () => {
           el.innerHTML = "";
           setFiles([]);
           setEmpty(true);
+          setCc("");
+          setBcc("");
+          setShowCc(false);
           toast(`Reply sent from ${accountEmail}`, "success");
         },
       },
@@ -156,7 +172,37 @@ export function ReplyComposer({
             e.target.value = "";
           }}
         />
+        <button
+          className="rc-btn"
+          style={{ width: "auto", padding: "0 9px", marginLeft: "auto", fontSize: 11, fontWeight: 700 }}
+          title="Add Cc or Bcc recipients"
+          onMouseDown={stop}
+          onClick={() => setShowCc((v) => !v)}
+        >
+          Cc/Bcc
+        </button>
       </div>
+
+      {showCc && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>Cc</label>
+            <input
+              placeholder="name@example.com"
+              value={cc}
+              onChange={(e) => setCc(e.target.value)}
+            />
+          </div>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>Bcc</label>
+            <input
+              placeholder="name@example.com"
+              value={bcc}
+              onChange={(e) => setBcc(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       <div
         ref={editRef}

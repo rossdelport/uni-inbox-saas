@@ -21,10 +21,16 @@ export async function requireAuth(
     return;
   }
   res.locals.userId = data.user.id;
+  res.locals.userEmail = data.user.email ?? null;
   next();
 }
 
 /** The current request's authenticated user id (set by requireAuth). */
 export function userId(res: Response): string {
   return res.locals.userId as string;
+}
+
+/** The current request's authenticated email (set by requireAuth). */
+export function userEmail(res: Response): string | null {
+  return (res.locals.userEmail as string | null) ?? null;
 }

@@ -77,6 +77,7 @@ const replyInput = z.object({
   body_text: z.string().min(1).max(100_000),
   body_html: z.string().max(500_000).optional(),
   cc: z.array(z.string().email()).max(20).optional(),
+  bcc: z.array(z.string().email()).max(20).optional(),
   attachments: attachmentList,
 });
 
@@ -141,6 +142,7 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
   const input = {
     to,
     cc,
+    bcc: parsed.data.bcc,
     subject,
     bodyText: parsed.data.body_text,
     bodyHtml: parsed.data.body_html,
@@ -161,11 +163,104 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
   }
 });
 
+// Forward the thread's latest message to new recipients, from the thread's
+// account. Original body is quoted under a Gmail-style header block.
+// (Original attachments are not re-sent in v1; they live on the IMAP server.)
+const forwardInput = z.object({
+  to: emailList,
+  cc: z.array(z.string().email()).max(20).optional(),
+  note: z.string().max(20_000).optional(),
+});
+
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+sendRouter.post("/threads/:id/forward", async (req, res) => {
+  const uid = userId(res);
+  const parsed = forwardInput.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "invalid input" });
+  }
+  const gateError = await sendGate(uid);
+  if (gateError) return res.status(402).json({ error: gateError });
+
+  const { data: thread } = await supabase
+    .from("threads")
+    .select("id, account_id")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (!thread) return res.status(404).json({ error: "thread not found" });
+
+  const { data: account } = await supabase
+    .from("email_accounts")
+    .select(ACCOUNT_COLUMNS)
+    .eq("id", thread.account_id)
+    .maybeSingle();
+  if (!account) return res.status(404).json({ error: "account not found" });
+  if (account.status !== "active") {
+    return res.status(409).json({ error: "This inbox is paused, so it can't send right now." });
+  }
+
+  const { data: original } = await supabase
+    .from("messages")
+    .select("from_name, from_address, to_addresses, subject, date, body_text, body_html")
+    .eq("thread_id", thread.id)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!original) return res.status(409).json({ error: "nothing in this thread to forward" });
+
+  const baseSubject = (original.subject as string | null) ?? "";
+  const subject = /^\s*fwd?\s*:/i.test(baseSubject) ? baseSubject : `Fwd: ${baseSubject}`;
+  const fromLine = original.from_name
+    ? `${original.from_name} <${original.from_address ?? ""}>`
+    : (original.from_address as string | null) ?? "";
+  const when = original.date ? new Date(original.date as string).toUTCString() : "";
+  const note = parsed.data.note?.trim() ?? "";
+
+  const headerText =
+    `---------- Forwarded message ----------\n` +
+    `From: ${fromLine}\nDate: ${when}\nSubject: ${baseSubject}\n` +
+    `To: ${((original.to_addresses as string[] | null) ?? []).join(", ")}\n\n`;
+  const bodyText = `${note ? `${note}\n\n` : ""}${headerText}${(original.body_text as string | null) ?? ""}`;
+  const headerHtml =
+    `<div style="color:#5f6368;font-size:13px">---------- Forwarded message ----------<br>` +
+    `From: ${esc(fromLine)}<br>Date: ${esc(when)}<br>Subject: ${esc(baseSubject)}<br>` +
+    `To: ${esc(((original.to_addresses as string[] | null) ?? []).join(", "))}</div><br>`;
+  const originalHtml =
+    (original.body_html as string | null) ??
+    `<pre style="font-family:inherit;white-space:pre-wrap">${esc((original.body_text as string | null) ?? "")}</pre>`;
+  const bodyHtml =
+    `<div style="font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.6">` +
+    `${note ? `${esc(note).replace(/\n/g, "<br>")}<br><br>` : ""}${headerHtml}${originalHtml}</div>`;
+
+  const input = {
+    to: parsed.data.to,
+    cc: parsed.data.cc,
+    subject,
+    bodyText,
+    bodyHtml,
+    fromName: await displayName(uid),
+  };
+
+  try {
+    const sent = await smtpSend(account as SendAccount, input);
+    await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
+    void appendToSent(account as SendAccount, sent.raw);
+    res.json({ ok: true, message_id: sent.messageId });
+  } catch (err) {
+    logger.error({ err, uid, threadId: thread.id }, "forward send failed");
+    res.status(502).json({ error: "The mail server rejected the send. Try again in a minute." });
+  }
+});
+
 // Fresh compose. account_id is explicit here (and ownership-checked).
 const composeInput = z.object({
   account_id: z.string().uuid(),
   to: emailList,
   cc: z.array(z.string().email()).max(20).optional(),
+  bcc: z.array(z.string().email()).max(20).optional(),
   subject: z.string().min(1).max(500),
   body_text: z.string().min(1).max(100_000),
   body_html: z.string().max(500_000).optional(),
@@ -198,6 +293,7 @@ sendRouter.post("/messages/send", async (req, res) => {
   const input = {
     to: parsed.data.to,
     cc: parsed.data.cc,
+    bcc: parsed.data.bcc,
     subject: parsed.data.subject,
     bodyText: parsed.data.body_text,
     bodyHtml: parsed.data.body_html,

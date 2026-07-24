@@ -15,6 +15,7 @@ import { sendRouter } from "./routes/send.js";
 import { billingRouter } from "./routes/billing.js";
 import { contactRouter } from "./routes/contact.js";
 import { oauthRouter } from "./routes/oauth.js";
+import { metricsRouter } from "./routes/metrics.js";
 
 const app = express();
 // Railway terminates TLS at its proxy; trust exactly one hop so req.ip is the
@@ -75,10 +76,27 @@ app.use(
   }),
 );
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+// Shallow by default (process is up); ?deep=1 also proves the database is
+// reachable, for uptime monitors that should page on real outages.
+app.get("/health", async (req, res) => {
+  if (String(req.query.deep ?? "") !== "1") return res.json({ ok: true });
+  try {
+    const { supabase } = await import("./lib/supabase.js");
+    const { error } = await supabase.from("profiles").select("user_id", { head: true, count: "exact" }).limit(1);
+    if (error) throw error;
+    res.json({ ok: true, db: true });
+  } catch {
+    res.status(503).json({ ok: false, db: false });
+  }
+});
 
 // Public: marketing-site contact form (rate limited inside the router).
 app.use("/api/contact", contactRouter);
+
+// Public: cookie-less page-view beacon from the marketing site.
+app.post("/api/metrics/view", (req, res) => {
+  void import("./routes/metrics.js").then((m) => m.recordView(req, res));
+});
 
 // Public: OAuth provider callbacks (browser redirects carry signed state,
 // not a bearer token).
@@ -89,6 +107,7 @@ app.get("/api/oauth/:provider/callback", (req, res) => {
 // Everything below requires a valid Supabase Auth JWT from the dashboard.
 app.use("/api", requireAuth);
 app.use("/api/oauth", oauthRouter);
+app.use("/api/metrics", metricsRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/accounts", accountsRouter);
 app.use("/api/inbox", inboxRouter);

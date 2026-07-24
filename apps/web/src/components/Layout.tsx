@@ -97,6 +97,11 @@ export function Layout() {
 
   const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
   const totalUnread = threads.filter((t) => t.unread).length;
+
+  // Pinned-tab glanceability: unread count lives in the browser tab title.
+  useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread}) OneInbox` : "OneInbox";
+  }, [totalUnread]);
   const unreadByAccount = new Map<string, number>();
   for (const t of threads) {
     if (t.unread) unreadByAccount.set(t.account_id, (unreadByAccount.get(t.account_id) ?? 0) + 1);
@@ -177,6 +182,13 @@ export function Layout() {
 
       <div className="dash-main">
         <aside className={`dash-side ${drawer ? "open" : ""}`}>
+          <button className="side-compose" onClick={() => go("/compose")}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            Compose
+          </button>
           <SideLink to="/" label="All inboxes" active={!activeAccount} count={totalUnread} onGo={go}>
             <InboxIcon />
           </SideLink>

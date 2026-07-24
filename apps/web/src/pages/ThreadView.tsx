@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useDeleteThread, useThread, useThreadOp } from "../lib/queries.js";
+import { useDeleteThread, useForward, useThread, useThreadOp } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { MessageBody } from "../components/MessageBody.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
@@ -18,6 +18,7 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   // a toggle flips whichever default applies (so the last one can collapse too).
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const [showEarlier, setShowEarlier] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
 
   if (!threadId) {
     return (
@@ -70,6 +71,9 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
         </span>
         <span className="chip">to {thread.account_email}</span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button className="chip" onClick={() => setForwardOpen((v) => !v)}>
+            ↪ Forward
+          </button>
           <button
             className={`chip ${thread.starred ? "on" : ""}`}
             onClick={() => threadOp.mutate({ threadId: thread.id, op: thread.starred ? "unstar" : "star" })}
@@ -107,6 +111,14 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       </div>
 
       <h1>{thread.subject || "(no subject)"}</h1>
+
+      {forwardOpen && (
+        <ForwardBox
+          threadId={thread.id}
+          accountEmail={thread.account_email}
+          onDone={() => setForwardOpen(false)}
+        />
+      )}
 
       <div className="gm-thread">
         {messages.map((m, i) => {
@@ -146,6 +158,78 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       </div>
 
       <ReplyComposer threadId={thread.id} replyTo={replyTo} accountEmail={thread.account_email} />
+    </div>
+  );
+}
+
+// Inline forward panel: recipients + optional note; the latest message goes
+// out quoted Gmail-style, sent from the thread's account.
+function ForwardBox({
+  threadId,
+  accountEmail,
+  onDone,
+}: {
+  threadId: string;
+  accountEmail: string;
+  onDone: () => void;
+}) {
+  const forward = useForward();
+  const [to, setTo] = useState("");
+  const [note, setNote] = useState("");
+  const recipients = to
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.includes("@"));
+
+  function send() {
+    if (recipients.length === 0) return;
+    forward.mutate(
+      { threadId, to: recipients, note: note.trim() || undefined },
+      {
+        onSuccess: () => {
+          toast(`Forwarded from ${accountEmail}`, "success");
+          onDone();
+        },
+      },
+    );
+  }
+
+  return (
+    <div className="read-reply" style={{ margin: "0 0 16px" }}>
+      <div className="field" style={{ marginTop: 0 }}>
+        <label>Forward to</label>
+        <input
+          autoFocus
+          placeholder="name@example.com, other@example.com"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label>Add a note (optional)</label>
+        <textarea
+          style={{ minHeight: 54 }}
+          placeholder="FYI..."
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </div>
+      {forward.error && <p className="err">{(forward.error as Error).message}</p>}
+      <div className="rr-bar">
+        <span className="rr-note">Latest message, quoted. Sends from {accountEmail}</span>
+        <span style={{ display: "flex", gap: 8 }}>
+          <button className="btn-mini" onClick={onDone}>
+            Cancel
+          </button>
+          <button
+            className="btn-sm"
+            disabled={forward.isPending || recipients.length === 0}
+            onClick={send}
+          >
+            {forward.isPending ? "Sending…" : "Forward"}
+          </button>
+        </span>
+      </div>
     </div>
   );
 }

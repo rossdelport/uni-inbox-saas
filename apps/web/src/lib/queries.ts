@@ -245,15 +245,34 @@ export function useReply() {
       body_text,
       body_html,
       attachments,
+      cc,
+      bcc,
     }: {
       threadId: string;
       body_text: string;
       body_html?: string;
       attachments?: OutgoingAttachment[];
+      cc?: string[];
+      bcc?: string[];
     }) =>
       api(`/api/threads/${threadId}/reply`, {
         method: "POST",
-        body: JSON.stringify({ body_text, body_html, attachments }),
+        body: JSON.stringify({ body_text, body_html, attachments, cc, bcc }),
+      }),
+    onSuccess: (_data, { threadId }) => {
+      void qc.invalidateQueries({ queryKey: ["thread", threadId] });
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+    },
+  });
+}
+
+export function useForward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, to, note }: { threadId: string; to: string[]; note?: string }) =>
+      api(`/api/threads/${threadId}/forward`, {
+        method: "POST",
+        body: JSON.stringify({ to, note }),
       }),
     onSuccess: (_data, { threadId }) => {
       void qc.invalidateQueries({ queryKey: ["thread", threadId] });

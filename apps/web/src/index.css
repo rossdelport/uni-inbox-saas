@@ -451,6 +451,12 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .rc-att button{border:none;background:none;cursor:pointer;color:var(--ink3);font-size:13px;padding:0;line-height:1}
 .rc-att button:hover{color:#d93025}
 
+/* Sidebar compose button */
+.side-compose{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:37px;margin:2px 0 10px;
+  border:none;border-radius:999px;background:#111;color:#fff;font-family:inherit;font-size:12.8px;font-weight:700;cursor:pointer}
+.side-compose svg{width:14px;height:14px}
+.side-compose:hover{background:#000}
+
 /* Long labels and addresses truncate inside the sidebar, never overflow.
    Scoped to the label span only: count pills and icons keep their size. */
 .side-item>span:not(.cnt):not(.paint){min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
