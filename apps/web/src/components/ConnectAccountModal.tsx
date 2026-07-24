@@ -118,22 +118,28 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
     );
   }
   return (
-    <ConnectFlow
+    <ModalShell
+      title="Connect an account"
+      sub="Pick a provider and sign in. It joins your unified inbox and starts syncing."
       onClose={onClose}
-      usedAfter={billing ? billing.connected_inboxes + 1 : null}
-      max={billing?.max_inboxes ?? null}
-    />
+    >
+      <ConnectForm
+        onConnected={onClose}
+        usedAfter={billing ? billing.connected_inboxes + 1 : null}
+        max={billing?.max_inboxes ?? null}
+      />
+    </ModalShell>
   );
 }
 
-function ConnectFlow({
-  onClose,
-  usedAfter,
-  max,
+export function ConnectForm({
+  onConnected,
+  usedAfter = null,
+  max = null,
 }: {
-  onClose: () => void;
-  usedAfter: number | null;
-  max: number | null;
+  onConnected: (label: string, email: string) => void;
+  usedAfter?: number | null;
+  max?: number | null;
 }) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [form, setForm] = useState<AccountInput>({
@@ -207,7 +213,7 @@ function ConnectFlow({
     connect.mutate(form, {
       onSuccess: (acct) => {
         toast(`${acct.label} connected: ${acct.email_address}`);
-        onClose();
+        onConnected(acct.label, acct.email_address);
       },
     });
   }
@@ -215,12 +221,7 @@ function ConnectFlow({
   const sel = form.provider_preset;
 
   return (
-    <ModalShell
-      title="Connect an account"
-      sub="Pick a provider and sign in. It joins your unified inbox and starts syncing."
-      onClose={onClose}
-    >
-      <form onSubmit={onSubmit}>
+    <form onSubmit={onSubmit}>
         <div className="m-provs">
           {presets.map((p) => (
             <button
@@ -354,11 +355,10 @@ function ConnectFlow({
                 : "Connect account"}
           </button>
         </div>
-        <p style={{ marginTop: 14, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
-          We test the connection before saving.
-          {usedAfter !== null && max !== null && <> {Math.min(usedAfter, max)} of {max} accounts used after this.</>}
-        </p>
-      </form>
-    </ModalShell>
+      <p style={{ marginTop: 14, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
+        We test the connection before saving.
+        {usedAfter !== null && max !== null && <> {Math.min(usedAfter, max)} of {max} accounts used after this.</>}
+      </p>
+    </form>
   );
 }

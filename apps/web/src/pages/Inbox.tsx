@@ -3,7 +3,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
-import { ConnectAccountModal } from "../components/ConnectAccountModal.js";
+import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
 import { ReadingPane } from "./ThreadView.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import type { AppOutletContext } from "../components/Layout.js";
@@ -34,7 +34,11 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   });
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
-  const [connectOpen, setConnectOpen] = useState(false);
+  // First-run onboarding: auto-open once for brand-new users (guarded below
+  // so it only ever shows while zero accounts are connected).
+  const [wizard, setWizard] = useState<null | "welcome" | "connect">(() =>
+    onboardingSeen() ? null : "welcome",
+  );
 
   // Mobile: the kit shows the reading pane as an overlay via a body class.
   useEffect(() => {
@@ -72,13 +76,13 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           <button
             className="btn-black"
             style={{ width: "auto", padding: "0 34px", height: 48, fontSize: 15 }}
-            onClick={() => setConnectOpen(true)}
+            onClick={() => setWizard("connect")}
           >
             Add account
           </button>
           <p style={{ fontSize: 12.5 }}>Takes about a minute. Passwords stored encrypted.</p>
         </div>
-        {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
+        {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
       </section>
     );
   }
@@ -229,6 +233,10 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
       <section className="dash-read">
         <ReadingPane threadId={threadId} onBack={closeThread} />
       </section>
+
+      {/* Keeps the onboarding wizard alive across the first connect (the
+          first-run branch above unmounts the moment accounts exist). */}
+      {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
     </>
   );
 }
