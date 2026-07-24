@@ -3,7 +3,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
-import { tint } from "../lib/colors.js";
+import { SenderAvatar } from "../components/SenderAvatar.js";
 import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
 import { ReadingPane } from "./ThreadView.js";
 import { MAIL_SRC } from "../lib/assets.js";
@@ -158,9 +158,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                 onClick={() => openThread(t)}
               >
                 {t.unread && <span className="unread-dot" style={{ background: t.account_color }} />}
-                <div className="ava" style={tint(t.account_color)}>
-                  {(senderLabel(t.from_name, t.from_address) || "?").charAt(0).toUpperCase()}
-                </div>
+                <SenderAvatar name={t.from_name} email={t.from_address} color={t.account_color} />
                 <div className="body">
                   <div className="r1">
                     <span className="who">{senderLabel(t.from_name, t.from_address)}</span>

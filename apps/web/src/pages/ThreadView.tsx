@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useDeleteThread, useThread, useThreadOp } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
-import { tint } from "../lib/colors.js";
 import { MessageBody } from "../components/MessageBody.js";
+import { SenderAvatar } from "../components/SenderAvatar.js";
 import { ReplyComposer } from "../components/ReplyComposer.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import { toast } from "../lib/toast.js";
@@ -131,6 +131,7 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
               open={open}
               accountColor={thread.account_color}
               accountLabel={thread.account_label}
+              accountEmail={thread.account_email}
               onToggle={() =>
                 setToggled((prev) => {
                   const next = new Set(prev);
@@ -157,12 +158,14 @@ function GmMessage({
   open,
   accountColor,
   accountLabel,
+  accountEmail,
   onToggle,
 }: {
   m: Message;
   open: boolean;
   accountColor: string;
   accountLabel: string;
+  accountEmail: string;
   onToggle: () => void;
 }) {
   const outbound = m.direction === "outbound";
@@ -173,9 +176,11 @@ function GmMessage({
   return (
     <div className="gm-msg">
       <button className="gm-head" onClick={onToggle}>
-        <div className="ava" style={tint(outbound ? "#308dfc" : accountColor)}>
-          {(sender || "?").charAt(0).toUpperCase()}
-        </div>
+        <SenderAvatar
+          name={outbound ? sender : m.from_name}
+          email={outbound ? accountEmail : m.from_address}
+          color={outbound ? "#308dfc" : accountColor}
+        />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="gm-top">
             <span className="gm-name">{sender}</span>
