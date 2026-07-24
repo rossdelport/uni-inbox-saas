@@ -90,13 +90,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .side-dot{width:9px;height:9px;border-radius:50%;flex:none;margin:0 4px 0 3px}
 .side-item .email{font-size:12px;font-weight:500;color:var(--ink3);display:block;margin-top:1px}
 .side-labels i{width:14px;height:14px;border-radius:4px;flex:none;margin-right:2px}
-.side-upsell{margin-top:auto;background:linear-gradient(150deg,var(--b1),#0a63e0);border-radius:18px;padding:18px;color:#fff;
-  box-shadow:0 12px 28px rgba(13,71,161,.28)}
-.side-upsell h4{font-size:15px;font-weight:800;letter-spacing:-.01em}
-.side-upsell p{margin-top:6px;font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.85)}
+/* Calm white plan card (matches the plans modal), not a loud blue block */
+.side-upsell{margin-top:auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;color:var(--ink);
+  box-shadow:0 1px 3px rgba(13,40,80,.05)}
+.side-upsell h4{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.side-upsell p{margin-top:6px;font-size:12.5px;line-height:1.45;color:var(--ink2)}
 .side-upsell a{display:flex;align-items:center;justify-content:center;margin-top:12px;height:38px;border-radius:999px;
   background:#111;color:#fff;font-size:13.5px;font-weight:700}
-.side-upsell a:hover{text-decoration:none}
+.side-upsell a:hover{text-decoration:none;background:#000}
 
 /* list pane */
 .dash-list{width:430px;flex:none;background:#f4f8fc;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -446,10 +447,11 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .rc-att button{border:none;background:none;cursor:pointer;color:var(--ink3);font-size:13px;padding:0;line-height:1}
 .rc-att button:hover{color:#d93025}
 
-/* Long labels and addresses truncate inside the sidebar, never overflow */
-.side-item>span{min-width:0;flex:1;overflow:hidden}
-.side-item>span,.side-item .email{white-space:nowrap;text-overflow:ellipsis}
-.side-item .email{display:block;overflow:hidden;max-width:100%}
+/* Long labels and addresses truncate inside the sidebar, never overflow.
+   Scoped to the label span only: count pills and icons keep their size. */
+.side-item>span:not(.cnt):not(.paint){min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.side-item .email{display:block;overflow:hidden;max-width:100%;white-space:nowrap;text-overflow:ellipsis}
+.side-item .cnt{flex:none}
 
 /* Sidebar hover colour swap */
 .acc-wrap{position:relative}

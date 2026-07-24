@@ -103,7 +103,7 @@ export function Login() {
             ? "One dashboard for every project inbox."
             : "Log in to your unified inbox. Every account, one dashboard."}
         </p>
-        {isSignup && <p className="auth-trial">Free for 14 days. No card needed.</p>}
+        {isSignup && <p className="auth-trial">Free for 3 days. No card needed.</p>}
 
         <div className="oauth">
           <a

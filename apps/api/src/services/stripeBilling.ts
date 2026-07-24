@@ -9,7 +9,7 @@ import { getBilling, PRICING } from "../lib/plans.js";
 //  - Monthly (STRIPE_PRICE_MONTHLY): recurring, graduated tiers — quantity is
 //    the number of allowed accounts; first 3 bill a flat $5, each extra $2.
 //  - Lifetime (STRIPE_PRICE_LIFETIME): $50 one-time payment, 10 accounts.
-// The 14-day trial is card-less and app-side (profiles.trial_ends_at).
+// The 3-day trial is card-less and app-side (profiles.trial_ends_at).
 // Plan flips happen in TWO places on purpose: the authenticated /confirm call
 // when the user lands back from Checkout (instant UX) and the webhook
 // (renewals, cancellations, and the backstop if the redirect never happens).

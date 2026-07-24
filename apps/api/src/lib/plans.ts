@@ -3,7 +3,7 @@ import { supabase } from "./supabase.js";
 
 // Pricing: one Monthly plan ($5/month with 3 accounts included, +$2/month per
 // extra account, billed as Stripe subscription quantity with graduated tiers)
-// and a $50 one-time Lifetime plan (10 accounts). The 14-day trial matches
+// and a $50 one-time Lifetime plan (10 accounts). The 3-day trial matches
 // Monthly's included 3, so the paywall moment is "I want my fourth inbox".
 export const PRICING = {
   monthlyBaseUsd: 5,
@@ -37,7 +37,7 @@ export interface ProfileBilling {
   monthlyQuantity: number;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
-  /** True when the user is on 'trial' AND the 14 days have lapsed. */
+  /** True when the user is on 'trial' AND the 3 days have lapsed. */
   trialExpired: boolean;
 }
 
