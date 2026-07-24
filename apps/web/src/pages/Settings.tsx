@@ -194,11 +194,18 @@ function AccountsPane() {
   );
 }
 
+const ACCOUNT_COLORS = [
+  "#EA4335", "#0078D4", "#3693F3", "#00B050", "#6001D2", "#EF5DA8", "#F5A623", "#0E7490",
+];
+
 function AccountRow({ account }: { account: EmailAccount }) {
   const update = useUpdateAccount();
   const remove = useRemoveAccount();
   const [fixOpen, setFixOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [label, setLabel] = useState(account.label);
+  const [color, setColor] = useState(account.color);
 
   return (
     <div className="acc-row" style={{ flexWrap: "wrap" }}>
@@ -220,6 +227,16 @@ function AccountRow({ account }: { account: EmailAccount }) {
         <div className="a-mail">{account.email_address}</div>
       </div>
       <div className="a-acts">
+        <button
+          className="btn-mini"
+          onClick={() => {
+            setEditOpen((v) => !v);
+            setLabel(account.label);
+            setColor(account.color);
+          }}
+        >
+          Edit
+        </button>
         <button className="btn-mini" onClick={() => setFixOpen((v) => !v)}>
           Update password
         </button>
@@ -259,6 +276,53 @@ function AccountRow({ account }: { account: EmailAccount }) {
 
       {account.last_error && account.status !== "active" && (
         <p className="err" style={{ width: "100%" }}>{account.last_error}</p>
+      )}
+
+      {editOpen && (
+        <form
+          style={{ display: "flex", gap: 8, width: "100%", marginTop: 4, alignItems: "center", flexWrap: "wrap" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!label.trim()) return;
+            update.mutate(
+              { id: account.id, label: label.trim(), color },
+              {
+                onSuccess: () => {
+                  setEditOpen(false);
+                  toast("Account updated");
+                },
+              },
+            );
+          }}
+        >
+          <input
+            style={{ flex: 1, minWidth: 160, height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#f7fafd", padding: "0 14px", fontSize: 14, outline: "none" }}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Label in your sidebar"
+          />
+          <span style={{ display: "flex", gap: 6 }}>
+            {ACCOUNT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Color ${c}`}
+                onClick={() => setColor(c)}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: c,
+                  border: color === c ? "2.5px solid var(--ink)" : "2.5px solid transparent",
+                  padding: 0,
+                }}
+              />
+            ))}
+          </span>
+          <button className="btn-mini" type="submit" disabled={update.isPending}>
+            {update.isPending ? "Saving…" : "Save"}
+          </button>
+        </form>
       )}
 
       {fixOpen && (

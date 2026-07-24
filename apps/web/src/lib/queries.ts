@@ -125,6 +125,33 @@ export function useThreadOp() {
   });
 }
 
+export function useDeleteThread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) => api(`/api/inbox/threads/${threadId}`, { method: "DELETE" }),
+    // Optimistic: drop the row from every cached inbox page immediately.
+    onMutate: async (threadId) => {
+      await qc.cancelQueries({ queryKey: ["inbox"] });
+      const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      for (const [key, data] of snapshots) {
+        if (!data) continue;
+        qc.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            threads: page.threads.filter((t) => t.id !== threadId),
+          })),
+        });
+      }
+      return { snapshots };
+    },
+    onError: (_err, _vars, ctx) => {
+      for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["inbox"] }),
+  });
+}
+
 export function useTestConnection() {
   return useMutation({
     mutationFn: (input: AccountInput) =>
@@ -147,7 +174,7 @@ export function useConnectAccount() {
 export function useUpdateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string; label?: string; password?: string; status?: "active" | "disabled" }) =>
+    mutationFn: ({ id, ...patch }: { id: string; label?: string; color?: string; password?: string; status?: "active" | "disabled" }) =>
       api<EmailAccount>(`/api/accounts/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["accounts"] });

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useReply, useThread, useThreadOp } from "../lib/queries.js";
+import { useDeleteThread, useReply, useThread, useThreadOp } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { MessageBody } from "../components/MessageBody.js";
 import { MAIL_SRC } from "../lib/assets.js";
@@ -10,6 +10,7 @@ import { toast } from "../lib/toast.js";
 export function ReadingPane({ threadId, onBack }: { threadId: string | null; onBack: () => void }) {
   const { data, isLoading, error } = useThread(threadId);
   const threadOp = useThreadOp();
+  const deleteThread = useDeleteThread();
   const reply = useReply();
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -100,6 +101,16 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
             }}
           >
             {thread.archived ? "↩ Unarchive" : "🗂 Archive"}
+          </button>
+          <button
+            className="chip"
+            onClick={() => {
+              if (!window.confirm("Delete this conversation from Uni-Inbox? Your real mailbox is untouched.")) return;
+              deleteThread.mutate(thread.id, { onSuccess: () => toast("Conversation deleted") });
+              onBack();
+            }}
+          >
+            🗑 Delete
           </button>
         </span>
       </div>

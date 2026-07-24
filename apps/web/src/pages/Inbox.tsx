@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
-import { useAccounts, useInbox, useThreadOp } from "../lib/queries.js";
+import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
+import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { ConnectAccountModal } from "../components/ConnectAccountModal.js";
 import { ReadingPane } from "./ThreadView.js";
@@ -32,6 +33,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     later: view === "later",
   });
   const threadOp = useThreadOp();
+  const deleteThread = useDeleteThread();
   const [connectOpen, setConnectOpen] = useState(false);
 
   // Mobile: the kit shows the reading pane as an overlay via a body class.
@@ -193,6 +195,17 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     }
                   >
                     {t.archived ? "↩" : "🗂"}
+                  </button>
+                  <button
+                    className="act-btn"
+                    title="Delete from Uni-Inbox"
+                    onClick={() => {
+                      if (!window.confirm("Delete this conversation from Uni-Inbox? Your real mailbox is untouched.")) return;
+                      deleteThread.mutate(t.id, { onSuccess: () => toast("Conversation deleted") });
+                      if (threadId === t.id) closeThread();
+                    }}
+                  >
+                    🗑
                   </button>
                 </div>
               </div>

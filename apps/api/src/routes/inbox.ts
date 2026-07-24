@@ -170,3 +170,20 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
   }
   res.json({ ok: true });
 });
+
+// DELETE /api/inbox/threads/:id — remove the conversation from Uni-Inbox.
+// Local-only: messages cascade with the thread and the real mailbox is
+// untouched (incremental sync will not re-import already-seen UIDs).
+inboxRouter.delete("/threads/:id", async (req, res) => {
+  const uid = userId(res);
+  const { data: thread } = await supabase
+    .from("threads")
+    .select("id")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (!thread) return res.status(404).json({ error: "thread not found" });
+  const { error } = await supabase.from("threads").delete().eq("id", thread.id);
+  if (error) return res.status(500).json({ error: "could not delete thread" });
+  res.json({ ok: true });
+});
