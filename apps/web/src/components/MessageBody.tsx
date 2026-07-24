@@ -20,10 +20,16 @@ export function MessageBody({
     if (!loadImages) {
       clean = clean.replace(/(<img[^>]+src\s*=\s*["'])https?:\/\/[^"']*(["'])/gi, "$1$2");
     }
+    // Inline cid: images point at IMAP attachment parts the iframe can't
+    // fetch; blank them so they hide instead of rendering broken glyphs.
+    clean = clean.replace(/(<img[^>]+src\s*=\s*["'])cid:[^"']*(["'])/gi, "$1$2");
     const html =
       `<base target="_blank"><style>body{font:14px/1.6 -apple-system,system-ui,sans-serif;` +
       `color:#27272a;margin:0;padding:4px;word-break:break-word}` +
-      `img{max-width:100%;height:auto}a{color:#4f46e5}</style>${clean}`;
+      `img{max-width:100%;height:auto}` +
+      // Blocked/stripped images disappear entirely, no broken-image icons.
+      `img[src=""],img:not([src]){display:none}` +
+      `a{color:#4f46e5}</style>${clean}`;
     return { doc: html, hadRemoteImages: hasRemote };
   }, [bodyHtml, loadImages]);
 
