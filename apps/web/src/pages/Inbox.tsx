@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
+import { tint } from "../lib/colors.js";
 import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
 import { ReadingPane } from "./ThreadView.js";
 import { MAIL_SRC } from "../lib/assets.js";
@@ -151,10 +152,11 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
               <div
                 key={t.id}
                 className={`mrow ${t.unread ? "unread" : ""} ${threadId === t.id ? "sel" : ""}`}
+                style={{ "--acc": t.account_color } as CSSProperties}
                 onClick={() => openThread(t)}
               >
-                {t.unread && <span className="unread-dot" />}
-                <div className="ava" style={{ background: t.account_color }}>
+                {t.unread && <span className="unread-dot" style={{ background: t.account_color }} />}
+                <div className="ava" style={tint(t.account_color)}>
                   {(senderLabel(t.from_name, t.from_address) || "?").charAt(0).toUpperCase()}
                 </div>
                 <div className="body">

@@ -3,7 +3,7 @@
 
 export type PlanId = "trial" | "monthly" | "lifetime";
 
-export type ProviderPreset = "gmail" | "icloud" | "porkbun" | "custom";
+export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 
 export type AccountStatus = "active" | "auth_failed" | "disabled";
 
@@ -14,6 +14,7 @@ export interface EmailAccount {
   email_address: string;
   color: string;
   provider_preset: ProviderPreset;
+  auth_method?: "password" | "oauth_google" | "oauth_microsoft";
   status: AccountStatus;
   last_error: string | null;
   created_at: string;

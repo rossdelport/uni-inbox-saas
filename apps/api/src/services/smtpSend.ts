@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import MailComposer from "nodemailer/lib/mail-composer/index.js";
 import { decryptCredentials } from "../lib/crypto.js";
+import { getAccessToken, providerForAuthMethod } from "./oauthTokens.js";
 import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 import { withImap, findSpecialUse } from "./imapClient.js";
@@ -26,6 +27,7 @@ export interface SendAccount {
   imap_username: string;
   credentials_enc: string;
   provider_preset: string;
+  auth_method?: string;
 }
 
 export interface OutboundInput {
@@ -45,7 +47,8 @@ export interface SentInfo {
 }
 
 export async function smtpSend(account: SendAccount, input: OutboundInput): Promise<SentInfo> {
-  const creds = decryptCredentials(account.credentials_enc);
+  const oauth = providerForAuthMethod(account.auth_method ?? "password");
+  const creds = oauth ? null : decryptCredentials(account.credentials_enc);
 
   const composer = new MailComposer({
     from: input.fromName
@@ -69,10 +72,16 @@ export async function smtpSend(account: SendAccount, input: OutboundInput): Prom
     port: account.smtp_port,
     secure: account.smtp_security === "tls", // 465 implicit TLS; 587 = STARTTLS
     requireTLS: account.smtp_security === "starttls",
-    auth: {
-      user: account.imap_username,
-      pass: creds.smtp_password ?? creds.imap_password,
-    },
+    auth: oauth
+      ? {
+          type: "OAuth2" as const,
+          user: account.email_address,
+          accessToken: await getAccessToken(account.id, account.auth_method!, account.credentials_enc),
+        }
+      : {
+          user: account.imap_username,
+          pass: creds!.smtp_password ?? creds!.imap_password,
+        },
     logger: false,
   });
   try {

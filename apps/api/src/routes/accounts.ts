@@ -14,7 +14,7 @@ import { wakeAccount } from "../services/imapSync.js";
 export const accountsRouter = Router();
 
 // Per-account color badges. Assigned round-robin at connect time.
-const PALETTE = [
+export const PALETTE = [
   "#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444",
   "#a855f7", "#14b8a6", "#f97316", "#84cc16", "#ec4899",
   "#64748b", "#eab308",
@@ -41,7 +41,7 @@ const accountInput = z.object({
 });
 
 const SANITIZED_COLUMNS =
-  "id, label, email_address, color, provider_preset, status, last_error, created_at";
+  "id, label, email_address, color, provider_preset, auth_method, status, last_error, created_at";
 
 // Derived from the schema so route parse results are assignable by
 // construction, independent of how zod's inference behaves on any compiler.
@@ -54,7 +54,7 @@ async function testConnection(input: TestInput): Promise<{ imap_ok: boolean; smt
   let smtpOk = false;
   let error: string | null = null;
 
-  const imap = buildImap(
+  const imap = await buildImap(
     {
       id: "test",
       imap_host: input.imap_host,
@@ -127,6 +127,92 @@ function scrub(err: unknown, protocol: string): string {
 // The onboarding UI reads presets from here so hosts live in one place.
 accountsRouter.get("/presets", (_req, res) => {
   res.json(Object.values(PRESETS));
+});
+
+// MX-record autodiscovery for "my own domain" connections: we look at where
+// the domain's mail actually routes and prefill the right servers.
+const MX_MAP: Array<{
+  match: RegExp;
+  provider: string;
+  imap_host: string;
+  imap_port: number;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_security: "tls" | "starttls";
+  note?: string;
+  use_oauth?: "google" | "microsoft";
+}> = [
+  { match: /google\.com$|googlemail\.com$/i, provider: "Google Workspace", imap_host: "imap.gmail.com", imap_port: 993, smtp_host: "smtp.gmail.com", smtp_port: 465, smtp_security: "tls", use_oauth: "google", note: "This domain runs on Google Workspace. The Gmail button is the smoothest way to connect it." },
+  { match: /outlook\.com$|office365\.com$/i, provider: "Microsoft 365", imap_host: "outlook.office365.com", imap_port: 993, smtp_host: "smtp.office365.com", smtp_port: 587, smtp_security: "starttls", use_oauth: "microsoft", note: "This domain runs on Microsoft 365. The Outlook button is the smoothest way to connect it." },
+  { match: /porkbun\.com$/i, provider: "Porkbun email hosting", imap_host: "imap.porkbun.com", imap_port: 993, smtp_host: "smtp.porkbun.com", smtp_port: 587, smtp_security: "starttls" },
+  { match: /zoho(mail)?\.(com|eu|in)$/i, provider: "Zoho Mail", imap_host: "imap.zoho.com", imap_port: 993, smtp_host: "smtp.zoho.com", smtp_port: 465, smtp_security: "tls" },
+  { match: /messagingengine\.com$|fastmail\.com$/i, provider: "Fastmail", imap_host: "imap.fastmail.com", imap_port: 993, smtp_host: "smtp.fastmail.com", smtp_port: 465, smtp_security: "tls" },
+  { match: /privateemail\.com$|registrar-servers\.com$/i, provider: "Namecheap Private Email", imap_host: "mail.privateemail.com", imap_port: 993, smtp_host: "mail.privateemail.com", smtp_port: 465, smtp_security: "tls" },
+  { match: /titan\.email$/i, provider: "Titan", imap_host: "imap.titan.email", imap_port: 993, smtp_host: "smtp.titan.email", smtp_port: 465, smtp_security: "tls" },
+  { match: /ionos\.(com|de|co\.uk)$/i, provider: "IONOS", imap_host: "imap.ionos.com", imap_port: 993, smtp_host: "smtp.ionos.com", smtp_port: 465, smtp_security: "tls" },
+  { match: /ovh\.(net|com)$/i, provider: "OVH", imap_host: "ssl0.ovh.net", imap_port: 993, smtp_host: "ssl0.ovh.net", smtp_port: 465, smtp_security: "tls" },
+  { match: /hostinger\.com$|titan\.hostinger/i, provider: "Hostinger", imap_host: "imap.hostinger.com", imap_port: 993, smtp_host: "smtp.hostinger.com", smtp_port: 465, smtp_security: "tls" },
+  { match: /mailbox\.org$/i, provider: "mailbox.org", imap_host: "imap.mailbox.org", imap_port: 993, smtp_host: "smtp.mailbox.org", smtp_port: 465, smtp_security: "tls" },
+  { match: /migadu\.com$/i, provider: "Migadu", imap_host: "imap.migadu.com", imap_port: 993, smtp_host: "smtp.migadu.com", smtp_port: 465, smtp_security: "tls" },
+  { match: /protonmail\.ch$|proton\.me$/i, provider: "Proton Mail", imap_host: "127.0.0.1", imap_port: 1143, smtp_host: "127.0.0.1", smtp_port: 1025, smtp_security: "starttls", note: "Proton Mail only allows IMAP through their desktop Bridge app, so it cannot connect to a cloud inbox directly." },
+];
+
+accountsRouter.post("/discover", async (req, res) => {
+  const uid = userId(res);
+  if (!allow(`discover:${uid}`, 30, 3600_000)) {
+    return res.status(429).json({ error: "Too many lookups, try again soon." });
+  }
+  const email = String((req.body as { email?: string })?.email ?? "").toLowerCase();
+  const domain = email.split("@")[1];
+  if (!domain || !domain.includes(".")) {
+    return res.status(400).json({ error: "invalid email" });
+  }
+  try {
+    const { resolveMx } = await import("node:dns/promises");
+    const mx = await resolveMx(domain);
+    mx.sort((a, b) => a.priority - b.priority);
+    const target = mx[0]?.exchange?.toLowerCase() ?? "";
+    const hit = MX_MAP.find((m) => m.match.test(target));
+    if (hit) {
+      return res.json({
+        detected: hit.provider,
+        mx: target,
+        imap_host: hit.imap_host,
+        imap_port: hit.imap_port,
+        smtp_host: hit.smtp_host,
+        smtp_port: hit.smtp_port,
+        smtp_security: hit.smtp_security,
+        use_oauth: hit.use_oauth ?? null,
+        note: hit.note ?? null,
+      });
+    }
+    // Unknown host: best-guess convention, clearly labeled as a guess.
+    return res.json({
+      detected: null,
+      mx: target || null,
+      imap_host: `mail.${domain}`,
+      imap_port: 993,
+      smtp_host: `mail.${domain}`,
+      smtp_port: 465,
+      smtp_security: "tls",
+      use_oauth: null,
+      note: target
+        ? "We could not identify this mail host, so the servers below are a guess. Your email provider's help pages list the exact IMAP and SMTP hosts."
+        : null,
+    });
+  } catch {
+    return res.json({
+      detected: null,
+      mx: null,
+      imap_host: "",
+      imap_port: 993,
+      smtp_host: "",
+      smtp_port: 465,
+      smtp_security: "tls",
+      use_oauth: null,
+      note: "This domain has no mail records that we can see. Check the spelling, or enter the servers manually.",
+    });
+  }
 });
 
 // Test a connection WITHOUT saving. Rate-limited: this endpoint takes

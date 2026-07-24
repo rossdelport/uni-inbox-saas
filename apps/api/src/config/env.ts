@@ -53,6 +53,13 @@ const schema = z.object({
   // Per-user daily outbound send cap (protects against runaway clients).
   SEND_DAILY_CAP: z.coerce.number().default(50),
 
+  // OAuth mail providers. Optional: without them the connect modal falls
+  // back to app-password flows for those providers.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  MS_CLIENT_ID: z.string().optional(),
+  MS_CLIENT_SECRET: z.string().optional(),
+
   // Marketing-site contact form. Optional: without the key the endpoint
   // returns 503 instead of blocking boot.
   RESEND_API_KEY: z.string().optional(),

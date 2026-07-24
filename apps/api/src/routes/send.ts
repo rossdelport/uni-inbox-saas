@@ -16,7 +16,7 @@ import {
 export const sendRouter = Router();
 
 const ACCOUNT_COLUMNS =
-  "id, owner_id, email_address, smtp_host, smtp_port, smtp_security, imap_host, imap_port, imap_username, credentials_enc, provider_preset, status" as const;
+  "id, owner_id, email_address, smtp_host, smtp_port, smtp_security, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method, status" as const;
 
 const emailList = z.array(z.string().email()).min(1).max(20);
 

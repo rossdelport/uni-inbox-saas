@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
 import { useAccounts, useBillingState, useInbox } from "../lib/queries.js";
 import { LOGO_SRC } from "../lib/assets.js";
+import { toast } from "../lib/toast.js";
 import { PlansModal } from "./PlansModal.js";
 import { ConnectAccountModal } from "./ConnectAccountModal.js";
 
@@ -17,7 +19,8 @@ export function Layout() {
   const { data: accounts } = useAccounts();
   const { data: billing } = useBillingState();
   const inbox = useInbox({});
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const qc = useQueryClient();
   const activeAccount = params.get("account");
   const navigate = useNavigate();
 
@@ -34,6 +37,27 @@ export function Layout() {
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
+
+  // Landing back from an OAuth connect: toast the outcome and clean the URL.
+  useEffect(() => {
+    const connected = params.get("connected");
+    const connectError = params.get("connect_error");
+    if (!connected && !connectError) return;
+    if (connected) {
+      toast(`${connected} connected. Syncing now.`);
+    } else if (connectError === "plan_full") {
+      toast("Your plan is full. Open Plans and billing to add room.");
+    } else {
+      toast("Could not connect the account. Try again.");
+    }
+    const next = new URLSearchParams(params);
+    next.delete("connected");
+    next.delete("connect_error");
+    setParams(next, { replace: true });
+    void qc.invalidateQueries({ queryKey: ["accounts"] });
+    void qc.invalidateQueries({ queryKey: ["billing"] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   // Toast bus: any component fires toast("...") and it shows here.
   useEffect(() => {

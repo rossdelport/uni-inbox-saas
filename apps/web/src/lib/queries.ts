@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import type {
   AccountInput,
+  DiscoverResult,
   BillingState,
   EmailAccount,
   InboxPage,
@@ -149,6 +150,32 @@ export function useDeleteThread() {
       for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: ["inbox"] }),
+  });
+}
+
+export function useOauthProviders() {
+  return useQuery({
+    queryKey: ["oauth-providers"],
+    queryFn: () => api<{ google: boolean; microsoft: boolean }>("/api/oauth/providers"),
+    staleTime: 300_000,
+  });
+}
+
+export function useOauthStart() {
+  return useMutation({
+    mutationFn: (provider: "google" | "microsoft") =>
+      api<{ url: string }>(`/api/oauth/${provider}/start`, { method: "POST" }),
+    onSuccess: ({ url }) => window.location.assign(url),
+  });
+}
+
+export function useDiscover() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      api<DiscoverResult>("/api/accounts/discover", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
   });
 }
 

@@ -3,7 +3,7 @@
 
 export type PlanId = "trial" | "monthly" | "lifetime";
 
-export type ProviderPreset = "gmail" | "icloud" | "porkbun" | "custom";
+export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 
 export type AccountStatus = "active" | "auth_failed" | "disabled";
 
@@ -14,6 +14,7 @@ export interface EmailAccount {
   email_address: string;
   color: string;
   provider_preset: ProviderPreset;
+  auth_method?: "password" | "oauth_google" | "oauth_microsoft";
   status: AccountStatus;
   last_error: string | null;
   created_at: string;
@@ -110,4 +111,16 @@ export interface TestResult {
   imap_ok: boolean;
   smtp_ok: boolean;
   error: string | null;
+}
+
+export interface DiscoverResult {
+  detected: string | null;
+  mx: string | null;
+  imap_host: string;
+  imap_port: number;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_security: "tls" | "starttls";
+  use_oauth: "google" | "microsoft" | null;
+  note: string | null;
 }

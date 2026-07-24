@@ -13,6 +13,7 @@ import { messagesRouter } from "./routes/messages.js";
 import { sendRouter } from "./routes/send.js";
 import { billingRouter } from "./routes/billing.js";
 import { contactRouter } from "./routes/contact.js";
+import { oauthRouter } from "./routes/oauth.js";
 
 const app = express();
 // Railway terminates TLS at its proxy; trust exactly one hop so req.ip is the
@@ -77,8 +78,15 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // Public: marketing-site contact form (rate limited inside the router).
 app.use("/api/contact", contactRouter);
 
+// Public: OAuth provider callbacks (browser redirects carry signed state,
+// not a bearer token).
+app.get("/api/oauth/:provider/callback", (req, res) => {
+  void import("./routes/oauth.js").then((m) => m.oauthCallback(req, res));
+});
+
 // Everything below requires a valid Supabase Auth JWT from the dashboard.
 app.use("/api", requireAuth);
+app.use("/api/oauth", oauthRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/accounts", accountsRouter);
 app.use("/api/inbox", inboxRouter);

@@ -74,7 +74,7 @@ messagesRouter.get("/messages/:id/attachments/:partId", async (req, res) => {
 
   const { data: account } = await supabase
     .from("email_accounts")
-    .select("id, imap_host, imap_port, imap_username, credentials_enc, provider_preset")
+    .select("id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method")
     .eq("id", message.account_id)
     .maybeSingle();
   if (!account) return res.status(404).json({ error: "account not found" });

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useDeleteThread, useReply, useThread, useThreadOp } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
+import { tint } from "../lib/colors.js";
 import { MessageBody } from "../components/MessageBody.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import { toast } from "../lib/toast.js";
+import type { Message } from "../lib/types.js";
 
 // The reading pane (.read-wrap): via chips, action chips, big subject,
 // sender rows, message bodies and the reply composer.
@@ -13,7 +15,10 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const deleteThread = useDeleteThread();
   const reply = useReply();
   const [draft, setDraft] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Toggled message ids. The latest message defaults open, older ones closed;
+  // a toggle flips whichever default applies (so the last one can collapse too).
+  const [toggled, setToggled] = useState<Set<string>>(new Set());
+  const [showEarlier, setShowEarlier] = useState(false);
 
   if (!threadId) {
     return (
@@ -117,62 +122,40 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
 
       <h1>{thread.subject || "(no subject)"}</h1>
 
-      {messages.map((m, i) => {
-        const isLast = i === lastIdx;
-        const open = isLast || expanded.has(m.id);
-        const sender = m.direction === "outbound" ? "You" : senderLabel(m.from_name, m.from_address);
-        return (
-          <div key={m.id}>
-            <div
-              className="read-from"
-              style={{ cursor: isLast ? "default" : "pointer" }}
-              onClick={() => {
-                if (isLast) return;
-                setExpanded((prev) => {
+      <div className="gm-thread">
+        {messages.map((m, i) => {
+          // Long threads: keep the first message, collapse the middle into a
+          // pill, always show the last three (Gmail's stacking behavior).
+          const hidden = messages.length > 6 && !showEarlier && i > 0 && i < messages.length - 3;
+          if (hidden) {
+            if (i !== 1) return null;
+            return (
+              <button key="gm-older" className="gm-older" onClick={() => setShowEarlier(true)}>
+                Show {messages.length - 4} earlier message{messages.length - 4 === 1 ? "" : "s"}
+              </button>
+            );
+          }
+          const isLast = i === lastIdx;
+          const open = isLast !== toggled.has(m.id);
+          return (
+            <GmMessage
+              key={m.id}
+              m={m}
+              open={open}
+              accountColor={thread.account_color}
+              accountLabel={thread.account_label}
+              onToggle={() =>
+                setToggled((prev) => {
                   const next = new Set(prev);
                   if (next.has(m.id)) next.delete(m.id);
                   else next.add(m.id);
                   return next;
-                });
-              }}
-            >
-              <div
-                className="ava"
-                style={{ background: m.direction === "outbound" ? "var(--b1)" : thread.account_color }}
-              >
-                {(sender || "?").charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <div className="n">{sender}</div>
-                <div className="e">
-                  {m.direction === "outbound"
-                    ? `to ${m.to_addresses.join(", ")}`
-                    : `${m.from_address} via ${thread.account_label}`}
-                </div>
-              </div>
-              <span className="when">{formatWhen(m.date)}</span>
-            </div>
-            {open && (
-              <div className="read-body">
-                <MessageBody bodyHtml={m.body_html} bodyText={m.body_text} />
-                {m.attachments.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                    {m.attachments.map((a) => (
-                      <AttachmentChip
-                        key={a.partId}
-                        messageId={m.id}
-                        partId={a.partId}
-                        filename={a.filename ?? "attachment"}
-                        size={a.size}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                })
+              }
+            />
+          );
+        })}
+      </div>
 
       <div className="read-reply">
         <textarea
@@ -190,6 +173,63 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// One message in the Gmail-style thread: a clickable header row (avatar,
+// sender, snippet or recipients, date) with the body underneath when open.
+function GmMessage({
+  m,
+  open,
+  accountColor,
+  accountLabel,
+  onToggle,
+}: {
+  m: Message;
+  open: boolean;
+  accountColor: string;
+  accountLabel: string;
+  onToggle: () => void;
+}) {
+  const outbound = m.direction === "outbound";
+  const sender = outbound ? "You" : senderLabel(m.from_name, m.from_address);
+  const meta = outbound
+    ? `to ${m.to_addresses.join(", ")}`
+    : `${m.from_address} via ${accountLabel}`;
+  return (
+    <div className="gm-msg">
+      <button className="gm-head" onClick={onToggle}>
+        <div className="ava" style={tint(outbound ? "#308dfc" : accountColor)}>
+          {(sender || "?").charAt(0).toUpperCase()}
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="gm-top">
+            <span className="gm-name">{sender}</span>
+            {open && <span className="gm-meta">{meta}</span>}
+            <span className="gm-when">{formatWhen(m.date)}</span>
+          </div>
+          {!open && <div className="gm-snip">{m.snippet || meta}</div>}
+        </div>
+      </button>
+      {open && (
+        <div className="gm-body">
+          <MessageBody bodyHtml={m.body_html} bodyText={m.body_text} />
+          {m.attachments.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              {m.attachments.map((a) => (
+                <AttachmentChip
+                  key={a.partId}
+                  messageId={m.id}
+                  partId={a.partId}
+                  filename={a.filename ?? "attachment"}
+                  size={a.size}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

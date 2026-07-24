@@ -20,6 +20,7 @@ interface AccountRow {
   imap_port: number;
   imap_username: string;
   credentials_enc: string;
+  auth_method?: string;
   provider_preset: string;
   status: string;
 }
@@ -71,7 +72,7 @@ export class AccountSyncer {
   /** Main loop. Resolves when stopped; schedules backoff + resolves on error. */
   async run(): Promise<void> {
     try {
-      this.client = buildImap(this.account);
+      this.client = await buildImap(this.account);
       await this.client.connect();
       await this.client.mailboxOpen("INBOX");
 
@@ -445,7 +446,7 @@ export async function superviseTick(): Promise<void> {
   const { data: accounts, error } = await supabase
     .from("email_accounts")
     .select(
-      "id, owner_id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, status, next_sync_at",
+      "id, owner_id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method, status, next_sync_at",
     );
   if (error) {
     logger.error({ error }, "supervisor: account list failed");

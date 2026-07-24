@@ -7,10 +7,11 @@ import { env } from "../config/env.js";
 const KEY = Buffer.from(env.CREDENTIALS_KEY, "base64");
 
 export interface MailCredentials {
-  imap_password: string;
-  // Falls back to imap_password when unset (the common case: one mailbox
-  // password shared by both protocols).
+  // Password accounts: the mailbox password (smtp_password falls back to it).
+  imap_password?: string;
   smtp_password?: string;
+  // OAuth accounts: the long-lived refresh token instead of any password.
+  refresh_token?: string;
 }
 
 export function encryptCredentials(creds: MailCredentials): string {

@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { decryptCredentials } from "../lib/crypto.js";
+import { getAccessToken, providerForAuthMethod } from "./oauthTokens.js";
 
 // Thin construction/teardown helpers around ImapFlow. Loggers are hard-off:
 // imapflow's debug log would echo the LOGIN command (i.e. the password).
@@ -11,15 +12,26 @@ export interface AccountConn {
   imap_username: string;
   credentials_enc: string;
   provider_preset: string;
+  auth_method?: string;
 }
 
-export function buildImap(account: AccountConn, passwordOverride?: string): ImapFlow {
-  const password = passwordOverride ?? decryptCredentials(account.credentials_enc).imap_password;
+export async function buildImap(account: AccountConn, passwordOverride?: string): Promise<ImapFlow> {
+  const oauth = providerForAuthMethod(account.auth_method ?? "password");
+  const auth =
+    oauth && !passwordOverride
+      ? {
+          user: account.imap_username,
+          accessToken: await getAccessToken(account.id, account.auth_method!, account.credentials_enc),
+        }
+      : {
+          user: account.imap_username,
+          pass: passwordOverride ?? decryptCredentials(account.credentials_enc).imap_password,
+        };
   return new ImapFlow({
     host: account.imap_host,
     port: account.imap_port,
     secure: account.imap_port === 993,
-    auth: { user: account.imap_username, pass: password },
+    auth,
     logger: false,
     // Fail fast instead of hanging a worker slot on a dead server.
     socketTimeout: 60_000,
@@ -33,7 +45,7 @@ export async function withImap<T>(
   account: AccountConn,
   fn: (client: ImapFlow) => Promise<T>,
 ): Promise<T> {
-  const client = buildImap(account);
+  const client = await buildImap(account);
   await client.connect();
   try {
     return await fn(client);
