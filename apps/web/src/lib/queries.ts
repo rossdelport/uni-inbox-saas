@@ -206,6 +206,9 @@ export function useUpdateAccount() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["accounts"] });
       void qc.invalidateQueries({ queryKey: ["billing"] });
+      // Rows and open threads carry the account colour/label with them.
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["thread"] });
     },
   });
 }
