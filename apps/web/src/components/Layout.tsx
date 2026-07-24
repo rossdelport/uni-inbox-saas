@@ -3,11 +3,12 @@ import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
-import { useAccounts, useBillingState, useInbox } from "../lib/queries.js";
+import { useAccounts, useBillingState, useInbox, useUpdateAccount } from "../lib/queries.js";
 import { LOGO_SRC } from "../lib/assets.js";
 import { toast, type ToastKind } from "../lib/toast.js";
 import { PlansModal } from "./PlansModal.js";
 import { ConnectAccountModal } from "./ConnectAccountModal.js";
+import { ColorDots } from "./ColorDots.js";
 
 export interface AppOutletContext {
   search: string;
@@ -30,6 +31,8 @@ export function Layout() {
   const [plansOpen, setPlansOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [colorFor, setColorFor] = useState<string | null>(null);
+  const updateAccount = useUpdateAccount();
   const [toastState, setToastState] = useState<{ msg: string; kind: ToastKind; key: number } | null>(
     null,
   );
@@ -79,6 +82,16 @@ export function Layout() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
+
+  // Sidebar colour popover closes on any outside click.
+  useEffect(() => {
+    if (!colorFor) return;
+    function onDown(e: MouseEvent) {
+      if (!(e.target as Element).closest?.(".cpop, .paint")) setColorFor(null);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [colorFor]);
 
   const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
   const totalUnread = threads.filter((t) => t.unread).length;
@@ -180,29 +193,57 @@ export function Layout() {
             {(accounts ?? []).map((a) => {
               const unread = unreadByAccount.get(a.id) ?? 0;
               return (
-                <button
-                  key={a.id}
-                  className={`side-item ${activeAccount === a.id ? "active" : ""}`}
-                  style={activeAccount === a.id ? { background: `${a.color}1c` } : undefined}
-                  onClick={() => go(`/?account=${a.id}`)}
-                >
-                  <i className="side-dot" style={{ background: a.color }} />
-                  <span style={{ minWidth: 0 }}>
-                    {a.label}
-                    <span className="email">{a.email_address}</span>
-                  </span>
-                  {a.status !== "active" ? (
-                    <span
-                      className="cnt"
-                      style={{ background: "#fde8e6", color: "#EA4335" }}
-                      title={a.status === "auth_failed" ? "Sign in failed" : "Paused"}
-                    >
-                      !
+                <div key={a.id} className="acc-wrap">
+                  <button
+                    className={`side-item ${activeAccount === a.id ? "active" : ""}`}
+                    style={activeAccount === a.id ? { background: `${a.color}1c` } : undefined}
+                    onClick={() => go(`/?account=${a.id}`)}
+                  >
+                    <i className="side-dot" style={{ background: a.color }} />
+                    <span style={{ minWidth: 0 }}>
+                      {a.label}
+                      <span className="email">{a.email_address}</span>
                     </span>
-                  ) : unread > 0 ? (
-                    <span className="cnt">{unread}</span>
-                  ) : null}
-                </button>
+                    {a.status !== "active" ? (
+                      <span
+                        className="cnt"
+                        style={{ background: "#fde8e6", color: "#EA4335" }}
+                        title={a.status === "auth_failed" ? "Sign in failed" : "Paused"}
+                      >
+                        !
+                      </span>
+                    ) : unread > 0 ? (
+                      <span className="cnt">{unread}</span>
+                    ) : null}
+                    <span
+                      className="paint"
+                      role="button"
+                      title="Change colour"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setColorFor(colorFor === a.id ? null : a.id);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2.7C8 7 5 10.4 5 14a7 7 0 0 0 14 0c0-3.6-3-7-7-11.3z" />
+                      </svg>
+                    </span>
+                  </button>
+                  {colorFor === a.id && (
+                    <div className="cpop" onMouseDown={(e) => e.stopPropagation()}>
+                      <ColorDots
+                        value={a.color}
+                        onChange={(c) => {
+                          updateAccount.mutate(
+                            { id: a.id, color: c },
+                            { onSuccess: () => toast("Colour updated", "success") },
+                          );
+                          setColorFor(null);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

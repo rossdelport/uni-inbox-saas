@@ -166,7 +166,11 @@ export function ConnectForm({
       const next = { ...f, [key]: value };
       if (key === "email_address" && typeof value === "string") {
         if (!f.imap_username || f.imap_username === f.email_address) next.imap_username = value;
-        if (!f.label) next.label = value.split("@")[1] ?? value;
+        // Prefill the sidebar label with the bare domain name ("perthsolarpanelcleaners"
+        // from ross@perthsolarpanelcleaners.com). Stays editable, it's just a head start.
+        if (!f.label || f.label === (f.email_address.split("@")[1] ?? "").split(".")[0]) {
+          next.label = (value.split("@")[1] ?? "").split(".")[0] || f.label;
+        }
       }
       return next;
     });
@@ -406,7 +410,7 @@ export function ConnectForm({
 
           {test && (
             <p className={test.imap_ok && test.smtp_ok ? "ok-note" : "err"}>
-              {test.imap_ok ? "✓ IMAP" : "✕ IMAP"} · {test.smtp_ok ? "✓ SMTP" : "✕ SMTP"}
+              {test.imap_ok ? "✓ Receiving" : "✕ Receiving"} · {test.smtp_ok ? "✓ Sending" : "✕ Sending"}
               {test.error ? ` · ${test.error}` : ""}
             </p>
           )}

@@ -104,25 +104,36 @@ async function testConnection(input: TestInput): Promise<{ imap_ok: boolean; smt
   return { imap_ok: imapOk, smtp_ok: smtpOk, error };
 }
 
+/** Turn raw mail-server errors into plain speech. Users don't know what IMAP
+ *  is; they know passwords. Never echo raw server text (could leak creds). */
 function scrub(err: unknown, protocol: string): string {
   const raw = err instanceof Error ? err.message : String(err);
   const text = raw.toLowerCase();
+  const side = protocol === "IMAP" ? "receiving" : "sending";
   if (text.includes("web login") || text.includes("browser") || text.includes("application-specific")) {
-    return `${protocol}: the provider wants an app password here, not your normal password.`;
+    return "This provider needs an app password here, not your normal sign-in password.";
   }
-  if (text.includes("auth") || text.includes("credentials") || text.includes("password")) {
-    return `${protocol} sign-in failed. Check the username and password.`;
+  if (
+    text.includes("auth") ||
+    text.includes("credentials") ||
+    text.includes("password") ||
+    text.includes("login") ||
+    text.includes("denied") ||
+    text.includes("rejected") ||
+    text.includes("535")
+  ) {
+    return "That password didn't work. Use the mailbox password from your email host, and double-check the email address for typos.";
   }
   if (text.includes("timeout") || text.includes("timed out")) {
-    return `${protocol} server did not respond. Check the host and port.`;
+    return "The mail server didn't respond. Try again in a minute.";
   }
   if (text.includes("enotfound") || text.includes("getaddrinfo")) {
-    return `${protocol} host not found. Check the server address.`;
+    return "We couldn't find that mail server. Check the server address under Server settings.";
   }
   if (text.includes("econnrefused")) {
-    return `${protocol} connection refused. Check the port.`;
+    return "The mail server refused the connection. Check the port under Server settings.";
   }
-  return `${protocol} connection failed.`;
+  return `We couldn't sign in for ${side}. The password is the usual culprit, use the mailbox password from your email host.`;
 }
 
 // The onboarding UI reads presets from here so hosts live in one place.

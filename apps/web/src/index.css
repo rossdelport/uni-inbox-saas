@@ -439,6 +439,20 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .rc-att button{border:none;background:none;cursor:pointer;color:var(--ink3);font-size:13px;padding:0;line-height:1}
 .rc-att button:hover{color:#d93025}
 
+/* Long labels and addresses truncate inside the sidebar, never overflow */
+.side-item>span{min-width:0;flex:1;overflow:hidden}
+.side-item>span,.side-item .email{white-space:nowrap;text-overflow:ellipsis}
+.side-item .email{display:block;overflow:hidden;max-width:100%}
+
+/* Sidebar hover colour swap */
+.acc-wrap{position:relative}
+.acc-wrap .side-item{width:100%}
+.side-item .paint{display:none;flex:none;width:20px;height:20px;border-radius:6px;align-items:center;justify-content:center;color:var(--ink3);margin-left:4px}
+.side-item .paint svg{width:13px;height:13px}
+.side-item:hover .paint{display:flex}
+.side-item .paint:hover{background:rgba(0,0,0,.08);color:var(--ink)}
+.cpop{position:absolute;left:8px;top:calc(100% - 2px);z-index:70;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 10px;box-shadow:0 14px 34px rgba(13,40,80,.2);width:max-content;max-width:236px}
+
 /* Colour picker dots */
 .cdots{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 2px}
 .cdot{width:24px;height:24px;border-radius:50%;border:none;padding:0;cursor:pointer;transition:transform .12s ease}
