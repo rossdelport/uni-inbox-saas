@@ -394,7 +394,7 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .ltab:hover{background:rgba(0,0,0,.05);color:var(--ink)}
 .ltab.on{background:#111;color:#fff}
 .mrow{padding:9px 10px;gap:10px;border-radius:11px}
-.mrow.sel{background:#eef3fa;box-shadow:inset 2.5px 0 0 var(--acc, #308dfc)}
+.mrow.sel{background:color-mix(in srgb, var(--acc,#308dfc) 11%, #fff);box-shadow:inset 2.5px 0 0 var(--acc,#308dfc)}
 .mrow .ava{width:31px;height:31px;font-size:12.5px;font-weight:700}
 .mrow .who{font-size:12.6px}
 .mrow .when{font-size:10.4px}
