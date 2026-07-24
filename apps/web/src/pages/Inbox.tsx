@@ -4,6 +4,7 @@ import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/quer
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
+import { PaneResizer } from "../components/PaneResizer.js";
 import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
 import { ReadingPane } from "./ThreadView.js";
 import { MAIL_SRC } from "../lib/assets.js";
@@ -226,6 +227,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
             </div>
           )}
         </div>
+        <PaneResizer cssVar="--list-w" storageKey="oi-list-w" min={280} max={620} fallback={368} />
       </section>
 
       <section className="dash-read">

@@ -363,7 +363,7 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .dash-search input{font-size:12.5px}
 .dash-search svg{width:14px;height:14px}
 .dash-avatar{width:31px;height:31px;font-size:12.5px}
-.dash-side{width:232px;padding:12px 10px}
+.dash-side{width:var(--side-w,232px);padding:12px 10px;position:relative;flex:none}
 .side-item{font-size:12.6px;padding:6.5px 10px;gap:9px;border-radius:10px}
 .side-item svg{width:15px;height:15px}
 .side-item .cnt{font-size:10.5px;padding:1.5px 7px;min-width:20px}
@@ -376,7 +376,14 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .side-upsell p{font-size:11.3px;margin-top:4px}
 .side-upsell a{height:31px;font-size:12px;margin-top:10px}
 
-.dash-list{width:368px}
+.dash-list{width:var(--list-w,368px);position:relative;flex:none}
+
+/* Drag grips: thin strip on a panel's right edge */
+.pane-grip{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:40}
+.pane-grip:hover{background:linear-gradient(to right,transparent 2px,rgba(48,141,252,.35) 2px,rgba(48,141,252,.35) 5px,transparent 5px)}
+body.resizing{cursor:col-resize;user-select:none}
+body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgba(48,141,252,.5) 2px,rgba(48,141,252,.5) 5px,transparent 5px)}
+@media (max-width:1080px){.pane-grip{display:none}}
 .list-head{padding:14px 16px 9px}
 .list-head h2{font-size:16px}
 .list-head p{font-size:11.3px;margin-top:2px}

@@ -9,6 +9,7 @@ import { toast, type ToastKind } from "../lib/toast.js";
 import { PlansModal } from "./PlansModal.js";
 import { ConnectAccountModal } from "./ConnectAccountModal.js";
 import { ColorDots } from "./ColorDots.js";
+import { PaneResizer, restorePaneWidths } from "./PaneResizer.js";
 
 export interface AppOutletContext {
   search: string;
@@ -40,6 +41,7 @@ export function Layout() {
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    restorePaneWidths();
   }, []);
 
   // Landing back from an OAuth connect: toast the outcome and clean the URL.
@@ -298,6 +300,7 @@ export function Layout() {
               {billing?.plan === "lifetime" ? "View plan" : "See plans"}
             </a>
           </div>
+          <PaneResizer cssVar="--side-w" storageKey="oi-side-w" min={176} max={360} fallback={232} />
         </aside>
 
         <div className={`side-scrim ${drawer ? "show" : ""}`} onClick={() => setDrawer(false)} />
