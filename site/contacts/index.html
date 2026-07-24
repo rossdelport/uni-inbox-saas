@@ -32,8 +32,7 @@
 </style><!-- Start of headEnd -->
     
     <!-- End of headEnd -->
-<style>
-/* ==== Uni-Inbox custom ==== */
+<style>/* ==== Uni-Inbox custom ==== */
 a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;width:0!important;height:0!important;overflow:hidden!important}
 /* footer big brand */
 .uni-bigbrand{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:"M PLUS Rounded 1c",sans-serif;font-weight:800;font-size:clamp(56px,10.5vw,260px);line-height:1.05;letter-spacing:-0.02em;color:rgba(171,226,255,.45);white-space:nowrap;user-select:none}
@@ -100,7 +99,91 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
 .uni-othertab{animation:uniBob 3.8s ease-in-out infinite;will-change:transform}
 @keyframes uniBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
-</style>
+
+/* ==== Uni-Inbox providers flow ==== */
+.uni-flow{position:relative;width:100%;border-radius:32px;background:linear-gradient(180deg,#fafdff 0%,#eaf4fe 100%);border:1px solid rgba(48,141,252,.15);overflow:hidden;padding:76px 28px 66px;box-shadow:0 30px 80px rgba(13,60,140,.08)}
+.uf-rings i{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);border:1.5px solid rgba(48,141,252,.10);border-radius:50%;pointer-events:none}
+.uf-rings i:nth-child(1){width:420px;height:420px}
+.uf-rings i:nth-child(2){width:700px;height:700px;border-color:rgba(48,141,252,.07)}
+.uf-rings i:nth-child(3){width:1000px;height:1000px;border-color:rgba(48,141,252,.05)}
+.uf-text{position:relative;z-index:2;text-align:center;max-width:660px;margin:0 auto}
+.uf-eyebrow{font-family:Inter,sans-serif;font-weight:900;font-size:13px;letter-spacing:.22em;color:#308dfc;margin-bottom:14px}
+.uf-h2{margin:0;font-family:Inter,sans-serif;font-weight:900;font-size:clamp(32px,4.6vw,54px);line-height:1.04;letter-spacing:-.02em;color:rgba(0,0,0,.85)}
+.uf-sub{margin:15px auto 0;max-width:470px;font-family:Inter,sans-serif;font-weight:500;font-size:15.5px;line-height:1.55;color:rgba(2,20,50,.52)}
+.uf-stage{position:relative;z-index:2;max-width:1040px;margin:46px auto 0}
+.uf-chips{position:relative;z-index:3;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:0 1.5%}
+.uf-chip{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid rgba(15,60,140,.09);box-shadow:0 12px 28px rgba(13,60,140,.11);border-radius:999px;padding:10px 16px;font-family:Inter,sans-serif;white-space:nowrap}
+.uf-chip i{width:9px;height:9px;border-radius:50%;flex:none}
+.uf-chip b{font-weight:800;font-size:13.5px;color:rgba(0,10,30,.8)}
+.uf-chip span{font-weight:600;font-size:12.5px;color:rgba(2,20,50,.45)}
+.uf-svg{position:absolute;inset:0;width:100%;height:100%;z-index:1;overflow:visible}
+.uf-path{fill:none;stroke:#308dfc;stroke-opacity:.42;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:.1 9}
+.uf-halo{opacity:.16}
+.uf-orb{stroke:#fff;stroke-width:1.5}
+.uf-dash{position:relative;z-index:2;width:min(440px,88%);margin:200px auto 0;background:#fff;border:1px solid rgba(15,60,140,.08);border-radius:22px;box-shadow:0 26px 64px rgba(13,60,140,.17);overflow:hidden}
+.uf-glow{position:absolute;z-index:1;left:50%;top:-24px;transform:translateX(-50%);width:170px;height:56px;background:radial-gradient(closest-side,rgba(48,141,252,.6),rgba(48,141,252,0));animation:ufPulse 2.8s ease-in-out infinite;pointer-events:none}
+@keyframes ufPulse{0%,100%{opacity:.5;transform:translateX(-50%) scale(.92)}50%{opacity:1;transform:translateX(-50%) scale(1.12)}}
+.uf-dash-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #edf3f9}
+.uf-logo{width:19px;height:19px;border-radius:6px;display:block}
+.uf-search{flex:1;height:23px;border-radius:8px;background:#f1f6fc;position:relative}
+.uf-search:after{content:"Search every inbox…";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-family:Inter,sans-serif;font-weight:500;font-size:10.5px;color:#9db4d0}
+.uf-avatar{flex:none;width:23px;height:23px;border-radius:50%;background:linear-gradient(135deg,#308dfc,#8ed0f2);color:#fff;font-family:Inter,sans-serif;font-weight:800;font-size:10px;line-height:23px;text-align:center}
+.uf-dash-body{display:flex}
+.uf-side{flex:none;width:62px;border-right:1px solid #edf3f9;padding:16px 0;display:flex;flex-direction:column;align-items:center;gap:15px;background:#fbfdff}
+.uf-side i{width:10px;height:10px;border-radius:50%}
+.uf-side b{width:24px;height:5px;border-radius:3px;background:#e8eff7}
+.uf-list{flex:1;padding:12px 13px;display:flex;flex-direction:column;gap:9px}
+.uf-row{display:flex;align-items:center;gap:10px;background:#f7fafd;border:1px solid #edf3f9;border-radius:12px;padding:9px 11px}
+.uf-row i{flex:none;width:9px;height:9px;border-radius:50%}
+.uf-row .l{flex:1;min-width:0}
+.uf-row .l b{display:block;height:7px;border-radius:4px;background:#dce7f3}
+.uf-row .l s{display:block;height:5px;border-radius:3px;background:#e9f0f8;margin-top:5px;text-decoration:none}
+.uf-badge{flex:none;font-family:Inter,sans-serif;font-weight:800;font-size:9px;color:#fff;background:#308dfc;border-radius:99px;padding:3px 7px;letter-spacing:.02em}
+@media (max-width:900px){
+  .uni-flow{padding:56px 16px 48px}
+  .uf-chip{padding:9px 12px;gap:7px}
+  .uf-chip span{display:none}
+  .uf-chip b{font-size:12px}
+  .uf-dash{margin-top:150px}
+}
+@media (max-width:760px){
+  .uf-side{display:none}
+}
+@media (prefers-reduced-motion:reduce){.uf-orb,.uf-halo,.uf-glow{animation:none;display:none}}
+
+
+/* ==== Uni-Inbox notifications section ==== */
+.uni-notif{display:flex;align-items:center;gap:64px;max-width:1220px;margin:0 auto;padding:24px 0}
+.un-left{flex:0 1 470px;min-width:0}
+.un-eyebrow{font-family:Inter,sans-serif;font-weight:900;font-size:13px;letter-spacing:.22em;color:#308dfc;margin-bottom:14px}
+.un-h2{margin:0;font-family:Inter,sans-serif;font-weight:900;font-size:clamp(30px,3.6vw,46px);line-height:1.06;letter-spacing:-.02em;color:rgba(0,0,0,.85)}
+.un-sub{margin:16px 0 0;font-family:Inter,sans-serif;font-weight:500;font-size:15.5px;line-height:1.6;color:rgba(2,20,50,.55);max-width:400px}
+.un-pills{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.un-pill{background:rgba(2,20,50,.055);border-radius:999px;padding:10px 18px;font-family:Inter,sans-serif;font-weight:600;font-size:13.5px;color:rgba(2,20,50,.6);white-space:nowrap}
+.un-right{flex:1;min-width:0}
+.un-panel{background:linear-gradient(160deg,#2f8bfc 0%,#6fb8f4 55%,#8ed0f2 100%);border-radius:28px;padding:24px 24px 18px;box-shadow:0 30px 70px rgba(13,60,140,.20);position:relative;overflow:hidden}
+.un-panel:before{content:"";position:absolute;width:340px;height:340px;border:1.5px solid rgba(255,255,255,.14);border-radius:50%;right:-120px;top:-120px;pointer-events:none}
+.un-panel:after{content:"";position:absolute;width:520px;height:520px;border:1.5px solid rgba(255,255,255,.09);border-radius:50%;right:-200px;top:-200px;pointer-events:none}
+.un-head{position:relative;z-index:1;display:flex;align-items:center;gap:9px;color:#fff;font-family:Inter,sans-serif;font-weight:800;font-size:15px;margin-bottom:16px}
+.un-head svg{width:17px;height:17px;flex:none}
+.un-count{margin-left:auto;background:rgba(255,255,255,.22);border-radius:99px;padding:4px 11px;font-family:Inter,sans-serif;font-weight:800;font-size:11px;letter-spacing:.02em}
+.un-card{position:relative;z-index:1;display:flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:13px 15px;box-shadow:0 12px 30px rgba(13,60,140,.14);margin-bottom:11px;animation:unIn .55s cubic-bezier(.2,.9,.3,1.15) both;animation-delay:var(--d,0s)}
+.un-card i{flex:none;width:10px;height:10px;border-radius:50%}
+.un-tx{flex:1;min-width:0}
+.un-tx b{display:block;font-family:Inter,sans-serif;font-weight:800;font-size:14.5px;color:rgba(0,10,30,.85)}
+.un-tx s{display:block;text-decoration:none;font-family:Inter,sans-serif;font-weight:500;font-size:12.5px;color:rgba(2,20,50,.5);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.un-t{flex:none;font-family:Inter,sans-serif;font-weight:700;font-size:11.5px;color:rgba(2,20,50,.38)}
+@keyframes unIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.un-foot{position:relative;z-index:1;display:flex;align-items:center;gap:10px;margin:16px 2px 0;padding-bottom:4px;color:rgba(255,255,255,.95);font-family:Inter,sans-serif;font-weight:600;font-size:12.5px}
+.un-switch{flex:none;width:30px;height:18px;border-radius:99px;background:rgba(255,255,255,.38);position:relative}
+.un-switch:after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(13,60,140,.3)}
+@media (max-width:980px){
+  .uni-notif{flex-direction:column;align-items:flex-start;gap:36px}
+  .un-left{flex:none;width:100%}
+  .un-sub{max-width:520px}
+  .un-right{width:100%}
+}
+@media (prefers-reduced-motion:reduce){.un-card{animation:none}}</style>
 
 <style id="uni-overrides">
 /* Uni-Inbox overrides: footer removed, favicon used as the nav logo */
@@ -178,9 +261,46 @@ footer.framer-sP0dz{display:none!important}
     <!-- Start of bodyEnd -->
     
     <!-- End of bodyEnd -->
-<script>
-(function(){
+<script>(function(){
 "use strict";
+var UNI_PAGES = {
+  signup: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Sign up | Uni-Inbox<\/title>\n<meta name=\"description\" content=\"Create your Uni-Inbox account and see every project inbox in one dashboard.\">\n<link rel=\"icon\" href=\"https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap\" rel=\"stylesheet\">\n<link rel=\"stylesheet\" href=\"/assets/uni-ui-v4.css\">\n<\/head>\n<body class=\"auth-body\">\n  <div class=\"auth-ring\" style=\"width:640px;height:640px\"><\/div>\n  <div class=\"auth-ring\" style=\"width:1020px;height:1020px\"><\/div>\n  <div class=\"auth-ring\" style=\"width:1420px;height:1420px\"><\/div>\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:150px;left:8%;top:14%;transform:rotate(-14deg)\">\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:190px;right:7%;top:60%;transform:rotate(13deg)\">\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:110px;left:13%;bottom:9%;transform:rotate(9deg)\">\n\n  <div class=\"auth-card\">\n    <a class=\"logo-link\" href=\"/\" aria-label=\"Uni-Inbox home\">\n      <div class=\"logo-lock\"><img src=\"/assets/logo.png\" alt=\"Uni-Inbox logo\"><span>uni-inbox<\/span><\/div>\n    <\/a>\n    <h1>Create your account<\/h1>\n    <p class=\"auth-sub\">Start seeing every project inbox in one dashboard.<\/p>\n    <p class=\"auth-trial\"><b>7-day free trial<\/b>, credit card on file.<\/p>\n\n    <div class=\"oauth\">\n      <a href=\"/dashboard/\">\n        <svg viewBox=\"0 0 24 24\"><path fill=\"#EA4335\" d=\"M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z\"/><\/svg>\n        Continue with Google\n      <\/a>\n      <a href=\"/dashboard/\">\n        <svg viewBox=\"0 0 24 24\"><rect width=\"24\" height=\"24\" rx=\"6\" fill=\"#0078D4\"/><text x=\"12\" y=\"16.5\" font-family=\"Inter, Arial, sans-serif\" font-size=\"11\" font-weight=\"700\" fill=\"#ffffff\" text-anchor=\"middle\">O<\/text><\/svg>\n        Continue with Outlook\n      <\/a>\n    <\/div>\n\n    <div class=\"divider\">or with email<\/div>\n\n    <form id=\"signup-form\">\n      <div class=\"field\">\n        <label for=\"name\">Name<\/label>\n        <input id=\"name\" type=\"text\" placeholder=\"Ross Miller\" autocomplete=\"name\">\n      <\/div>\n      <div class=\"field\">\n        <label for=\"email\">Email<\/label>\n        <input id=\"email\" type=\"email\" placeholder=\"ross@acmestudio.com\" autocomplete=\"email\" required>\n      <\/div>\n      <div class=\"field\">\n        <label for=\"password\">Password<\/label>\n        <input id=\"password\" type=\"password\" placeholder=\"8+ characters\" autocomplete=\"new-password\" required>\n      <\/div>\n      <div class=\"auth-cta\">\n        <button class=\"btn-black\" type=\"submit\">Create free account<\/button>\n      <\/div>\n    <\/form>\n\n    <p class=\"auth-swap\">Already have an account? <a href=\"/login/\">Log in<\/a><\/p>\n    <p class=\"auth-legal\">By continuing you agree to the Uni-Inbox Terms and <a href=\"/privacy-policy/\">Privacy Policy<\/a>.<\/p>\n  <\/div>\n\n<script>\ndocument.getElementById('signup-form').addEventListener('submit', function(e){\n  e.preventDefault();\n  window.location.href = '/dashboard/';\n});\n<\/script>\n<\/body>\n<\/html>\n",
+  login: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Log in | Uni-Inbox<\/title>\n<meta name=\"description\" content=\"Log in to Uni-Inbox and see every project inbox in one dashboard.\">\n<link rel=\"icon\" href=\"https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap\" rel=\"stylesheet\">\n<link rel=\"stylesheet\" href=\"/assets/uni-ui-v4.css\">\n<\/head>\n<body class=\"auth-body\">\n  <div class=\"auth-ring\" style=\"width:640px;height:640px\"><\/div>\n  <div class=\"auth-ring\" style=\"width:1020px;height:1020px\"><\/div>\n  <div class=\"auth-ring\" style=\"width:1420px;height:1420px\"><\/div>\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:150px;left:8%;top:14%;transform:rotate(-14deg)\">\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:190px;right:7%;top:60%;transform:rotate(13deg)\">\n  <img class=\"auth-mail\" src=\"/assets/mail.png\" style=\"width:110px;left:13%;bottom:9%;transform:rotate(9deg)\">\n\n  <div class=\"auth-card\">\n    <a class=\"logo-link\" href=\"/\" aria-label=\"Uni-Inbox home\">\n      <div class=\"logo-lock\"><img src=\"/assets/logo.png\" alt=\"Uni-Inbox logo\"><span>uni-inbox<\/span><\/div>\n    <\/a>\n    <h1>Welcome back<\/h1>\n    <p class=\"auth-sub\">Log in to your unified inbox. Every account, one dashboard.<\/p>\n\n    <div class=\"oauth\">\n      <a href=\"/dashboard/\">\n        <svg viewBox=\"0 0 24 24\"><path fill=\"#EA4335\" d=\"M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z\"/><\/svg>\n        Continue with Google\n      <\/a>\n      <a href=\"/dashboard/\">\n        <svg viewBox=\"0 0 24 24\"><rect width=\"24\" height=\"24\" rx=\"6\" fill=\"#0078D4\"/><text x=\"12\" y=\"16.5\" font-family=\"Inter, Arial, sans-serif\" font-size=\"11\" font-weight=\"700\" fill=\"#ffffff\" text-anchor=\"middle\">O<\/text><\/svg>\n        Continue with Outlook\n      <\/a>\n    <\/div>\n\n    <div class=\"divider\">or with email<\/div>\n\n    <form id=\"login-form\">\n      <div class=\"field\">\n        <label for=\"email\">Email<\/label>\n        <input id=\"email\" type=\"email\" placeholder=\"ross@acmestudio.com\" autocomplete=\"email\" required>\n      <\/div>\n      <div class=\"field\">\n        <label for=\"password\">Password<\/label>\n        <input id=\"password\" type=\"password\" placeholder=\"Your password\" autocomplete=\"current-password\" required>\n      <\/div>\n      <div class=\"auth-cta\">\n        <button class=\"btn-black\" type=\"submit\">Log in<\/button>\n      <\/div>\n    <\/form>\n\n    <p class=\"auth-swap\">New to Uni-Inbox? <a href=\"/app/signup\">Create an account<\/a><\/p>\n    <p class=\"auth-legal\">Protected by AES-256 encryption. Only you ever see your messages.<\/p>\n  <\/div>\n\n<script>\ndocument.getElementById('login-form').addEventListener('submit', function(e){\n  e.preventDefault();\n  window.location.href = '/dashboard/';\n});\n<\/script>\n<\/body>\n<\/html>\n",
+  dashboard: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Dashboard | Uni-Inbox<\/title>\n<meta name=\"description\" content=\"Every project inbox in one unified dashboard.\">\n<link rel=\"icon\" href=\"https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap\" rel=\"stylesheet\">\n<link rel=\"stylesheet\" href=\"/assets/uni-ui-v4.css\">\n<\/head>\n<body>\n<div class=\"dash\">\n\n  <header class=\"dash-top\">\n    <button class=\"dash-burger\" id=\"burger\" aria-label=\"Menu\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"><path d=\"M4 7h16M4 12h16M4 17h16\"/><\/svg><\/button>\n    <a class=\"logo-lock\" href=\"/\"><img src=\"/assets/logo.png\" alt=\"Uni-Inbox logo\"><span>uni-inbox<\/span><\/a>\n    <div class=\"dash-search\">\n      <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"M20 20l-3.5-3.5\"/><\/svg>\n      <input id=\"search\" type=\"text\" placeholder=\"Search every inbox at once...\">\n    <\/div>\n    <div class=\"dd-wrap\" style=\"margin-left:auto\">\n      <div class=\"dash-avatar\" id=\"avatar-btn\">R<\/div>\n    <\/div>\n  <\/header>\n\n  <div class=\"dash-main\">\n\n    <aside class=\"dash-side\">\n      <button class=\"side-item active\" data-view=\"all\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-6l-2 3h-4l-2-3H2\"/><path d=\"M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\"/><\/svg>\n        All inboxes <span class=\"cnt\" id=\"cnt-all\">0<\/span>\n      <\/button>\n      <button class=\"side-item\" data-view=\"starred\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/><\/svg>\n        Starred <span class=\"cnt\" id=\"cnt-star\">0<\/span>\n      <\/button>\n      <button class=\"side-item\" data-view=\"later\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 3\"/><\/svg>\n        Read later <span class=\"cnt\" id=\"cnt-later\">0<\/span>\n      <\/button>\n\n      <div class=\"side-head\">Accounts<\/div>\n      <div id=\"side-accounts\"><\/div>\n      <button class=\"side-item side-add\" id=\"add-account-btn\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v8M8 12h8\"/><\/svg>\n        Add account\n      <\/button>\n\n      <div class=\"side-head\">Labels<\/div>\n      <button class=\"side-item side-labels\" data-view=\"label-invoices\"><i style=\"background:#ffd8d3;border:1.5px solid #EA4335\"><\/i>Invoices<\/button>\n      <button class=\"side-item side-labels\" data-view=\"label-clients\"><i style=\"background:#d3e6ff;border:1.5px solid #0078D4\"><\/i>Clients<\/button>\n      <button class=\"side-item side-labels\" data-view=\"label-domains\"><i style=\"background:#d3f3e0;border:1.5px solid #00B050\"><\/i>Domains<\/button>\n\n      <div class=\"side-upsell\" id=\"upsell-card\">\n        <h4 id=\"upsell-title\">Go Lifetime<\/h4>\n        <p id=\"upsell-sub\">$50 once. Up to 10 accounts, every future update included.<\/p>\n        <a href=\"#\" id=\"upsell-btn\">See plans<\/a>\n      <\/div>\n    <\/aside>\n\n    <section class=\"dash-list\">\n      <div class=\"list-head\">\n        <h2 id=\"list-title\">All inboxes<\/h2>\n        <p id=\"list-sub\"><\/p>\n      <\/div>\n      <div class=\"list-rows\" id=\"rows\"><\/div>\n    <\/section>\n\n    <section class=\"dash-read\" id=\"read\"><\/section>\n\n    <div class=\"side-scrim\" id=\"scrim\"><\/div>\n  <\/div>\n<\/div>\n\n<script src=\"/assets/uni-app-v4.js\"><\/script>\n<script>\nvar PROVIDER_META = UNI.PROVIDERS;\n\nvar EMAILS = [\n  {id:'acme', who:'Acme Studio', ava:'A', avac:'#EA4335', prov:'gmail',\n   subj:'Invoice approved', prev:'Acme Studio just paid invoice #1042. It was approved by their finance team this morning and...',\n   when:'9:41 AM', unread:true, starred:true, later:false, labels:['invoices','clients'],\n   body:['Hi Ross,','Invoice #1042 has been approved and paid by our finance team this morning. The funds should land in your account within 2 business days.','This wraps up the brand refresh project on our side. Thanks for the great work, we will be in touch about the Q4 retainer.','Best,<br>Dana @ Acme Studio'],\n   inv:{n:'Invoice #1042', amount:'$1,800.00', status:'Paid', project:'Brand refresh Q3'}},\n  {id:'porkbun', who:'Porkbun', ava:'P', avac:'#00B050', prov:'other',\n   subj:'Domain renews next week', prev:'trynoisy.com is set to auto-renew in 6 days for $12.24/yr. No action needed if you...',\n   when:'8:12 AM', unread:true, starred:false, later:true, labels:['domains'],\n   body:['Hello,','This is a reminder that <b>trynoisy.com<\/b> is set to auto-renew in 6 days for $12.24/yr.','No action is needed if you want to keep it. To change auto-renew settings, visit your Porkbun dashboard.','Thanks for flying Porkbun.']},\n  {id:'sam', who:'Sam Lee', ava:'S', avac:'#7C3AED', prov:'outlook',\n   subj:'Re: Project Falcon kickoff', prev:'Great, locking in Thursday 2pm. I will bring the wireframes; can you have the domain and...',\n   when:'Yesterday', unread:true, starred:false, later:false, labels:['clients'],\n   body:['Hey Ross,','Great, locking in <b>Thursday 2pm<\/b> for the Project Falcon kickoff call.','I will bring the wireframes and the brand board. Can you have the domain and the project inboxes ready by then? Would love to see everything flowing into your dashboard live.','Sam']},\n  {id:'northwind', who:'Northwind Labs', ava:'N', avac:'#0E7490', prov:'gmail',\n   subj:'New inquiry: analytics dashboard', prev:'Saw your dashboard work on X. We need an analytics dashboard for our ops team...',\n   when:'Yesterday', unread:false, starred:false, later:false, labels:['clients'],\n   body:['Hi Ross,','Saw your dashboard work on X and it caught our eye. We need an analytics dashboard for our ops team (5 seats, roughly 6 data sources).','What is your availability looking like in August? Happy to send over a brief.','Priya, Northwind Labs']},\n  {id:'stripe', who:'Stripe', ava:'S', avac:'#635BFF', prov:'icloud',\n   subj:'Your payout is on the way', prev:'$2,400.00 is heading to your bank account and should arrive by Friday...',\n   when:'Monday', unread:false, starred:true, later:false, labels:['invoices'],\n   body:['Hi there,','Your payout of <b>$2,400.00<\/b> is on the way and should arrive in your bank account by Friday.','Payout breakdown is available in your Stripe dashboard.','The Stripe Team']},\n  {id:'linear', who:'Linear', ava:'L', avac:'#5E6AD2', prov:'outlook',\n   subj:\"Comment on 'Unified inbox MVP'\", prev:'Ross mentioned you in read receipts: \"shipping the toggle today, then we dogfood...',\n   when:'Monday', unread:false, starred:false, later:false, labels:[],\n   body:['New comment in <b>Unified inbox MVP<\/b>:','Ross: \"Read receipts toggle ships today, then we dogfood the unified search across all four test accounts before launch.\"','Reply in Linear to keep the thread going.']}\n];\n\nvar view = 'all', selId = 'acme', query = '';\n\nfunction accountFor(prov){\n  var accs = UNI.getAccounts();\n  for (var i = 0; i < accs.length; i++) if (accs[i].prov === prov) return accs[i];\n  return null;\n}\n\nfunction renderSidebar(){\n  var wrap = document.getElementById('side-accounts');\n  wrap.innerHTML = '';\n  UNI.getAccounts().forEach(function(a){\n    var p = PROVIDER_META[a.prov] || PROVIDER_META.other;\n    var unread = EMAILS.filter(function(e){ return e.prov === a.prov && e.unread; }).length;\n    var b = document.createElement('button');\n    b.className = 'side-item' + (view === a.id ? ' active' : '');\n    b.setAttribute('data-view', a.id);\n    b.innerHTML = '<i class=\"side-dot\" style=\"background:' + p.color + '\"><\/i><span>' + p.name +\n      '<span class=\"email\">' + a.email + '<\/span><\/span>' + (unread ? '<span class=\"cnt\">' + unread + '<\/span>' : '');\n    b.addEventListener('click', function(){ setView(a.id, p.name); });\n    wrap.appendChild(b);\n  });\n  // upsell card reflects current plan\n  var plan = UNI.getPlan();\n  if (plan.tier === 'lifetime'){\n    document.getElementById('upsell-title').textContent = 'Lifetime member';\n    document.getElementById('upsell-sub').textContent = '10 accounts included. Share Uni-Inbox with a friend.';\n    document.getElementById('upsell-btn').textContent = 'View plan';\n  } else {\n    var limit = UNI.planLimit(plan);\n    document.getElementById('upsell-title').textContent = 'Go Lifetime';\n    document.getElementById('upsell-sub').textContent = '$50 once. Up to 10 accounts, every future update included.';\n    document.getElementById('upsell-btn').textContent = 'See plans';\n  }\n}\n\nfunction matches(e){\n  if (view === 'starred' && !e.starred) return false;\n  if (view === 'later' && !e.later) return false;\n  var accs = UNI.getAccounts();\n  if (view !== 'all' && view !== 'starred' && view !== 'later' && view.indexOf('label-') !== 0){\n    var acc = accs.filter(function(a){ return a.id === view; })[0];\n    if (acc && e.prov !== acc.prov) return false;\n    if (!acc) return false;\n  }\n  if (view.indexOf('label-') === 0 && e.labels.indexOf(view.slice(6)) < 0) return false;\n  if (query){\n    var hay = (e.who + ' ' + e.subj + ' ' + e.prev).toLowerCase();\n    if (hay.indexOf(query) < 0) return false;\n  }\n  return true;\n}\n\nfunction renderCounts(){\n  document.getElementById('cnt-all').textContent = EMAILS.filter(function(e){ return e.unread; }).length;\n  document.getElementById('cnt-star').textContent = EMAILS.filter(function(e){ return e.starred; }).length;\n  document.getElementById('cnt-later').textContent = EMAILS.filter(function(e){ return e.later; }).length;\n}\n\nfunction renderList(){\n  var rows = document.getElementById('rows');\n  rows.innerHTML = '';\n  var shown = EMAILS.filter(matches);\n  var unreadN = shown.filter(function(e){ return e.unread; }).length;\n  var provs = new Set(shown.map(function(e){ return e.prov; }));\n  document.getElementById('list-sub').textContent =\n    shown.length + ' message' + (shown.length === 1 ? '' : 's') +\n    (unreadN ? ', ' + unreadN + ' unread' : ', all read') +\n    (shown.length ? ' across ' + provs.size + ' account' + (provs.size === 1 ? '' : 's') : '');\n  if (!shown.length){\n    rows.innerHTML = '<div class=\"empty-state\" style=\"padding:60px 20px\"><img src=\"/assets/mail.png\" alt=\"\"><div>Nothing matches that search.<\/div><\/div>';\n    return;\n  }\n  shown.forEach(function(e){\n    var p = PROVIDER_META[e.prov];\n    var acc = accountFor(e.prov);\n    var d = document.createElement('div');\n    d.className = 'mrow' + (e.unread ? ' unread' : '') + (e.id === selId ? ' sel' : '');\n    d.innerHTML =\n      (e.unread ? '<span class=\"unread-dot\"><\/span>' : '') +\n      '<div class=\"ava\" style=\"background:' + e.avac + '\">' + e.ava + '<\/div>' +\n      '<div class=\"body\">' +\n        '<div class=\"r1\"><span class=\"who\">' + e.who + '<\/span><span class=\"when\">' + e.when + '<\/span><\/div>' +\n        '<div class=\"subj\">' + e.subj + '<\/div>' +\n        '<div class=\"prev\">' + e.prev + '<\/div>' +\n        '<div class=\"via\"><i style=\"background:' + p.color + '\"><\/i>' + (acc ? acc.email : 'unknown') + '<\/div>' +\n      '<\/div>';\n    d.onclick = function(){\n      selId = e.id; e.unread = false;\n      renderCounts(); renderSidebar(); renderList(); renderRead();\n      if (window.innerWidth <= 1080) document.body.classList.add('reading-open');\n      var rb = document.getElementById('read-back');\n      if (rb) rb.addEventListener('click', function(){ document.body.classList.remove('reading-open'); });\n    };\n    rows.appendChild(d);\n  });\n}\n\nfunction renderRead(){\n  var el = document.getElementById('read');\n  var e = EMAILS.filter(function(x){ return x.id === selId; })[0];\n  if (!e){ el.innerHTML = '<div class=\"empty-state\"><img src=\"/assets/mail.png\" alt=\"\"><div>Select a message to read.<\/div><\/div>'; return; }\n  var p = PROVIDER_META[e.prov];\n  var acc = accountFor(e.prov);\n  el.innerHTML =\n    '<div class=\"read-wrap\">' +\n      '<button class=\"read-back\" id=\"read-back\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 18l-6-6 6-6\"/><\/svg>All inboxes<\/button>' +\n      '<div class=\"via-chips\">' +\n        '<span class=\"chip\"><i style=\"background:' + p.color + '\"><\/i>via ' + p.name + '<\/span>' +\n        (acc ? '<span class=\"chip\">to ' + acc.email + '<\/span>' : '') +\n      '<\/div>' +\n      '<h1>' + e.subj + '<\/h1>' +\n      '<div class=\"read-from\">' +\n        '<div class=\"ava\" style=\"background:' + e.avac + '\">' + e.ava + '<\/div>' +\n        '<div><div class=\"n\">' + e.who + '<\/div><div class=\"e\">' + (acc ? acc.email + ' via ' + p.name : 'via ' + p.name) + '<\/div><\/div>' +\n        '<span class=\"when\">' + e.when + '<\/span>' +\n      '<\/div>' +\n      '<div class=\"read-body\">' +\n        e.body.map(function(x){ return '<p>' + x + '<\/p>'; }).join('') +\n        (e.inv ?\n          '<div class=\"inv-card\">' +\n            '<div class=\"ir\"><span>' + e.inv.n + '<\/span><b>' + e.inv.amount + '<\/b><\/div>' +\n            '<div class=\"ir\"><span>Project<\/span><b>' + e.inv.project + '<\/b><\/div>' +\n            '<div class=\"ir\"><span>Status<\/span><span class=\"paid\">&#10003; ' + e.inv.status + '<\/span><\/div>' +\n          '<\/div>' : '') +\n      '<\/div>' +\n      '<div class=\"read-reply\">' +\n        '<textarea placeholder=\"Reply to ' + e.who + '...\"><\/textarea>' +\n        '<div class=\"rr-bar\"><span class=\"rr-note\">Demo composer, replies are not sent.<\/span>' +\n        '<button class=\"btn-sm\" onclick=\"this.textContent=\\'Demo\\';return false\">Reply<\/button><\/div>' +\n      '<\/div>' +\n    '<\/div>';\n}\n\nfunction setView(v, title){\n  view = v;\n  document.querySelectorAll('.side-item[data-view]').forEach(function(x){\n    x.classList.toggle('active', x.getAttribute('data-view') === v);\n  });\n  document.getElementById('list-title').textContent = title;\n  renderList();\n}\n\ndocument.querySelectorAll('.side-item[data-view]').forEach(function(b){\n  if (b.closest('#side-accounts')) return;\n  b.addEventListener('click', function(){\n    setView(b.getAttribute('data-view'), b.textContent.trim().replace(/[0-9]+$/, '').trim());\n  });\n});\n\ndocument.getElementById('add-account-btn').addEventListener('click', function(){\n  UNI.openAddAccount();\n});\n\ndocument.getElementById('upsell-btn').addEventListener('click', function(e){\n  e.preventDefault();\n  UNI.openPlans();\n});\n\ndocument.addEventListener('uni:state', function(){\n  renderSidebar(); renderList();\n});\n\ndocument.getElementById('search').addEventListener('input', function(ev){\n  query = ev.target.value.trim().toLowerCase();\n  renderList();\n});\n\n// avatar + dropdown\nvar prof = UNI.getProfile();\ndocument.getElementById('avatar-btn').textContent = (prof.name || 'U').charAt(0).toUpperCase();\nUNI.attachAvatarMenu(document.getElementById('avatar-btn'));\n\n// mobile drawer + reading overlay\nvar sideEl = document.querySelector('.dash-side'), scrim = document.getElementById('scrim');\nfunction closeDrawer(){ sideEl.classList.remove('open'); scrim.classList.remove('show'); }\ndocument.getElementById('burger').addEventListener('click', function(e){\n  e.stopPropagation();\n  sideEl.classList.toggle('open');\n  scrim.classList.toggle('show', sideEl.classList.contains('open'));\n});\nscrim.addEventListener('click', closeDrawer);\nsideEl.addEventListener('click', function(e){ if (e.target.closest('.side-item')) closeDrawer(); });\nwindow.addEventListener('resize', function(){\n  if (window.innerWidth > 1080) document.body.classList.remove('reading-open');\n  if (window.innerWidth > 820) closeDrawer();\n});\n\nrenderCounts(); renderSidebar(); renderList(); renderRead();\n<\/script>\n<\/body>\n<\/html>\n",
+  settings: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Settings | Uni-Inbox<\/title>\n<meta name=\"description\" content=\"Manage your Uni-Inbox profile, accounts, notifications and plan.\">\n<link rel=\"icon\" href=\"https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png\">\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap\" rel=\"stylesheet\">\n<link rel=\"stylesheet\" href=\"/assets/uni-ui-v4.css\">\n<\/head>\n<body>\n<div class=\"dash\">\n\n  <header class=\"dash-top\">\n    <a class=\"logo-lock\" href=\"/\"><img src=\"/assets/logo.png\" alt=\"Uni-Inbox logo\"><span>uni-inbox<\/span><\/a>\n    <div style=\"flex:1\"><\/div>\n    <a class=\"btn-ghost\" href=\"/dashboard/\" style=\"height:38px;display:inline-flex;align-items:center;font-size:13.5px;text-decoration:none\">&larr; Back to inbox<\/a>\n    <div class=\"dd-wrap\">\n      <div class=\"dash-avatar\" id=\"avatar-btn\">R<\/div>\n    <\/div>\n  <\/header>\n\n  <div class=\"set-main\">\n    <aside class=\"set-nav\">\n      <h2>Settings<\/h2>\n      <button class=\"side-item active\" data-pane=\"profile\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\"/><circle cx=\"12\" cy=\"7\" r=\"4\"/><\/svg>Profile<\/button>\n      <button class=\"side-item\" data-pane=\"accounts\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-6l-2 3h-4l-2-3H2\"/><path d=\"M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\"/><\/svg>Accounts<\/button>\n      <button class=\"side-item\" data-pane=\"notifications\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9\"/><path d=\"M13.73 21a2 2 0 0 1-3.46 0\"/><\/svg>Notifications<\/button>\n      <button class=\"side-item\" data-pane=\"billing\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2\"/><line x1=\"2\" y1=\"10\" x2=\"22\" y2=\"10\"/><\/svg>Plans &amp; billing<\/button>\n    <\/aside>\n\n    <div class=\"set-content\">\n\n      <div class=\"set-pane active\" id=\"pane-profile\">\n        <h1>Profile<\/h1>\n        <p class=\"p-sub\">Who you are across Uni-Inbox. Saved locally in this demo.<\/p>\n        <div class=\"set-card\">\n          <div class=\"field\"><label>Full name<\/label><input id=\"p-name\" type=\"text\"><\/div>\n          <div class=\"field\"><label>Account email<\/label><input id=\"p-email\" type=\"email\"><\/div>\n          <div class=\"field\"><label>New password<\/label><input id=\"p-pass\" type=\"password\" placeholder=\"Leave blank to keep current\"><\/div>\n          <div style=\"margin-top:22px;display:flex;gap:10px\">\n            <button class=\"btn-black\" id=\"p-save\" style=\"width:auto;padding:0 28px;height:46px;font-size:14.5px\">Save changes<\/button>\n          <\/div>\n        <\/div>\n      <\/div>\n\n      <div class=\"set-pane\" id=\"pane-accounts\">\n        <h1>Connected accounts<\/h1>\n        <p class=\"p-sub\">Every inbox feeding your unified dashboard. Add, edit, or remove them here.<\/p>\n        <div class=\"set-card\">\n          <div id=\"acc-list\"><\/div>\n          <button class=\"side-item side-add\" id=\"acc-add\" style=\"width:100%;margin-top:14px;justify-content:center\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v8M8 12h8\"/><\/svg>\n            Add account\n          <\/button>\n        <\/div>\n      <\/div>\n\n      <div class=\"set-pane\" id=\"pane-notifications\">\n        <h1>Notifications<\/h1>\n        <p class=\"p-sub\">What Uni-Inbox emails you about. Never your messages, only product news.<\/p>\n        <div class=\"set-card\">\n          <div class=\"tog-row\"><div><div class=\"t-name\">Product updates<\/div><div class=\"t-desc\">New features and improvements<\/div><\/div><button class=\"uni-switch\" data-k=\"product\"><\/button><\/div>\n          <div class=\"tog-row\"><div><div class=\"t-name\">Weekly digest<\/div><div class=\"t-desc\">One summary email every Monday<\/div><\/div><button class=\"uni-switch\" data-k=\"digest\"><\/button><\/div>\n          <div class=\"tog-row\"><div><div class=\"t-name\">Security alerts<\/div><div class=\"t-desc\">Sign-ins and account changes<\/div><\/div><button class=\"uni-switch\" data-k=\"security\"><\/button><\/div>\n        <\/div>\n      <\/div>\n\n      <div class=\"set-pane\" id=\"pane-billing\">\n        <h1>Plans &amp; billing<\/h1>\n        <p class=\"p-sub\">Your plan, usage, and upgrades. Demo billing, no real charges.<\/p>\n        <div class=\"plan-hero\">\n          <div class=\"ph-tier\" id=\"b-tier\">Monthly<\/div>\n          <div class=\"ph-price\" id=\"b-price\">$9/month<\/div>\n          <div class=\"ph-desc\" id=\"b-desc\">3 accounts included + 2 extra at $2/month each<\/div>\n          <div class=\"usage\">\n            <div class=\"u-bar\"><div class=\"u-fill\" id=\"b-fill\" style=\"width:0%\"><\/div><\/div>\n            <div class=\"u-txt\" id=\"b-usage\">0 of 5 accounts used<\/div>\n          <\/div>\n        <\/div>\n        <div class=\"set-card\" style=\"display:flex;gap:10px;flex-wrap:wrap\">\n          <button class=\"btn-black\" id=\"b-plans\" style=\"width:auto;padding:0 24px;height:46px;font-size:14px\">Change plan<\/button>\n          <button class=\"btn-ghost\" id=\"b-add-acc\" style=\"height:46px\">Add account, +$2/month<\/button>\n        <\/div>\n        <div class=\"set-card danger-zone\">\n          <h4>Reset demo data<\/h4>\n          <p style=\"font-size:13.5px;color:var(--ink2);margin:8px 0 16px\">Clears accounts, plan, profile and preferences stored in this browser.<\/p>\n          <button class=\"btn-mini danger\" id=\"b-reset\">Reset everything<\/button>\n        <\/div>\n      <\/div>\n\n    <\/div>\n  <\/div>\n<\/div>\n\n<script src=\"/assets/uni-app-v4.js\"><\/script>\n<script>\nvar PANES = ['profile','accounts','notifications','billing'];\n\nfunction showPane(name){\n  PANES.forEach(function(p){\n    document.getElementById('pane-' + p).classList.toggle('active', p === name);\n  });\n  document.querySelectorAll('.set-nav .side-item').forEach(function(b){\n    b.classList.toggle('active', b.getAttribute('data-pane') === name);\n  });\n  if (name === 'accounts') renderAccounts();\n  if (name === 'billing') renderBilling();\n  if (history.replaceState) history.replaceState(null, '', '#' + name);\n}\n\ndocument.querySelectorAll('.set-nav .side-item').forEach(function(b){\n  b.addEventListener('click', function(){ showPane(b.getAttribute('data-pane')); });\n});\n\n/* ---------- profile ---------- */\nfunction loadProfile(){\n  var p = UNI.getProfile();\n  document.getElementById('p-name').value = p.name || '';\n  document.getElementById('p-email').value = p.email || '';\n}\ndocument.getElementById('p-save').addEventListener('click', function(){\n  var p = {\n    name: document.getElementById('p-name').value.trim() || 'Uni-Inbox user',\n    email: document.getElementById('p-email').value.trim() || 'you@example.com'\n  };\n  UNI.saveProfile(p);\n  document.getElementById('p-pass').value = '';\n  document.getElementById('avatar-btn').textContent = p.name.charAt(0).toUpperCase();\n  UNI.toast('Profile saved');\n});\n\n/* ---------- accounts CRUD ---------- */\nfunction renderAccounts(){\n  var list = document.getElementById('acc-list');\n  list.innerHTML = '';\n  UNI.getAccounts().forEach(function(a){\n    var p = UNI.PROVIDERS[a.prov] || UNI.PROVIDERS.other;\n    var row = document.createElement('div');\n    row.className = 'acc-row';\n    row.innerHTML =\n      '<i class=\"pdot\" style=\"background:' + p.color + '\"><\/i>' +\n      '<div><div class=\"a-name\">' + p.name + '<\/div><div class=\"a-mail\">' + a.email + '<\/div><\/div>' +\n      '<div class=\"a-acts\"><button class=\"btn-mini\" data-edit>Edit<\/button><button class=\"btn-mini danger\" data-del>Remove<\/button><\/div>';\n    row.querySelector('[data-edit]').addEventListener('click', function(){ editAccount(a.id); });\n    row.querySelector('[data-del]').addEventListener('click', function(){ delAccount(a.id); });\n    list.appendChild(row);\n  });\n}\n\nfunction editAccount(id){\n  var accs = UNI.getAccounts();\n  var a = accs.filter(function(x){ return x.id === id; })[0];\n  if (!a) return;\n  var body = document.createElement('div');\n  body.innerHTML =\n    '<div class=\"field\" style=\"margin-top:18px\"><label>Email address<\/label>' +\n    '<input id=\"e-mail\" type=\"email\" value=\"' + a.email + '\"><\/div>' +\n    '<div style=\"margin-top:20px\"><button class=\"btn-black\" id=\"e-save\" style=\"width:100%;height:46px;font-size:14.5px\">Save account<\/button><\/div>';\n  var m = UNI.modal({title: 'Edit account', sub: UNI.PROVIDERS[a.prov].name + ' connection', body: body});\n  body.querySelector('#e-save').addEventListener('click', function(){\n    var v = body.querySelector('#e-mail').value.trim();\n    if (!v || v.indexOf('@') < 0){ body.querySelector('#e-mail').style.borderColor = '#EA4335'; return; }\n    a.email = v;\n    UNI.saveAccounts(accs);\n    m.close();\n    UNI.toast('Account updated: ' + v);\n    renderAccounts();\n    document.dispatchEvent(new CustomEvent('uni:state'));\n  });\n}\n\nfunction delAccount(id){\n  var accs = UNI.getAccounts();\n  var a = accs.filter(function(x){ return x.id === id; })[0];\n  if (!a) return;\n  if (accs.length <= 1){ UNI.toast('Keep at least one account connected'); return; }\n  var body = document.createElement('div');\n  body.innerHTML =\n    '<p style=\"margin-top:16px;font-size:14px;color:var(--ink2)\">Remove <b>' + a.email + '<\/b> (' + UNI.PROVIDERS[a.prov].name + ') from your unified inbox? Its messages stop syncing immediately.<\/p>' +\n    '<div style=\"margin-top:22px;display:flex;gap:10px;justify-content:flex-end\">' +\n      '<button class=\"btn-ghost\" id=\"d-cancel\" style=\"height:44px\">Keep account<\/button>' +\n      '<button class=\"btn-black\" id=\"d-del\" style=\"width:auto;padding:0 24px;height:44px;font-size:14px;background:#EA4335\">Remove account<\/button>' +\n    '<\/div>';\n  var m = UNI.modal({title: 'Remove account?', body: body});\n  body.querySelector('#d-cancel').addEventListener('click', function(){ m.close(); });\n  body.querySelector('#d-del').addEventListener('click', function(){\n    UNI.saveAccounts(accs.filter(function(x){ return x.id !== id; }));\n    m.close();\n    UNI.toast('Account removed: ' + a.email);\n    renderAccounts();\n    document.dispatchEvent(new CustomEvent('uni:state'));\n  });\n}\n\ndocument.getElementById('acc-add').addEventListener('click', function(){\n  UNI.openAddAccount(function(){ renderAccounts(); });\n});\n\n/* ---------- notifications ---------- */\nfunction loadNotif(){\n  var n = UNI.getNotif();\n  document.querySelectorAll('.uni-switch').forEach(function(sw){\n    sw.classList.toggle('on', !!n[sw.getAttribute('data-k')]);\n  });\n}\ndocument.querySelectorAll('.uni-switch').forEach(function(sw){\n  sw.addEventListener('click', function(){\n    var n = UNI.getNotif();\n    var k = sw.getAttribute('data-k');\n    n[k] = !n[k];\n    UNI.saveNotif(n);\n    sw.classList.toggle('on', n[k]);\n    UNI.toast(n[k] ? 'Turned on' : 'Turned off');\n  });\n});\n\n/* ---------- billing ---------- */\nfunction renderBilling(){\n  var plan = UNI.getPlan();\n  var accs = UNI.getAccounts();\n  var limit = UNI.planLimit(plan);\n  document.getElementById('b-tier').textContent = UNI.planLabel(plan) + ' plan';\n  document.getElementById('b-price').textContent = UNI.planPrice(plan);\n  document.getElementById('b-desc').textContent = plan.tier === 'lifetime'\n    ? 'One-time purchase. Up to 10 accounts, every future update.'\n    : plan.included + ' accounts included' + (plan.extra ? ' + ' + plan.extra + ' extra at $2/month each' : '');\n  document.getElementById('b-fill').style.width = Math.min(100, Math.round(accs.length / limit * 100)) + '%';\n  document.getElementById('b-usage').textContent = accs.length + ' of ' + limit + ' accounts used';\n  document.getElementById('b-add-acc').style.display = plan.tier === 'lifetime' ? 'none' : '';\n}\ndocument.getElementById('b-plans').addEventListener('click', function(){\n  UNI.openPlans();\n});\ndocument.getElementById('b-add-acc').addEventListener('click', function(){\n  var plan = UNI.getPlan();\n  plan.extra = (plan.extra || 0) + 1;\n  UNI.savePlan(plan);\n  UNI.toast('Plan updated: ' + UNI.planPrice(plan));\n  renderBilling();\n  document.dispatchEvent(new CustomEvent('uni:state'));\n});\ndocument.getElementById('b-reset').addEventListener('click', function(){\n  UNI.resetAll();\n  UNI.toast('Demo data reset');\n  setTimeout(function(){ location.reload(); }, 700);\n});\n\n/* refresh panes when plan changes via modal */\ndocument.addEventListener('uni:state', function(){ renderBilling(); });\n\n/* avatar */\nvar prof = UNI.getProfile();\ndocument.getElementById('avatar-btn').textContent = (prof.name || 'U').charAt(0).toUpperCase();\nUNI.attachAvatarMenu(document.getElementById('avatar-btn'));\n\nloadProfile(); loadNotif(); renderAccounts(); renderBilling();\nvar hash = (location.hash || '').replace('#', '');\nif (PANES.indexOf(hash) >= 0) showPane(hash);\n<\/script>\n<\/body>\n<\/html>\n"
+};
+
+// ==== Uni-Inbox fallback router ====
+// If the URL asks for /signup, /login, or /dashboard but the server fell back
+// to a Framer page (some static previews do this), swap in the embedded page.
+function uniRoute(){
+  return false; // demo pages disabled: real app lives at /app
+  var p = location.pathname.replace(/\/+$/, '').toLowerCase();
+  var want = null;
+  if (/(^|\/)signup$/.test(p)) want = 'signup';
+  else if (/(^|\/)login$/.test(p)) want = 'login';
+  else if (/(^|\/)dashboard$/.test(p)) want = 'dashboard';
+  else if (/(^|\/)settings$/.test(p)) want = 'settings';
+  try {
+    var qp = new URLSearchParams(location.search).get('uni-page');
+    if (qp && UNI_PAGES[qp]) want = qp;
+  } catch (e) {}
+  if (!want || !UNI_PAGES[want]) return false;
+  var html = UNI_PAGES[want];
+  function doSwap(){
+    document.open();
+    document.write(html);
+    document.close();
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', doSwap);
+  } else {
+    doSwap();
+  }
+  return true;
+}
+if (uniRoute()) return;
+
 var LEMON = '/app/signup';
 
 function q(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -202,9 +322,10 @@ var LOGO_SVG = "<svg style=\"width:100%;height:100%;display:block\" viewBox=\"0 
 function patchLogo(){
   q('use[href="#svg-501444659_3256"]').forEach(function(u){
     var holder = u.closest('.svgContainer');
-    if (!holder || holder.getAttribute('data-uni-logo')) return;
-    holder.setAttribute('data-uni-logo', '1');
-    holder.innerHTML = LOGO_SVG;
+    if (!holder) return;
+    // self-healing: if React restores the original svg, re-swap on the next run
+    if (holder.querySelector('img[data-uni-logo]')) return;
+    holder.innerHTML = '<img data-uni-logo="1" src="/assets/logo.png" alt="Uni-Inbox" style="width:100%;height:100%;display:block">';
   });
 }
 
@@ -527,8 +648,236 @@ function initTypers(){
 }
 
 /* ---------- run + observe ---------- */
+function uniGoSignup(){
+  // navigate to the signup page, same tab, robust to subpath hosting (previews)
+  var h = location.pathname;
+  var root = h.replace(/[^/]*$/, '').replace(/(pricing|solutions|contacts|privacy-policy|404|signup|login|dashboard)\/$/i, '');
+  if (root.charAt(0) !== '/') root = '/' + root;
+  location.href = root + 'signup/';
+}
+
+function patchLinks(){
+  // cosmetic rewrite so hover shows the right URL; enforcement is the click guard
+  q('a[href*="lemonsqueezy"]').forEach(function(a){
+    a.setAttribute('href', '/app/signup');
+    a.removeAttribute('target');
+    a.removeAttribute('rel');
+  });
+  q('a[href="/app/signup"][target]').forEach(function(a){
+    a.removeAttribute('target');
+    a.removeAttribute('rel');
+  });
+}
+
+// Bulletproof enforcement: intercept CTA clicks in the CAPTURE phase, before
+// Framer's React handlers run. React re-renders can restore the old
+// href/target=_blank at any time (hover animations remount these buttons),
+// which is why attribute patching alone was not enough.
+if (!window.__uniClickGuard){
+  window.__uniClickGuard = 1;
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    var a = t && t.closest ? t.closest('a') : null;
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    var txt = (a.textContent || '').replace(/\s+/g, ' ').trim();
+    if (href.indexOf('lemonsqueezy') >= 0 || href === '/app/signup' ||
+        txt === 'Start Today' || txt === 'Get Started' || txt === 'Try for free' ||
+        txt === 'Get started today' || txt === 'Get lifetime access'){
+      e.preventDefault();
+      e.stopPropagation();
+      uniGoSignup();
+    }
+  }, true);
+}
+
+// Hero fix: the floating white envelopes sit on a fixed 1647px canvas, so at
+// some viewport widths they drift behind the white headline and the text
+// blends into them. Measure the real overlap at runtime and push any
+// offending envelope horizontally away from the headline, and give the
+// headline a soft blue halo as guaranteed contrast insurance.
+function patchHero(){
+  var canvas = document.querySelector('[data-framer-name="mails"]');
+  if (!canvas) return;
+  var heads = Array.prototype.slice.call(document.querySelectorAll('h1[data-styles-preset="UJJoASFq5"]'));
+  if (!heads.length) return;
+  heads.forEach(function(h){
+    if ((h.style.textShadow || '').indexOf('rgba(13,61,150') < 0)
+      h.style.textShadow = '0 2px 26px rgba(13,61,150,.5), 0 0 12px rgba(13,61,150,.3)';
+  });
+  var M = 26;
+  var hrects = heads.map(function(h){ return h.getBoundingClientRect(); });
+  if (!hrects.length || !hrects[0].width) return;
+  Array.prototype.slice.call(document.querySelectorAll('img[src*="OEgOgKnJfYyJzdDPysfJV8oaYI"]')).forEach(function(img){
+    var wrap = img.closest('[data-framer-appear-id]') || img.parentElement;
+    if (!wrap) return;
+    if (wrap.__uniPush){ wrap.style.transform = ''; wrap.__uniPush = 0; }
+    var r = img.getBoundingClientRect();
+    if (r.width < 4) return; // hidden at this breakpoint
+    var push = 0;
+    hrects.forEach(function(hr){
+      var l = hr.left - M, rt = hr.right + M, tp = hr.top - M, bt = hr.bottom + M;
+      if (r.right > l && r.left < rt && r.bottom > tp && r.top < bt){
+        var ic = (r.left + r.right) / 2, hc = (l + rt) / 2;
+        var need = ic <= hc ? -(r.right - l + 16) : (rt - r.left + 16);
+        if (Math.abs(need) > Math.abs(push)) push = need;
+      }
+    });
+    if (!push) return;
+    // keep at least ~40% of the envelope on screen
+    var vw = window.innerWidth;
+    var nl = r.left + push, nr = r.right + push;
+    if (nr < r.width * .4) push += (r.width * .4 - nr);
+    if (nl > vw - r.width * .4) push -= (nl - (vw - r.width * .4));
+    wrap.__uniPush = push;
+    wrap.style.transform = 'translateX(' + Math.round(push) + 'px)';
+  });
+}
+if (!window.__uniHeroResize){
+  window.__uniHeroResize = 1;
+  var __heroT = null;
+  window.addEventListener('resize', function(){ clearTimeout(__heroT); __heroT = setTimeout(function(){ try{ patchHero(); }catch(e){} try{ patchFlow(); }catch(e){} }, 160); });
+  window.addEventListener('load', function(){ try{ patchHero(); }catch(e){} try{ patchFlow(); }catch(e){} });
+}
+
+// Providers section rebuilt as a branded flow: account chips at the top,
+// dotted curves with provider-colored orbs streaming down into a mini
+// dashboard card. Paths are measured from the real layout so the lines
+// always connect perfectly at any viewport width.
+var UF_PROVS = [
+  { name: 'Gmail',   addr: 'alex.g@gmail.com',  color: '#EA4335' },
+  { name: 'Outlook', addr: 'alex@outlook.com',  color: '#0078D4' },
+  { name: 'iCloud',  addr: 'alex@icloud.com',   color: '#3693F3' },
+  { name: 'Acme',    addr: 'studio@acme.co',    color: '#00B050' }
+];
+function ufBuild(){
+  var chips = UF_PROVS.map(function(p){
+    return '<div class="uf-chip" data-color="' + p.color + '"><i style="background:' + p.color + '"></i><b>' + p.name + '</b><span>' + p.addr + '</span></div>';
+  }).join('');
+  var dots = UF_PROVS.map(function(p){ return '<i style="background:' + p.color + '"></i>'; }).join('');
+  var rows = [
+    { c: '#EA4335', w1: '64%', w2: '42%', badge: 1 },
+    { c: '#0078D4', w1: '52%', w2: '34%' },
+    { c: '#00B050', w1: '58%', w2: '38%' },
+    { c: '#3693F3', w1: '46%', w2: '30%' }
+  ].map(function(r){
+    return '<div class="uf-row"><i style="background:' + r.c + '"></i><div class="l"><b style="width:' + r.w1 + '"></b><s style="width:' + r.w2 + '"></s></div>' + (r.badge ? '<span class="uf-badge">New</span>' : '') + '</div>';
+  }).join('');
+  return '<div class="uni-flow" data-uni-flow="1">' +
+    '<div class="uf-rings"><i></i><i></i><i></i></div>' +
+    '<div class="uf-text"><div class="uf-eyebrow">PROVIDERS</div>' +
+    '<h2 class="uf-h2">All your inboxes in one place.</h2>' +
+    '<p class="uf-sub">Gmail, Outlook, iCloud and custom domains, all streaming into one calm dashboard.</p></div>' +
+    '<div class="uf-stage">' +
+      '<div class="uf-chips">' + chips + '</div>' +
+      '<svg class="uf-svg" aria-hidden="true"></svg>' +
+      '<div class="uf-glow"></div>' +
+      '<div class="uf-dash">' +
+        '<div class="uf-dash-top"><img class="uf-logo" src="/assets/logo.png" alt=""><div class="uf-search"></div><span class="uf-avatar">A</span></div>' +
+        '<div class="uf-dash-body"><div class="uf-side">' + dots + '<b></b><b></b><b></b></div>' +
+        '<div class="uf-list">' + rows + '</div></div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+function ufLayout(wrap){
+  var stage = wrap.querySelector('.uf-stage');
+  var svg = wrap.querySelector('.uf-svg');
+  var dash = wrap.querySelector('.uf-dash');
+  var chips = Array.prototype.slice.call(wrap.querySelectorAll('.uf-chip'));
+  if (!stage || !svg || !dash || !chips.length) return;
+  var sr = stage.getBoundingClientRect();
+  if (sr.width < 60) return; // hidden breakpoint variant
+  if (wrap.__ufW && Math.abs(wrap.__ufW - sr.width) < 2 && svg.childNodes.length) return; // no relayout -> SMIL keeps running
+  wrap.__ufW = sr.width;
+  var dr = dash.getBoundingClientRect();
+  var ex = dr.left - sr.left + dr.width / 2;
+  var ey = dr.top - sr.top - 6;
+  var NS = 'http://www.w3.org/2000/svg';
+  svg.setAttribute('viewBox', '0 0 ' + Math.round(sr.width) + ' ' + Math.round(sr.height));
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  var n = chips.length;
+  chips.forEach(function(chip, idx){
+    var cr = chip.getBoundingClientRect();
+    var sx = cr.left - sr.left + cr.width / 2;
+    var sy = cr.bottom - sr.top + 6;
+    var off = (idx - (n - 1) / 2) * 30;
+    var ex2 = ex + off, ey2 = ey - Math.abs(off) * 0.4;
+    var d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) +
+            ' C ' + sx.toFixed(1) + ' ' + (sy + 74).toFixed(1) + ', ' +
+            ex2.toFixed(1) + ' ' + (ey2 - 78).toFixed(1) + ', ' +
+            ex2.toFixed(1) + ' ' + ey2.toFixed(1);
+    var path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'uf-path');
+    path.setAttribute('id', 'ufp' + idx + '_' + Math.round(sr.width));
+    svg.appendChild(path);
+    var color = chip.getAttribute('data-color');
+    for (var k = 0; k < 1; k++){
+      var begin = (idx * 0.9 + k * 1.7).toFixed(2) + 's';
+      var halo = document.createElementNS(NS, 'circle');
+      halo.setAttribute('r', '9'); halo.setAttribute('fill', color); halo.setAttribute('class', 'uf-halo');
+      var am1 = document.createElementNS(NS, 'animateMotion');
+      am1.setAttribute('dur', '3.4s'); am1.setAttribute('begin', begin); am1.setAttribute('repeatCount', 'indefinite');
+      var mp1 = document.createElementNS(NS, 'mpath'); mp1.setAttribute('href', '#' + path.id);
+      am1.appendChild(mp1); halo.appendChild(am1); svg.appendChild(halo);
+      var orb = document.createElementNS(NS, 'circle');
+      orb.setAttribute('r', '5'); orb.setAttribute('fill', color); orb.setAttribute('class', 'uf-orb');
+      var am2 = document.createElementNS(NS, 'animateMotion');
+      am2.setAttribute('dur', '3.4s'); am2.setAttribute('begin', begin); am2.setAttribute('repeatCount', 'indefinite');
+      var mp2 = document.createElementNS(NS, 'mpath'); mp2.setAttribute('href', '#' + path.id);
+      am2.appendChild(mp2); orb.appendChild(am2); svg.appendChild(orb);
+    }
+  });
+}
+function patchFlow(){
+  q('section[data-framer-name="tags"]').forEach(function(sec){
+    var wrap = sec.querySelector('[data-uni-flow]');
+    if (!wrap){
+      sec.innerHTML = ufBuild();
+      wrap = sec.querySelector('[data-uni-flow]');
+    }
+    if (wrap) ufLayout(wrap);
+  });
+}
+
+// Notifications section: replaces the "1 dashboard" section with an
+// on-brand notifications story. Static markup, no measurement needed.
+var UN_BELL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+function unBuild(){
+  var pills = ['Real-time Alerts', 'Smart Filters', 'VIP Senders', 'Mute Threads',
+               'Digest Mode', 'Custom Sounds', 'Snooze Alerts', 'Priority Inbox'];
+  var cards = [
+    { c: '#EA4335', t: 'Invoice paid',        s: 'Acme Studio just paid invoice #1042', when: 'now', d: '.05s' },
+    { c: '#0078D4', t: 'Sam mentioned you',   s: 'Project Falcon, in Linear',           when: '2m',  d: '.3s' },
+    { c: '#00B050', t: 'Domain reminder',     s: 'acmestudio.com renews in 7 days',     when: '1h',  d: '.55s' }
+  ];
+  return '<div class="uni-notif" data-uni-notif="1">' +
+    '<div class="un-left">' +
+      '<div class="un-eyebrow">NOTIFICATIONS</div>' +
+      '<h2 class="un-h2">Never miss an email.</h2>' +
+      '<p class="un-sub">Get pinged the moment something important lands in any inbox. Smart filters keep the noise out, so you stay in flow.</p>' +
+      '<div class="un-pills">' + pills.map(function(p){ return '<span class="un-pill">' + p + '</span>'; }).join('') + '</div>' +
+    '</div>' +
+    '<div class="un-right"><div class="un-panel">' +
+      '<div class="un-head">' + UN_BELL + 'Notifications<span class="un-count">3 new</span></div>' +
+      cards.map(function(r){
+        return '<div class="un-card" style="--d:' + r.d + '"><i style="background:' + r.c + '"></i>' +
+          '<div class="un-tx"><b>' + r.t + '</b><s>' + r.s + '</s></div><span class="un-t">' + r.when + '</span></div>';
+      }).join('') +
+      '<div class="un-foot"><span class="un-switch"></span>Smart filters on: only important mail reaches you</div>' +
+    '</div></div>' +
+  '</div>';
+}
+function patchNotif(){
+  q('section[data-framer-name="features"]').forEach(function(sec){
+    if (sec.querySelector('[data-uni-notif]')) return;
+    sec.innerHTML = unBuild();
+  });
+}
+
 function patchAll(){
-  [killBadge, patchLogo, patchIcons, patchPills, patchTabs, patchSearch, patchFaq, patchPricing, patchFooter, initTypers].forEach(function(fn){
+  [killBadge, patchLogo, patchIcons, patchPills, patchTabs, patchSearch, patchFaq, patchPricing, patchFooter, patchLinks, initTypers, patchHero, patchFlow, patchNotif].forEach(function(fn){
     try { fn(); } catch (e) {}
   });
 }
@@ -540,9 +889,7 @@ else patchAll();
 setTimeout(patchAll, 600);
 setTimeout(patchAll, 1500);
 setTimeout(patchAll, 3000);
-})();
-
-</script>
+})();</script>
 
 <style id="uni-contact-style">
 .uni-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);

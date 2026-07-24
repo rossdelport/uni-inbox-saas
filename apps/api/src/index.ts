@@ -111,6 +111,13 @@ if (existsSync(webDist)) {
   logger.info({ webDist }, "serving dashboard at /app");
 }
 
+// Friendly top-level paths land in the real app (the marketing template's
+// demo pages for these routes are disabled).
+app.get(["/signup", "/signup/"], (_req, res) => res.redirect(301, "/app/signup"));
+app.get(["/login", "/login/"], (_req, res) => res.redirect(301, "/app/login"));
+app.get(["/dashboard", "/dashboard/"], (_req, res) => res.redirect(301, "/app"));
+app.get(["/settings", "/settings/"], (_req, res) => res.redirect(301, "/app/settings"));
+
 if (existsSync(marketing)) {
   app.use(express.static(marketing, { extensions: ["html"], setHeaders: staticHeaders }));
   // Unknown non-API pages get the site's own 404.
