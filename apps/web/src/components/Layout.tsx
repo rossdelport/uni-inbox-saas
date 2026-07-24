@@ -195,25 +195,31 @@ export function Layout() {
           </button>
 
           <div className="side-upsell">
-            {billing?.plan === "trial" ? (
+            {billing?.plan === "lifetime" ? (
+              <>
+                <h4>Lifetime member</h4>
+                <p>
+                  {billing.pricing.lifetime_max} accounts included. Share Uni-Inbox with a friend.
+                </p>
+              </>
+            ) : billing?.plan === "monthly" ? (
+              <>
+                <h4>Go Lifetime</h4>
+                <p>
+                  ${billing.pricing.lifetime_usd} once. Up to {billing.pricing.lifetime_max}{" "}
+                  accounts, every future update included.
+                </p>
+              </>
+            ) : billing ? (
               <>
                 <h4>{billing.trial_expired ? "Trial ended" : "Free trial"}</h4>
                 <p>
                   {billing.trial_expired
                     ? "Pick a plan to keep every inbox syncing."
-                    : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. Up to 12 accounts on a plan, one clean inbox.`}
+                    : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. $${billing.pricing.monthly_base_usd}/month after, or $${billing.pricing.lifetime_usd} once for Lifetime.`}
                 </p>
               </>
-            ) : (
-              <>
-                <h4>{billing ? `${billing.plan_label} plan` : "Your plan"}</h4>
-                <p>
-                  {billing
-                    ? `${billing.connected_inboxes} of ${billing.max_inboxes} accounts used. Every future update included.`
-                    : ""}
-                </p>
-              </>
-            )}
+            ) : null}
             <a
               href="#"
               onClick={(e) => {
@@ -222,7 +228,7 @@ export function Layout() {
                 setPlansOpen(true);
               }}
             >
-              See plans
+              {billing?.plan === "lifetime" ? "View plan" : "See plans"}
             </a>
           </div>
         </aside>

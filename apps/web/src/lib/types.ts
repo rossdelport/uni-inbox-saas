@@ -1,7 +1,7 @@
 // Types shared between @uni/api and @uni/web. The API is the source of truth;
 // everything here is the SANITIZED shape the dashboard sees (no credentials).
 
-export type PlanId = "trial" | "solo" | "builder" | "empire";
+export type PlanId = "trial" | "monthly" | "lifetime";
 
 export type ProviderPreset = "gmail" | "icloud" | "porkbun" | "custom";
 
@@ -75,11 +75,21 @@ export interface InboxPage {
 export interface BillingState {
   plan: PlanId;
   plan_label: string;
+  /** Display price for the current state, e.g. "$7/month" or "$50 one-time". */
+  price_label: string;
   max_inboxes: number;
   connected_inboxes: number;
+  monthly_quantity: number;
   subscription_status: string | null;
   trial_ends_at: string | null;
   trial_expired: boolean;
+  pricing: {
+    monthly_base_usd: number;
+    monthly_included: number;
+    monthly_per_extra_usd: number;
+    lifetime_usd: number;
+    lifetime_max: number;
+  };
 }
 
 /** Connection settings the user fills in when adding an account. */

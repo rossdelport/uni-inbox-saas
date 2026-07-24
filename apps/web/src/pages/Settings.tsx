@@ -324,13 +324,15 @@ function PlanPane() {
               ? billing.trial_expired
                 ? "Trial ended"
                 : `Free trial, ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
-              : `$${billing.plans.find((p) => p.id === billing.plan)?.price_usd ?? ""}/month`
+              : billing.price_label
             : ""}
         </div>
         <div className="ph-desc">
           {billing?.plan === "trial"
             ? "Pick a plan anytime. Nothing is deleted when you switch."
-            : "Thanks for supporting Uni-Inbox. Switch or cancel anytime."}
+            : billing?.plan === "monthly"
+              ? `${billing.pricing.monthly_included} accounts included, $${billing.pricing.monthly_per_extra_usd}/month per extra. Switch or cancel anytime.`
+              : "Every future update included, forever. Thanks for backing Uni-Inbox."}
         </div>
         {billing && (
           <div className="usage">

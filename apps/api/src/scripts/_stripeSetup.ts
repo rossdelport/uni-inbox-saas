@@ -1,16 +1,15 @@
 import Stripe from "stripe";
 import { env } from "../config/env.js";
 
-// Idempotent Stripe setup: one product, three monthly prices with lookup
-// keys. Run once against TEST, once against LIVE (whichever key is in env):
+// Idempotent Stripe setup: one product, two prices. Run once against TEST,
+// once against LIVE (whichever key is in env):
 //   npm run stripe:setup --workspace @uni/api
-// Prints the price ids to paste into env as STRIPE_PRICE_SOLO/BUILDER/EMPIRE.
-
-const TIERS = [
-  { lookup: "uni_solo_monthly", nickname: "Solo", amount: 500, envVar: "STRIPE_PRICE_SOLO" },
-  { lookup: "uni_builder_monthly", nickname: "Builder", amount: 1000, envVar: "STRIPE_PRICE_BUILDER" },
-  { lookup: "uni_empire_monthly", nickname: "Empire", amount: 2000, envVar: "STRIPE_PRICE_EMPIRE" },
-] as const;
+// Prints the price ids to paste into env as STRIPE_PRICE_MONTHLY / _LIFETIME.
+//
+// Monthly is a graduated-tier price where the subscription QUANTITY is the
+// number of allowed accounts: the first 3 bill a flat $5/month, every extra
+// account $2/month. Lifetime is a $50 one-time price (10 accounts, enforced
+// in the app).
 
 async function main() {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY unset");
@@ -28,25 +27,47 @@ async function main() {
     }));
   console.log(`Product: ${product.id}`);
 
-  for (const tier of TIERS) {
-    const existing = await stripe.prices.list({
-      lookup_keys: [tier.lookup],
-      active: true,
-      limit: 1,
-    });
-    const price =
-      existing.data[0] ??
-      (await stripe.prices.create({
-        product: product.id,
-        currency: "usd",
-        unit_amount: tier.amount,
-        recurring: { interval: "month" },
-        nickname: tier.nickname,
-        lookup_key: tier.lookup,
-      }));
-    console.log(`${tier.envVar}=${price.id}`);
-  }
-  console.log("\nPaste the three price ids above into .env (dev) and Railway (prod).");
+  // Monthly: graduated tiers, quantity = allowed accounts.
+  const monthlyExisting = await stripe.prices.list({
+    lookup_keys: ["uni_monthly"],
+    active: true,
+    limit: 1,
+  });
+  const monthly =
+    monthlyExisting.data[0] ??
+    (await stripe.prices.create({
+      product: product.id,
+      currency: "usd",
+      nickname: "Monthly (3 included, $2 per extra account)",
+      lookup_key: "uni_monthly",
+      recurring: { interval: "month" },
+      billing_scheme: "tiered",
+      tiers_mode: "graduated",
+      tiers: [
+        { up_to: 3, flat_amount: 500, unit_amount: 0 },
+        { up_to: "inf", unit_amount: 200 },
+      ],
+    }));
+  console.log(`STRIPE_PRICE_MONTHLY=${monthly.id}`);
+
+  // Lifetime: $50 one-time.
+  const lifetimeExisting = await stripe.prices.list({
+    lookup_keys: ["uni_lifetime"],
+    active: true,
+    limit: 1,
+  });
+  const lifetime =
+    lifetimeExisting.data[0] ??
+    (await stripe.prices.create({
+      product: product.id,
+      currency: "usd",
+      nickname: "Lifetime (10 accounts, one-time)",
+      lookup_key: "uni_lifetime",
+      unit_amount: 5000,
+    }));
+  console.log(`STRIPE_PRICE_LIFETIME=${lifetime.id}`);
+
+  console.log("\nPaste the two price ids above into .env (dev) and Railway (prod).");
 }
 
 main().catch((err) => {

@@ -197,12 +197,20 @@ export function useCompose() {
 
 export function useCheckout() {
   return useMutation({
-    mutationFn: (tier: string) =>
+    mutationFn: (tier: "monthly" | "lifetime") =>
       api<{ url: string }>("/api/billing/checkout", {
         method: "POST",
         body: JSON.stringify({ tier }),
       }),
     onSuccess: ({ url }) => window.location.assign(url),
+  });
+}
+
+export function useAddSeat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<{ quantity: number }>("/api/billing/add-seat", { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["billing"] }),
   });
 }
 

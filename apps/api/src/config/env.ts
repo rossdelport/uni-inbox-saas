@@ -34,9 +34,8 @@ const schema = z.object({
   // holds the TEST key; Railway holds the LIVE key + live price ids.
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  STRIPE_PRICE_SOLO: z.string().optional(),
-  STRIPE_PRICE_BUILDER: z.string().optional(),
-  STRIPE_PRICE_EMPIRE: z.string().optional(),
+  STRIPE_PRICE_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_LIFETIME: z.string().optional(),
 
   // Comma-separated allowed dashboard origins (e.g. the Vercel URL). When
   // unset, all origins are allowed (requests still require a valid JWT).

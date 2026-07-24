@@ -1,7 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { AccountInput, ProviderPreset, TestResult } from "../lib/types.js";
 import { api } from "../lib/api.js";
-import { useBillingState, useConnectAccount, useTestConnection } from "../lib/queries.js";
+import {
+  useAddSeat,
+  useBillingState,
+  useCheckout,
+  useConnectAccount,
+  useTestConnection,
+} from "../lib/queries.js";
 import { PROVIDER_COLORS } from "../lib/assets.js";
 import { ModalShell, PlansModal } from "./PlansModal.js";
 import { toast } from "../lib/toast.js";
@@ -30,19 +36,27 @@ const HINTS: Record<string, string> = {
 };
 
 // Connect-an-account modal in the kit style. At the plan limit it becomes
-// the paywall (m-limit + upsell into the plans modal).
+// the paywall: Monthly users add a +$2 seat in place, everyone can jump to
+// Lifetime, trial users get pushed into Monthly.
 export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
   const { data: billing } = useBillingState();
+  const checkout = useCheckout();
+  const addSeat = useAddSeat();
   const [plansOpen, setPlansOpen] = useState(false);
 
   const atLimit = billing ? billing.connected_inboxes >= billing.max_inboxes : false;
 
   if (plansOpen) return <PlansModal onClose={onClose} />;
   if (billing && atLimit) {
+    const p = billing.pricing;
     return (
       <ModalShell
         title="Your plan is full"
-        sub="Upgrade to connect more inboxes. Nothing gets deleted when you change plans."
+        sub={
+          billing.plan === "lifetime"
+            ? "Lifetime covers up to 10 accounts. Remove one in Settings to make room."
+            : "Grow it in place: add a single account, or unlock ten with Lifetime."
+        }
         onClose={onClose}
       >
         <div className="m-limit">
@@ -50,22 +64,66 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
             {billing.connected_inboxes} of {billing.max_inboxes}
           </div>
           <div className="m-limit-txt">
-            accounts used on your <b>{billing.plan_label}</b> plan
+            accounts used on your <b>{billing.plan_label}</b> plan ({billing.price_label})
           </div>
         </div>
-        <div className="m-upsell">
-          <button
-            className="btn-black"
-            style={{ height: 48, fontSize: 15 }}
-            onClick={() => setPlansOpen(true)}
-          >
-            See plans
-          </button>
-        </div>
+        {billing.plan !== "lifetime" && (
+          <div className="m-upsell">
+            {billing.plan === "monthly" ? (
+              <button
+                className="btn-black"
+                style={{ height: 48, fontSize: 15 }}
+                disabled={addSeat.isPending}
+                onClick={() =>
+                  addSeat.mutate(undefined, {
+                    onSuccess: ({ quantity }) =>
+                      toast(`Plan updated: up to ${quantity} accounts`),
+                  })
+                }
+              >
+                {addSeat.isPending
+                  ? "Updating plan…"
+                  : `Add one more account, +$${p.monthly_per_extra_usd}/month`}
+              </button>
+            ) : (
+              <button
+                className="btn-black"
+                style={{ height: 48, fontSize: 15 }}
+                disabled={checkout.isPending}
+                onClick={() => checkout.mutate("monthly")}
+              >
+                {checkout.isPending
+                  ? "Redirecting…"
+                  : `Go Monthly, $${p.monthly_base_usd}/month for ${p.monthly_included} accounts`}
+              </button>
+            )}
+            <button
+              className="btn-ghost"
+              disabled={checkout.isPending}
+              onClick={() => checkout.mutate("lifetime")}
+            >
+              Go Lifetime, ${p.lifetime_usd} once, {p.lifetime_max} accounts
+            </button>
+          </div>
+        )}
+        {(addSeat.error || checkout.error) && (
+          <p className="err">{((addSeat.error ?? checkout.error) as Error).message}</p>
+        )}
+        <p style={{ marginTop: 14, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
+          {billing.plan === "monthly"
+            ? "Extra accounts stay on your Monthly bill. Lifetime covers up to 10 with no monthly cost."
+            : "Nothing gets deleted when you change plans."}
+        </p>
       </ModalShell>
     );
   }
-  return <ConnectFlow onClose={onClose} usedAfter={billing ? billing.connected_inboxes + 1 : null} max={billing?.max_inboxes ?? null} />;
+  return (
+    <ConnectFlow
+      onClose={onClose}
+      usedAfter={billing ? billing.connected_inboxes + 1 : null}
+      max={billing?.max_inboxes ?? null}
+    />
+  );
 }
 
 function ConnectFlow({
