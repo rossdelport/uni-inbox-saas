@@ -11,13 +11,14 @@ import { MAIL_SRC } from "../lib/assets.js";
 import type { AppOutletContext } from "../components/Layout.js";
 import type { ThreadSummary } from "../lib/types.js";
 
-export type InboxViewName = "all" | "starred" | "later" | "archived";
+export type InboxViewName = "all" | "starred" | "later" | "archived" | "deleted";
 
 const VIEW_TITLES: Record<InboxViewName, string> = {
   all: "All inboxes",
   starred: "Starred",
   later: "Read later",
   archived: "Archived",
+  deleted: "Deleted",
 };
 
 // List-pane tabs: same views as the sidebar, but they keep the current
@@ -27,6 +28,7 @@ const TABS: Array<{ key: InboxViewName; label: string; path: string }> = [
   { key: "starred", label: "Starred", path: "/starred" },
   { key: "later", label: "Later", path: "/later" },
   { key: "archived", label: "Archived", path: "/archived" },
+  { key: "deleted", label: "Deleted", path: "/deleted" },
 ];
 
 // The mail surface: .dash-list (message rows) + .dash-read (reading pane).
@@ -38,12 +40,25 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const threadId = params.get("t");
   const { search } = useOutletContext<AppOutletContext>();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
-  const inbox = useInbox({
-    account,
-    archived: view === "archived",
-    starred: view === "starred",
-    later: view === "later",
-  });
+  // Search is server-side across EVERY mailbox at once. Debounced so we
+  // query on pauses, not every keystroke.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+  const searching = debouncedQ.length > 0;
+  const inbox = useInbox(
+    searching
+      ? { q: debouncedQ }
+      : {
+          account,
+          archived: view === "archived",
+          starred: view === "starred",
+          later: view === "later",
+          deleted: view === "deleted",
+        },
+  );
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
   // First-run onboarding: auto-open once for brand-new users (guarded below
@@ -99,22 +114,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     );
   }
 
-  const all = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
-  const q = search.trim().toLowerCase();
-  const threads = q
-    ? all.filter((t) =>
-        [t.subject, t.snippet, t.from_name, t.from_address, t.account_email, t.account_label]
-          .filter(Boolean)
-          .some((s) => (s as string).toLowerCase().includes(q)),
-      )
-    : all;
+  // Server-side search already filtered across every mailbox; no client pass.
+  const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
+  const q = debouncedQ.toLowerCase();
   const unreadN = threads.filter((t) => t.unread).length;
   const accountsInView = new Set(threads.map((t) => t.account_id)).size;
   const syncingFirstBatch =
-    !inbox.isLoading && all.length === 0 && (accounts?.length ?? 0) > 0 && view === "all" && !q;
+    !inbox.isLoading && threads.length === 0 && (accounts?.length ?? 0) > 0 && view === "all" && !q;
 
   const activeAcct = account ? accounts?.find((a) => a.id === account) : undefined;
-  const title = activeAcct?.label ?? VIEW_TITLES[view];
+  const title = searching ? "Search" : (activeAcct?.label ?? VIEW_TITLES[view]);
 
   function goTab(path: string) {
     const next = new URLSearchParams(params);
@@ -132,25 +141,27 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         <div className="list-head">
           <h2>{title}</h2>
           <p>
-            {q
-              ? `${threads.length} result${threads.length === 1 ? "" : "s"} for "${search.trim()}"`
+            {searching
+              ? `${threads.length} result${threads.length === 1 ? "" : "s"} across every inbox for "${debouncedQ}"`
               : `${threads.length} message${threads.length === 1 ? "" : "s"}` +
                 (threads.length
                   ? (unreadN ? `, ${unreadN} unread` : ", all read") +
                     ` across ${accountsInView} account${accountsInView === 1 ? "" : "s"}`
                   : "")}
           </p>
-          <div className="list-tabs">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`ltab ${view === t.key ? "on" : ""}`}
-                onClick={() => goTab(t.path)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {!searching && (
+            <div className="list-tabs">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`ltab ${view === t.key ? "on" : ""}`}
+                  onClick={() => goTab(t.path)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="list-rows">
           {inbox.isLoading ? (
@@ -167,14 +178,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
               <img src={MAIL_SRC} alt="" />
               <div>
                 {q
-                  ? "Nothing matches that search."
+                  ? "Nothing matches that search in any inbox."
                   : view === "archived"
                     ? "Nothing archived yet."
                     : view === "starred"
                       ? "No starred messages yet."
                       : view === "later"
                         ? "Nothing saved for later."
-                        : "You're at inbox zero. Enjoy it."}
+                        : view === "deleted"
+                          ? "Trash is empty. Deleted conversations stay here for 30 days."
+                          : "You're at inbox zero. Enjoy it."}
               </div>
             </div>
           ) : (
@@ -196,6 +209,22 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   {t.snippet && <div className="prev">{t.snippet}</div>}
                 </div>
                 <div className="acts" onClick={(e) => e.stopPropagation()}>
+                  {view === "deleted" ? (
+                    <button
+                      className="act-btn"
+                      title="Restore to inbox"
+                      style={{ width: "auto", padding: "0 10px", fontWeight: 700 }}
+                      onClick={() =>
+                        threadOp.mutate(
+                          { threadId: t.id, op: "restore" },
+                          { onSuccess: () => toast("Conversation restored", "success") },
+                        )
+                      }
+                    >
+                      ↩ Restore
+                    </button>
+                  ) : (
+                  <>
                   <button
                     className={`act-btn ${t.starred ? "on" : ""}`}
                     title={t.starred ? "Unstar" : "Star"}
@@ -236,6 +265,8 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   >
                     🗑
                   </button>
+                  </>
+                  )}
                 </div>
               </div>
             ))

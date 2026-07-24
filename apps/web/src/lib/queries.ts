@@ -23,7 +23,8 @@ export type ThreadOpName =
   | "star"
   | "unstar"
   | "later"
-  | "unlater";
+  | "unlater"
+  | "restore";
 
 // All server state flows through here. 15s refetch on the inbox keeps the
 // list fresh between IDLE pushes without hammering the API.
@@ -51,15 +52,20 @@ export interface InboxView {
   archived?: boolean;
   starred?: boolean;
   later?: boolean;
+  deleted?: boolean;
+  /** Search across every mailbox at once (server-side; other filters ignored). */
+  q?: string;
 }
 
 export function useInbox(view: InboxView) {
-  const { account = null, archived = false, starred = false, later = false } = view;
+  const { account = null, archived = false, starred = false, later = false, deleted = false, q = "" } = view;
   return useInfiniteQuery({
-    queryKey: ["inbox", account ?? "all", archived, starred, later],
+    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, q],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set("cursor", pageParam);
+      if (q) params.set("q", q);
+      if (deleted) params.set("deleted", "1");
       if (account) params.set("account", account);
       if (archived) params.set("archived", "1");
       if (starred) params.set("starred", "1");
@@ -107,9 +113,9 @@ export function useThreadOp() {
                     }
                   : t,
               )
-              // Archive/unarchive removes the row from the current view.
+              // Archive/unarchive/restore removes the row from the current view.
               .filter((t) =>
-                op === "archive" || op === "unarchive" ? t.id !== threadId : true,
+                op === "archive" || op === "unarchive" || op === "restore" ? t.id !== threadId : true,
               ),
           })),
         });

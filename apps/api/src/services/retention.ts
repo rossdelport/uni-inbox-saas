@@ -9,6 +9,17 @@ import { logger } from "../lib/logger.js";
 // deletes what fails both, then removes threads left empty.
 
 export async function retentionSweep(): Promise<void> {
+  // Trash purge: threads deleted more than 30 days ago go for good
+  // (their messages cascade with the thread row).
+  const trashCutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const { data: purged, error: purgeErr } = await supabase
+    .from("threads")
+    .delete()
+    .lt("deleted_at", trashCutoff)
+    .select("id");
+  if (purgeErr) logger.warn({ purgeErr }, "trash purge failed");
+  else if ((purged ?? []).length > 0) logger.info({ purged: purged?.length }, "trash purged");
+
   const cutoff = new Date(
     Date.now() - env.MAIL_RETENTION_DAYS * 24 * 3600 * 1000,
   ).toISOString();

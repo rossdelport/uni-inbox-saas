@@ -52,6 +52,7 @@ const router = createBrowserRouter(
         <Route path="/starred" element={<Inbox view="starred" />} />
         <Route path="/later" element={<Inbox view="later" />} />
         <Route path="/archived" element={<Inbox view="archived" />} />
+        <Route path="/deleted" element={<Inbox view="deleted" />} />
         <Route path="/t/:threadId" element={<ThreadRedirect />} />
         <Route path="/compose" element={<Compose />} />
         <Route path="/accounts" element={<Accounts />} />
