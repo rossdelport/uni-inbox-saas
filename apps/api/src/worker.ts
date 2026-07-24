@@ -1,3 +1,4 @@
+import "./lib/failsafe.js";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { superviseTick } from "./services/imapSync.js";

@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { decryptCredentials } from "../lib/crypto.js";
+import { logger } from "../lib/logger.js";
 import { getAccessToken, providerForAuthMethod } from "./oauthTokens.js";
 
 // Thin construction/teardown helpers around ImapFlow. Loggers are hard-off:
@@ -27,7 +28,7 @@ export async function buildImap(account: AccountConn, passwordOverride?: string)
           user: account.imap_username,
           pass: passwordOverride ?? decryptCredentials(account.credentials_enc).imap_password,
         };
-  return new ImapFlow({
+  const client = new ImapFlow({
     host: account.imap_host,
     port: account.imap_port,
     secure: account.imap_port === 993,
@@ -38,6 +39,13 @@ export async function buildImap(account: AccountConn, passwordOverride?: string)
     connectionTimeout: 15_000,
     greetingTimeout: 15_000,
   });
+  // ImapFlow is an EventEmitter: an async socket error (TLS reset, dropped
+  // IDLE connection) with no 'error' listener is an uncaught exception that
+  // takes down the whole process. Log it; callers see it via client.usable.
+  client.on("error", (err) => {
+    logger.warn({ err, accountId: account.id }, "imap connection error");
+  });
+  return client;
 }
 
 /** Run fn with a connected client, always logging out afterwards. */

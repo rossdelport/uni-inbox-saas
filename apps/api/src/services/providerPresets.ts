@@ -32,6 +32,15 @@ export const PRESETS: Record<ProviderPreset, PresetConfig> = {
     smtp_port: 587,
     smtp_security: "starttls",
   },
+  outlook: {
+    id: "outlook",
+    label: "Outlook",
+    imap_host: "outlook.office365.com",
+    imap_port: 993,
+    smtp_host: "smtp.office365.com",
+    smtp_port: 587,
+    smtp_security: "starttls",
+  },
   porkbun: {
     id: "porkbun",
     label: "Porkbun email hosting",
