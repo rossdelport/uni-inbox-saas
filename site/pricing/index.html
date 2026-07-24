@@ -193,7 +193,7 @@ footer.framer-sP0dz{display:none!important}
    then fade in at their final spots (no touch-the-text flash). JS-gated so
    they still show if scripts ever fail. */
 html.uni-js [data-framer-name="mails"]{opacity:0}
-html.uni-js [data-framer-name="mails"].uni-hero-ready{opacity:1;transition:opacity .7s ease}
+html.uni-js [data-framer-name="mails"].uni-hero-ready{opacity:1;transition:opacity .3s ease}
 
 [data-framer-name="logo"] a > div{display:none!important}
 [data-framer-name="logo"] a{background:url(https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png) center/contain no-repeat!important}
@@ -1220,14 +1220,7 @@ if (!window.__uniClickGuard){
 function patchHero(){
   var canvas = document.querySelector('[data-framer-name="mails"]');
   if (!canvas) return;
-  // Reveal only after Framer's entrance animations settle AND a final
-  // overlap pass has run, so envelopes first appear already clear of text.
-  if (!canvas.__uniRevealT){
-    canvas.__uniRevealT = setTimeout(function(){
-      try{ patchHero(); }catch(e){}
-      canvas.classList.add('uni-hero-ready');
-    }, 1800);
-  }
+
   var heads = Array.prototype.slice.call(document.querySelectorAll('h1[data-styles-preset="UJJoASFq5"]'));
   if (!heads.length){ canvas.classList.add('uni-hero-ready'); return; }
   heads.forEach(function(h){
@@ -1261,6 +1254,7 @@ function patchHero(){
     wrap.__uniPush = push;
     wrap.style.transform = 'translateX(' + Math.round(push) + 'px)';
   });
+  canvas.classList.add('uni-hero-ready');
 }
 if (!window.__uniHeroResize){
   window.__uniHeroResize = 1;
@@ -1271,7 +1265,14 @@ if (!window.__uniHeroResize){
   setTimeout(function(){
     var c = document.querySelector('[data-framer-name="mails"]');
     if (c) c.classList.add('uni-hero-ready');
-  }, 3200);
+  }, 1200);
+  // Fast corrector: run from the first frame and keep re-measuring while
+  // hydration and fonts settle, so overlaps are fixed within ~120ms.
+  var __uniHeroStart = Date.now();
+  (function uniHeroTick(){
+    try{ patchHero(); }catch(e){}
+    if (Date.now() - __uniHeroStart < 2600) setTimeout(uniHeroTick, 120);
+  })();
 }
 
 // Providers section rebuilt as a branded flow: account chips at the top,
