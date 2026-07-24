@@ -378,7 +378,7 @@ button.chip.on{border-color:#f5a623;color:#b8860b}
 .act-btn{width:25px;height:25px;border-radius:8px;font-size:11px}
 
 /* Reading pane: Gmail-style thread history */
-.read-wrap{max-width:680px;padding:26px 34px 60px}
+.read-wrap{max-width:none;margin:0;padding:26px 38px 60px}
 .read-wrap h1{font-size:19.5px;margin-top:2px}
 .read-wrap .via-chips{margin-bottom:12px;gap:6px}
 .chip{font-size:10.8px;padding:3px 9px 3px 7px}
