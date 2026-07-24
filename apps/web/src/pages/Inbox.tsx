@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
@@ -20,10 +20,20 @@ const VIEW_TITLES: Record<InboxViewName, string> = {
   archived: "Archived",
 };
 
+// List-pane tabs: same views as the sidebar, but they keep the current
+// account focus (sidebar views are global).
+const TABS: Array<{ key: InboxViewName; label: string; path: string }> = [
+  { key: "all", label: "Inbox", path: "/" },
+  { key: "starred", label: "Starred", path: "/starred" },
+  { key: "later", label: "Later", path: "/later" },
+  { key: "archived", label: "Archived", path: "/archived" },
+];
+
 // The mail surface: .dash-list (message rows) + .dash-read (reading pane).
 // The selected thread lives in the ?t= query param so the view sticks.
 export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const account = params.get("account");
   const threadId = params.get("t");
   const { search } = useOutletContext<AppOutletContext>();
@@ -104,7 +114,13 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     !inbox.isLoading && all.length === 0 && (accounts?.length ?? 0) > 0 && view === "all" && !q;
 
   const activeAcct = account ? accounts?.find((a) => a.id === account) : undefined;
-  const title = view === "all" && account ? (activeAcct?.label ?? "Inbox") : VIEW_TITLES[view];
+  const title = activeAcct?.label ?? VIEW_TITLES[view];
+
+  function goTab(path: string) {
+    const next = new URLSearchParams(params);
+    next.delete("t");
+    navigate({ pathname: path, search: next.toString() ? `?${next.toString()}` : "" });
+  }
 
   return (
     <>
@@ -124,6 +140,17 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     ` across ${accountsInView} account${accountsInView === 1 ? "" : "s"}`
                   : "")}
           </p>
+          <div className="list-tabs">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                className={`ltab ${view === t.key ? "on" : ""}`}
+                onClick={() => goTab(t.path)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="list-rows">
           {inbox.isLoading ? (
