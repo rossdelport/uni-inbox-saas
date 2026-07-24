@@ -1,6 +1,6 @@
-# Uni-Inbox — project context
+# OneInbox — project context
 
-Uni-Inbox is a unified email inbox SaaS for solo founders and indie hackers running
+OneInbox is a unified email inbox SaaS for solo founders and indie hackers running
 multiple projects: connect every project mailbox (Gmail via app password, Porkbun,
 any IMAP) and live in one clutter-free, color-coded inbox that replies from the
 right address every time. Tiers: Solo $5 (2 inboxes), Builder $10 (5), Empire $20 (12),

@@ -198,9 +198,9 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   </button>
                   <button
                     className="act-btn"
-                    title="Delete from Uni-Inbox"
+                    title="Delete from OneInbox"
                     onClick={() => {
-                      if (!window.confirm("Delete this conversation from Uni-Inbox? Your real mailbox is untouched.")) return;
+                      if (!window.confirm("Delete this conversation from OneInbox? Your real mailbox is untouched.")) return;
                       deleteThread.mutate(t.id, { onSuccess: () => toast("Conversation deleted") });
                       if (threadId === t.id) closeThread();
                     }}

@@ -92,8 +92,8 @@ export function Login() {
       <div className="auth-card">
         <a className="logo-link" href="/">
           <span className="logo-lock">
-            <img src={LOGO_SRC} alt="Uni-Inbox logo" />
-            <span>uni-inbox</span>
+            <img src={LOGO_SRC} alt="OneInbox logo" />
+            <span>oneinbox</span>
           </span>
         </a>
 
@@ -188,7 +188,7 @@ export function Login() {
         </form>
 
         <p className="auth-swap">
-          {isSignup ? "Already have an account?" : "New to Uni-Inbox?"}{" "}
+          {isSignup ? "Already have an account?" : "New to OneInbox?"}{" "}
           <a
             href="#"
             onClick={(e) => {

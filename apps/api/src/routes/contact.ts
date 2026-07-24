@@ -41,7 +41,7 @@ contactRouter.post("/", async (req, res) => {
         from: env.CONTACT_FROM_EMAIL,
         to: [env.CONTACT_TO_EMAIL],
         reply_to: email,
-        subject: `Uni-Inbox contact: ${name || email}`,
+        subject: `OneInbox contact: ${name || email}`,
         text: `From: ${name || "(no name)"} <${email}>\n\n${message}`,
       }),
     });

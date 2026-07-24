@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ==== Uni-Inbox UI kit: auth pages + dashboard ==== */
+/* ==== OneInbox UI kit: auth pages + dashboard ==== */
 :root{
   --b1:#308dfc; --b2:#60aff7; --b3:#8ed0f2;
   --ink:rgba(0,0,0,.83); --ink2:rgba(0,0,0,.55); --ink3:rgba(0,0,0,.38);

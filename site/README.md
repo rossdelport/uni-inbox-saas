@@ -1,6 +1,6 @@
-# Uni-Inbox Website
+# OneInbox Website
 
-Static marketing site for Uni-Inbox: "All your project inboxes, in one dashboard."
+Static marketing site for OneInbox: "All your project inboxes, in one dashboard."
 Plain HTML/CSS/JS. **No build step, no dependencies, no environment variables.**
 
 ## Pages
@@ -23,8 +23,8 @@ The site was built with Framer, then rebranded. Two layers matter when editing:
    nothing is required from framerusercontent.com at runtime except hotlinked images.
    User-visible strings live inside those `.mjs` chunks (already rebranded).
 
-2. **Uni-Inbox patcher** — every page ends with two inline blocks:
-   - `<style>` starting with `/* ==== Uni-Inbox custom ==== */` (custom components:
+2. **OneInbox patcher** — every page ends with two inline blocks:
+   - `<style>` starting with `/* ==== OneInbox custom ==== */` (custom components:
       search animation, FAQ accordion, pricing cards, Other-tab animation)
    - a final `<script>` (an IIFE containing `patchTabs`, `patchPricing`, etc.)
       that rebrands the DOM at runtime: header logo, provider pills/icons,

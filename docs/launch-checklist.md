@@ -4,7 +4,7 @@ The code in this repo is complete through billing. What remains is wiring the
 three external services and verifying against real mailboxes. In order:
 
 ## 1. Supabase (~5 min) — SHARED with ibookshelf for now
-Uni-Inbox uses the existing iBookshelf project (`afkgkmhshitfopddadbr`),
+OneInbox uses the existing iBookshelf project (`afkgkmhshitfopddadbr`),
 isolated in the `uni_inbox` schema. Migrations 0001..0004 are ALREADY APPLIED
 (2026-07-23, via MCP). Remaining manual steps:
 - [ ] Dashboard -> Project Settings -> API -> Exposed schemas: add `uni_inbox`
@@ -14,7 +14,7 @@ isolated in the `uni_inbox` schema. Migrations 0001..0004 are ALREADY APPLIED
 - [ ] Copy: project URL, anon key, service role key (ibookshelf's)
 
 Caveats of sharing (accepted for now): one auth user pool across both
-products (an ibookshelf login works on Uni-Inbox and vice versa); Uni-Inbox's
+products (an ibookshelf login works on OneInbox and vice versa); OneInbox's
 signup trigger creates a harmless profiles row for ibookshelf signups; moving
 out later = dump/restore the `uni_inbox` schema to a fresh project.
 
@@ -36,7 +36,7 @@ out later = dump/restore the `uni_inbox` schema to a fresh project.
 - [ ] Connect the Porkbun mailbox (verify hosts in Porkbun dashboard if the
       preset fails; presets assume imap.porkbun.com / smtp.porkbun.com:587)
 - [ ] Send yourself mail from outside; confirm it appears within ~1 min
-- [ ] Mark read in Uni-Inbox -> shows read in Gmail web; archive -> lands in All Mail
+- [ ] Mark read in OneInbox -> shows read in Gmail web; archive -> lands in All Mail
 - [ ] Reply from a Porkbun thread; confirm recipient's Gmail threads it and the
       From address is the Porkbun one; copy appears in Porkbun Sent
 - [ ] Enter a wrong password on purpose; account flips to "Sign-in failed",

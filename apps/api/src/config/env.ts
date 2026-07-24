@@ -15,7 +15,7 @@ const schema = z.object({
 
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  // Uni-Inbox shares a Supabase project with ibookshelf for now; all of its
+  // OneInbox shares a Supabase project with ibookshelf for now; all of its
   // tables live in this schema. The schema must be listed under the project's
   // Settings -> API -> Exposed schemas or every query 404s.
   SUPABASE_DB_SCHEMA: z.string().default("uni_inbox"),
@@ -58,7 +58,7 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional(),
   CONTACT_TO_EMAIL: z.string().email().default("rossdelport1998@gmail.com"),
   // Sender must be on a Resend-verified domain (trynoisy.com is verified).
-  CONTACT_FROM_EMAIL: z.string().default("Uni-Inbox contact form <uniinbox@trynoisy.com>"),
+  CONTACT_FROM_EMAIL: z.string().default("OneInbox contact form <oneinbox@trynoisy.com>"),
 });
 
 export const env = schema.parse(process.env);

@@ -1,4 +1,4 @@
-# Uni-Inbox
+# OneInbox
 
 One clutter-free inbox for every project you run. Built for solo founders and indie
 hackers who juggle a personal Gmail, a couple of custom-domain mailboxes, and three

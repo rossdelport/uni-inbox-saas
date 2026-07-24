@@ -342,7 +342,7 @@ export class AccountSyncer {
               await client.messageMove({ uid: range }, archive, { uid: true });
             } else {
               // No archive folder: best effort is mark-read; the thread stays
-              // archived in Uni-Inbox regardless.
+              // archived in OneInbox regardless.
               await client.messageFlagsAdd({ uid: range }, ["\\Seen"], { uid: true });
             }
           }

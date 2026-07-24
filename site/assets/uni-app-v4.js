@@ -1,4 +1,4 @@
-/* ==== Uni-Inbox app engine: shared state, plan logic, modals, toasts ==== */
+/* ==== OneInbox app engine: shared state, plan logic, modals, toasts ==== */
 window.UNI = (function(){
   var PROVIDERS = {
     gmail:   {name:'Gmail',   color:'#EA4335', hint:'name@gmail.com'},

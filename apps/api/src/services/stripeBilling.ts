@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 import { getBilling, PRICING } from "../lib/plans.js";
 
-// Stripe billing core. One product ("Uni-Inbox"), two prices:
+// Stripe billing core. One product ("OneInbox"), two prices:
 //  - Monthly (STRIPE_PRICE_MONTHLY): recurring, graduated tiers — quantity is
 //    the number of allowed accounts; first 3 bill a flat $5, each extra $2.
 //  - Lifetime (STRIPE_PRICE_LIFETIME): $50 one-time payment, 10 accounts.

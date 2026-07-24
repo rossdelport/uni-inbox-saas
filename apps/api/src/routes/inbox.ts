@@ -171,7 +171,7 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
   res.json({ ok: true });
 });
 
-// DELETE /api/inbox/threads/:id — remove the conversation from Uni-Inbox.
+// DELETE /api/inbox/threads/:id — remove the conversation from OneInbox.
 // Local-only: messages cascade with the thread and the real mailbox is
 // untouched (incremental sync will not re-import already-seen UIDs).
 inboxRouter.delete("/threads/:id", async (req, res) => {

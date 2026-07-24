@@ -18,11 +18,11 @@ async function main() {
   console.log(`Stripe mode: ${mode}`);
 
   // Product (find by name, create if missing).
-  const products = await stripe.products.search({ query: `name:"Uni-Inbox" AND active:"true"` });
+  const products = await stripe.products.search({ query: `name:"OneInbox" AND active:"true"` });
   const product =
     products.data[0] ??
     (await stripe.products.create({
-      name: "Uni-Inbox",
+      name: "OneInbox",
       description: "All your project inboxes in one clutter-free place.",
     }));
   console.log(`Product: ${product.id}`);

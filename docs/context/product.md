@@ -1,6 +1,6 @@
 # Product
 
-Uni-Inbox: every project inbox in one clutter-free place, for solo founders and
+OneInbox: every project inbox in one clutter-free place, for solo founders and
 indie hackers. Ross's own pain is the spec: personal Gmail,
 perthsolarpanelcleaners.com (Porkbun hosting), trynoisy.com, and ~3 side
 projects, each with its own mailbox and none worth a full client setup.

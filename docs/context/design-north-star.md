@@ -2,7 +2,7 @@
 
 **URL: https://maily-template.framer.website/**
 
-Ross's call (2026-07-23): this is the exact UI/UX Uni-Inbox will have, for the
+Ross's call (2026-07-23): this is the exact UI/UX OneInbox will have, for the
 marketing site and, in spirit, the dashboard. Treat it as the reference for
 every visual decision. (It is published from the Maily Framer template; if we
 reuse its actual assets/layout for the marketing site rather than just the

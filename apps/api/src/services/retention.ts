@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 
-// Storage-lean retention: Uni-Inbox is a recent-mail window, not an archive.
+// Storage-lean retention: OneInbox is a recent-mail window, not an archive.
 // Keep messages that are BOTH within the day window and the newest N per
 // account is too strict; we keep whichever is more generous per message:
 // inside MAIL_RETENTION_DAYS *or* among the newest MAX_PER_ACCOUNT. The sweep

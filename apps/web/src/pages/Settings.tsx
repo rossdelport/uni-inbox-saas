@@ -147,7 +147,7 @@ function ProfilePane() {
       <div className="set-card danger-zone">
         <h4>Log out</h4>
         <p style={{ marginTop: 8, fontSize: 13.5, color: "var(--ink2)" }}>
-          Signs you out of Uni-Inbox on this device.
+          Signs you out of OneInbox on this device.
         </p>
         <div style={{ marginTop: 14 }}>
           <button className="btn-mini danger" onClick={() => void supabase.auth.signOut()}>
@@ -263,7 +263,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
           onClick={() => {
             if (
               window.confirm(
-                `Remove ${account.email_address}? Its synced mail disappears from Uni-Inbox (the mailbox itself is untouched).`,
+                `Remove ${account.email_address}? Its synced mail disappears from OneInbox (the mailbox itself is untouched).`,
               )
             ) {
               remove.mutate(account.id, { onSuccess: () => toast("Account removed") });
@@ -396,7 +396,7 @@ function PlanPane() {
             ? "Pick a plan anytime. Nothing is deleted when you switch."
             : billing?.plan === "monthly"
               ? `${billing.pricing.monthly_included} accounts included, $${billing.pricing.monthly_per_extra_usd}/month per extra. Switch or cancel anytime.`
-              : "Every future update included, forever. Thanks for backing Uni-Inbox."}
+              : "Every future update included, forever. Thanks for backing OneInbox."}
         </div>
         {billing && (
           <div className="usage">

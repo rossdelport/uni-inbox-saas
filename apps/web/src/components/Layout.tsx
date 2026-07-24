@@ -84,8 +84,8 @@ export function Layout() {
           </svg>
         </button>
         <a className="logo-lock" href="/">
-          <img src={LOGO_SRC} alt="Uni-Inbox logo" />
-          <span>uni-inbox</span>
+          <img src={LOGO_SRC} alt="OneInbox logo" />
+          <span>oneinbox</span>
         </a>
         <div className="dash-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
@@ -199,7 +199,7 @@ export function Layout() {
               <>
                 <h4>Lifetime member</h4>
                 <p>
-                  {billing.pricing.lifetime_max} accounts included. Share Uni-Inbox with a friend.
+                  {billing.pricing.lifetime_max} accounts included. Share OneInbox with a friend.
                 </p>
               </>
             ) : billing?.plan === "monthly" ? (
