@@ -3,11 +3,13 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { superviseTick } from "./services/imapSync.js";
 import { retentionSweep } from "./services/retention.js";
+import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
 // IMAP sync supervisor. Every 30s: start syncers for due accounts, tear down
 // ones that were removed/paused. Each syncer holds a live IDLE connection, so
 // new mail lands in seconds; the tick only handles lifecycle.
 logger.info("sync supervisor starting");
+markWorkerStarted();
 
 const SUPERVISOR_INTERVAL_MS = 30_000;
 let ticking = false;
@@ -19,9 +21,12 @@ setInterval(() => {
     .catch((err) => logger.error({ err }, "supervisor tick failed"))
     .finally(() => {
       ticking = false;
+      markTick();
     });
 }, SUPERVISOR_INTERVAL_MS);
-void superviseTick().catch((err) => logger.error({ err }, "initial supervisor tick failed"));
+void superviseTick()
+  .catch((err) => logger.error({ err }, "initial supervisor tick failed"))
+  .finally(() => markTick());
 
 // Retention sweep: daily, first pass 5 minutes after boot (not at boot, so a
 // crash-loop never hammers deletes).

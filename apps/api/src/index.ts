@@ -77,18 +77,39 @@ app.use(
   }),
 );
 
-// Shallow by default (process is up); ?deep=1 also proves the database is
-// reachable, for uptime monitors that should page on real outages.
+// Shallow by default (process is up), which is what Railway's healthcheck
+// uses. ?deep=1 also proves the database is reachable AND that the sync
+// supervisor is still ticking, for uptime monitors that should page on real
+// outages. The worker check matters because a dead worker is invisible from
+// outside: every page keeps loading while mail quietly stops arriving.
+const WORKER_STALE_MS = 3 * 60_000; // 6 missed 30s ticks
+
 app.get("/health", async (req, res) => {
   if (String(req.query.deep ?? "") !== "1") return res.json({ ok: true });
+  const { heartbeat } = await import("./lib/heartbeat.js");
+  // workerStartedAt stays null when the process runs API-only
+  // (SERVICE_ROLE=api), so no ticks are expected and it cannot be "stale".
+  const workerRunning = heartbeat.workerStartedAt !== null;
+  const sinceTick = heartbeat.lastTickAt === null ? null : Date.now() - heartbeat.lastTickAt;
+  const workerOk = !workerRunning || (sinceTick !== null && sinceTick < WORKER_STALE_MS);
+
+  let db = false;
   try {
     const { supabase } = await import("./lib/supabase.js");
     const { error } = await supabase.from("profiles").select("user_id", { head: true, count: "exact" }).limit(1);
     if (error) throw error;
-    res.json({ ok: true, db: true });
+    db = true;
   } catch {
-    res.status(503).json({ ok: false, db: false });
+    db = false;
   }
+
+  const ok = db && workerOk;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    db,
+    worker: workerRunning ? (workerOk ? "alive" : "stale") : "disabled",
+    seconds_since_tick: sinceTick === null ? null : Math.round(sinceTick / 1000),
+  });
 });
 
 // Public: marketing-site contact form (rate limited inside the router).
