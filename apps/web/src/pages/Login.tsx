@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase.js";
 import { LOGO_SRC, MAIL_SRC } from "../lib/assets.js";
+import { PasswordInput } from "../components/PasswordInput.js";
 
 const SRC_KEY = "oi-signup-src";
 
@@ -193,8 +194,7 @@ export function Login() {
           </div>
           <div className="field">
             <label>Password</label>
-            <input
-              type="password"
+            <PasswordInput
               required
               autoComplete={isSignup ? "new-password" : "current-password"}
               placeholder={isSignup ? "At least 8 characters" : "••••••••"}

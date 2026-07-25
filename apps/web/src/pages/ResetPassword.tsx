@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
 import { toast } from "../lib/toast.js";
+import { PasswordInput } from "../components/PasswordInput.js";
 
 // Landing page for the password-recovery email link. Supabase signs the user
 // in with a recovery session; this just sets the new password.
@@ -33,8 +34,7 @@ export function ResetPassword() {
         <form className="set-card" onSubmit={onSubmit} style={{ maxWidth: 440 }}>
           <div className="field">
             <label>New password</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               placeholder="At least 8 characters"
               value={password}
@@ -43,8 +43,7 @@ export function ResetPassword() {
           </div>
           <div className="field">
             <label>Confirm new password</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}

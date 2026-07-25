@@ -735,3 +735,17 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .btn-sm:disabled{background:#e6e9ed;color:rgba(2,20,50,.55)}
 /* Table headers and micro-labels sit at the muted step, which now passes. */
 .adm-table th,.adm-tile .t-lab,.uni-toast .t-foot{color:var(--ink3)}
+
+/* ---- 12. Password fields: show/hide eye ---------------------------
+   The toggle sits inside the input's box. It is not a tab stop (the
+   input already is) and uses the muted ink so it reads as a control,
+   not as content.                                                    */
+.pw-wrap{position:relative;display:block}
+.pw-wrap input{width:100%}
+.pw-eye{position:absolute;top:50%;right:8px;transform:translateY(-50%);
+  width:28px;height:28px;border:none;background:none;padding:0;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:8px;
+  color:var(--ink3);transition:color .14s ease, background .14s ease}
+.pw-eye svg{width:16px;height:16px;display:block}
+.pw-eye:hover{color:var(--b1-ink);background:rgba(var(--b1-rgb),.08)}
+.pw-eye:active{background:rgba(var(--b1-rgb),.14)}

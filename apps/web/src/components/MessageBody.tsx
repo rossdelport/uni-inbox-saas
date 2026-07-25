@@ -23,6 +23,12 @@ export function MessageBody({
     // Inline cid: images point at IMAP attachment parts the iframe can't
     // fetch; blank them so they hide instead of rendering broken glyphs.
     clean = clean.replace(/(<img[^>]+src\s*=\s*["'])cid:[^"']*(["'])/gi, "$1$2");
+    // Every link opens in a new tab (via <base target="_blank">) and must not
+    // hand the opener over to the destination. Drop any rel the sender set,
+    // then force our own.
+    clean = clean
+      .replace(/(<a\b[^>]*?)\s+rel\s*=\s*(["'])[^"']*\2/gi, "$1")
+      .replace(/<a\b/gi, '<a rel="noopener noreferrer"');
     const html =
       `<base target="_blank"><style>body{font:14px/1.6 -apple-system,system-ui,sans-serif;` +
       `color:#0A2540;margin:0;padding:4px;word-break:break-word}` +
@@ -50,7 +56,16 @@ export function MessageBody({
           // execution stays blocked) but the parent can measure its height.
           // With a fully opaque sandbox, contentDocument is unreachable and
           // the frame would be stuck at minHeight.
-          sandbox="allow-same-origin"
+          //
+          // allow-popups lets a clicked link actually open; without it the
+          // sandbox swallows the navigation and links appear dead.
+          // allow-popups-to-escape-sandbox keeps the opened tab a normal
+          // browsing context instead of inheriting this frame's restrictions,
+          // which would leave the destination site broken.
+          //
+          // This stays safe because allow-scripts is absent: no code in the
+          // message can run, so a popup can only ever come from a real click.
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           srcDoc={doc}
           className="w-full rounded-md border-0"
           style={{ minHeight: 120 }}

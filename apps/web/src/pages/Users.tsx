@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { PasswordInput } from "../components/PasswordInput.js";
 
 // Founder dashboard: every user, plan, MRR, cash collected, join date and
 // which landing-page button sent them. Owner email + admin password gated
@@ -60,8 +61,7 @@ export function Users() {
           <form className="set-card" onSubmit={submitPw} style={{ maxWidth: 380 }}>
             <div className="field">
               <label>Admin password</label>
-              <input
-                type="password"
+              <PasswordInput
                 autoFocus
                 value={entry}
                 onChange={(e) => setEntry(e.target.value)}

@@ -14,6 +14,7 @@ import { PlansModal } from "../components/PlansModal.js";
 import { ConnectAccountModal } from "../components/ConnectAccountModal.js";
 import { ColorDots } from "../components/ColorDots.js";
 import { toast } from "../lib/toast.js";
+import { PasswordInput } from "../components/PasswordInput.js";
 
 type Pane = "profile" | "accounts" | "plan";
 
@@ -119,8 +120,7 @@ function ProfilePane() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div className="field">
             <label>New password</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               placeholder="At least 8 characters"
               value={password}
@@ -129,8 +129,7 @@ function ProfilePane() {
           </div>
           <div className="field">
             <label>Confirm new password</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
@@ -323,9 +322,9 @@ function AccountRow({ account }: { account: EmailAccount }) {
             );
           }}
         >
-          <input
-            style={{ flex: 1, height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#fff", padding: "0 14px", fontSize: 14, outline: "none" }}
-            type="password"
+          <PasswordInput
+            wrapperStyle={{ flex: 1 }}
+            style={{ width: "100%", height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#fff", padding: "0 14px", fontSize: 14, outline: "none" }}
             autoComplete="off"
             placeholder="New password / app password"
             value={password}

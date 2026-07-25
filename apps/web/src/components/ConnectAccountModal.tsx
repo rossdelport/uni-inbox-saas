@@ -13,6 +13,7 @@ import {
 import { ModalShell, PlansModal } from "./PlansModal.js";
 import { ColorDots } from "./ColorDots.js";
 import { toast } from "../lib/toast.js";
+import { PasswordInput } from "./PasswordInput.js";
 
 type ProviderKey = "gmail" | "icloud" | "outlook" | "custom";
 
@@ -351,8 +352,7 @@ export function ConnectForm({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div className="field">
               <label>{sel === "gmail" || sel === "icloud" ? "App password" : "Mailbox password"}</label>
-              <input
-                type="password"
+              <PasswordInput
                 required
                 autoComplete="off"
                 value={form.password}
