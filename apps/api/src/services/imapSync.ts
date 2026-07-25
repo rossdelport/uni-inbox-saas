@@ -108,19 +108,35 @@ export class AccountSyncer {
         if (Date.now() - startedAt > 25 * 60_000) break; // supervisor restarts us
       }
     } catch (err) {
-      await this.handleFailure(err);
+      // handleFailure writes to Supabase and can itself reject (network, RLS,
+      // project paused). Swallow that: a bookkeeping failure must never
+      // escape run() and become an unhandled rejection.
+      try {
+        await this.handleFailure(err);
+      } catch (bookkeepingErr) {
+        logger.error(
+          { err: bookkeepingErr, accountId: this.account.id },
+          "failed to record sync failure",
+        );
+      }
     } finally {
-      const c = this.client;
-      this.client = null;
-      if (c) await c.logout().catch(() => c.close());
-      if (!this.stopped) {
-        // Clean exit (25-min refresh): due immediately so the supervisor
-        // reconnects on its next tick.
-        await supabase
-          .from("email_accounts")
-          .update({ next_sync_at: new Date().toISOString() })
-          .eq("id", this.account.id)
-          .eq("status", "active");
+      // Everything here is best-effort cleanup. It runs outside the try/catch
+      // above, so any throw would reject run() with nothing to catch it.
+      try {
+        const c = this.client;
+        this.client = null;
+        if (c) await c.logout().catch(() => c.close());
+        if (!this.stopped) {
+          // Clean exit (25-min refresh): due immediately so the supervisor
+          // reconnects on its next tick.
+          await supabase
+            .from("email_accounts")
+            .update({ next_sync_at: new Date().toISOString() })
+            .eq("id", this.account.id)
+            .eq("status", "active");
+        }
+      } catch (cleanupErr) {
+        logger.warn({ err: cleanupErr, accountId: this.account.id }, "syncer cleanup failed");
       }
     }
   }
@@ -484,9 +500,14 @@ export async function superviseTick(): Promise<void> {
     if (new Date(row.next_sync_at as string).getTime() > now) continue;
     const syncer = new AccountSyncer(row as never);
     running.set(row.id as string, syncer);
-    void syncer.run().finally(() => {
-      running.delete(row.id as string);
-    });
+    // run() is fire-and-forget, so it needs its own catch: without one, any
+    // rejection escapes as an unhandled rejection.
+    void syncer
+      .run()
+      .catch((err) => logger.error({ err, accountId: row.id }, "syncer run failed"))
+      .finally(() => {
+        running.delete(row.id as string);
+      });
   }
 }
 
