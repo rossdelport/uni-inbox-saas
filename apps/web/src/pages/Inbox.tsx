@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
@@ -64,6 +64,30 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   );
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
+
+  // Infinite scroll. Watching a sentinel below the last row is cheaper and
+  // steadier than a scroll handler, which fires constantly and has to
+  // re-measure. rootMargin starts the fetch a screen early so the next page
+  // is usually there before the user reaches the bottom.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = inbox;
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore();
+      },
+      { root: el.closest(".list-rows"), rootMargin: "600px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+    // Re-observed when the sentinel remounts (new view) or paging state moves.
+  }, [loadMore, view, account, debouncedQ]);
   // First-run onboarding: auto-open once for brand-new users (guarded below
   // so it only ever shows while zero accounts are connected).
   const [wizard, setWizard] = useState<null | "welcome" | "connect">(() =>
@@ -277,8 +301,12 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
             ))
           )}
 
+          {/* Infinite scroll: this sentinel sits below the last row and pulls
+              the next page as it comes into view. The button stays as a
+              fallback for anyone who lands here without IntersectionObserver
+              firing (and it shows the loading state). */}
           {inbox.hasNextPage && (
-            <div style={{ padding: "14px 0", textAlign: "center" }}>
+            <div ref={sentinelRef} style={{ padding: "14px 0", textAlign: "center" }}>
               <button
                 className="btn-mini"
                 disabled={inbox.isFetchingNextPage}
