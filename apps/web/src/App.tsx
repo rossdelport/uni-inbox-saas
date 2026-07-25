@@ -48,15 +48,18 @@ function ThreadRedirect() {
 
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route element={<Layout />} errorElement={<RouteError />}>
-      <Route errorElement={<RouteError />}>
+    <Route errorElement={<RouteError />}>
+      {/* Outside the dashboard shell on purpose: this is reached from a
+          recovery email, before the user has chosen to be in the app, so it
+          gets the standalone auth layout the login page uses. */}
+      <Route path="/reset" element={<ResetPassword />} />
+      <Route element={<Layout />}>
         <Route index element={<Inbox />} />
         <Route path="/starred" element={<Inbox view="starred" />} />
         <Route path="/later" element={<Inbox view="later" />} />
         <Route path="/sent" element={<Inbox view="sent" />} />
         <Route path="/archived" element={<Inbox view="archived" />} />
         <Route path="/deleted" element={<Inbox view="deleted" />} />
-        <Route path="/reset" element={<ResetPassword />} />
         <Route path="/users" element={<Users />} />
         <Route path="/t/:threadId" element={<ThreadRedirect />} />
         <Route path="/compose" element={<Compose />} />
