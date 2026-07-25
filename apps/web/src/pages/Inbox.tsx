@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
-import { useAccounts, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
+import { useAccounts, useBackfill, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
@@ -71,9 +71,31 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   // is usually there before the user reaches the bottom.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = inbox;
+  const backfill = useBackfill();
+  // Set once the mail server says there is nothing older left (or the
+  // storage ceiling is reached), so we stop asking on every scroll.
+  const [noOlderMail, setNoOlderMail] = useState(false);
+  useEffect(() => setNoOlderMail(false), [account, view]);
+
+  // Backfill only makes sense for the main inbox: the other views filter
+  // locally-set flags, so older mail from the server would not belong there.
+  const canBackfill = view === "all" && !searching && !noOlderMail;
+
   const loadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (hasNextPage) {
+      if (!isFetchingNextPage) void fetchNextPage();
+      return;
+    }
+    // Stored mail is exhausted: go ask the mail server for the next block.
+    if (canBackfill && !backfill.isPending) {
+      backfill.mutate(account, {
+        onSuccess: (r) => {
+          if (r.exhausted || r.added === 0) setNoOlderMail(true);
+        },
+        onError: () => setNoOlderMail(true),
+      });
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, canBackfill, backfill, account]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -305,14 +327,20 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
               the next page as it comes into view. The button stays as a
               fallback for anyone who lands here without IntersectionObserver
               firing (and it shows the loading state). */}
-          {inbox.hasNextPage && (
+          {(inbox.hasNextPage || canBackfill) && (
             <div ref={sentinelRef} style={{ padding: "14px 0", textAlign: "center" }}>
               <button
                 className="btn-mini"
-                disabled={inbox.isFetchingNextPage}
-                onClick={() => void inbox.fetchNextPage()}
+                disabled={inbox.isFetchingNextPage || backfill.isPending}
+                onClick={loadMore}
               >
-                {inbox.isFetchingNextPage ? "Loading…" : "Load more"}
+                {inbox.isFetchingNextPage
+                  ? "Loading…"
+                  : backfill.isPending
+                    ? "Fetching older mail…"
+                    : inbox.hasNextPage
+                      ? "Load more"
+                      : "Load older mail"}
               </button>
             </div>
           )}

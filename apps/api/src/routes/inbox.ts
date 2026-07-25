@@ -3,6 +3,8 @@ import { z } from "zod";
 import { userId } from "../lib/auth.js";
 import { supabase } from "../lib/supabase.js";
 import { wakeAccount } from "../services/imapSync.js";
+import { backfillOlder } from "../services/backfill.js";
+import { logger } from "../lib/logger.js";
 
 export const inboxRouter = Router();
 
@@ -174,6 +176,43 @@ inboxRouter.get("/", async (req, res) => {
         ? encodeCursor(last[sortCol] as string, last.id as string)
         : null,
   });
+});
+
+// POST /api/inbox/backfill?account=<id>
+// Pulls the next block of older mail once the user has scrolled past
+// everything stored. Without an account it walks every active mailbox, which
+// is what the unified "All inboxes" view needs.
+inboxRouter.post("/backfill", async (req, res) => {
+  const uid = userId(res);
+  const account = typeof req.query.account === "string" ? req.query.account : null;
+
+  let ids: string[];
+  if (account) {
+    ids = [account];
+  } else {
+    const { data } = await supabase
+      .from("email_accounts")
+      .select("id")
+      .eq("owner_id", uid)
+      .eq("status", "active");
+    ids = (data ?? []).map((a) => a.id as string);
+  }
+
+  let added = 0;
+  let exhausted = true;
+  for (const id of ids) {
+    try {
+      const r = await backfillOlder(id, uid);
+      added += r.added;
+      // The view still has more to give if ANY mailbox does.
+      if (!r.exhausted) exhausted = false;
+    } catch (err) {
+      // One unreachable mailbox must not fail the whole request; the others
+      // may still have older mail to contribute.
+      logger.warn({ err, accountId: id }, "backfill failed for account");
+    }
+  }
+  res.json({ added, exhausted });
 });
 
 // Thread-level state flips. Local change is immediate; a flag_ops row queues

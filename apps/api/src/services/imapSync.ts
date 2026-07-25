@@ -13,7 +13,7 @@ import { resolveThread, touchThread } from "./threading.js";
 // so new mail lands within seconds. The supervisor in worker.ts owns the
 // lifecycle; a syncer that throws schedules its own retry via next_sync_at.
 
-interface AccountRow {
+export interface AccountRow {
   id: string;
   owner_id: string;
   imap_host: string;
@@ -227,79 +227,8 @@ export class AccountSyncer {
 
   /** Parse + store one message, threading it as it lands. */
   private async ingest(uid: number, seen: boolean, source: Buffer): Promise<void> {
-    const parsed = await simpleParser(source);
-    const messageId = parsed.messageId ?? null;
-    const from = parsed.from?.value?.[0];
-    const references = Array.isArray(parsed.references)
-      ? parsed.references
-      : parsed.references
-        ? [parsed.references]
-        : [];
-    const bodyText = parsed.text?.slice(0, 200_000) ?? null;
-    const bodyHtml = parsed.html
-      ? sanitizeHtml(parsed.html, SANITIZE_OPTS).slice(0, 500_000)
-      : null;
-    const snippet = toSnippet(bodyText ?? (parsed.html || null));
-    const date = parsed.date ?? new Date();
-    const toAddresses = addrList(
-      Array.isArray(parsed.to) ? parsed.to[0] : parsed.to,
-    );
-    const ccAddresses = addrList(
-      Array.isArray(parsed.cc) ? parsed.cc[0] : parsed.cc,
-    );
-    const attachments = (parsed.attachments ?? []).map((a, i) => ({
-      filename: a.filename ?? null,
-      contentType: a.contentType ?? null,
-      size: a.size ?? 0,
-      partId: String(i + 1),
-    }));
-
-    const threadId = await resolveThread({
-      ownerId: this.account.owner_id,
-      accountId: this.account.id,
-      messageId,
-      inReplyTo: parsed.inReplyTo || null,
-      referencesIds: references,
-      subject: parsed.subject ?? null,
-      fromAddress: (from?.address ?? "unknown").toLowerCase(),
-      toAddresses,
-      date,
-      snippet,
-      seen,
-    });
-
-    const { error } = await supabase.from("messages").upsert(
-      {
-        owner_id: this.account.owner_id,
-        account_id: this.account.id,
-        thread_id: threadId,
-        imap_uid: uid,
-        imap_mailbox: "INBOX",
-        message_id: messageId,
-        in_reply_to: parsed.inReplyTo || null,
-        references_ids: references,
-        from_name: from?.name || null,
-        from_address: (from?.address ?? "unknown").toLowerCase(),
-        to_addresses: toAddresses,
-        cc_addresses: ccAddresses,
-        subject: parsed.subject ?? null,
-        date: date.toISOString(),
-        body_text: bodyText,
-        body_html: bodyHtml,
-        snippet,
-        seen,
-        direction: "inbound",
-        attachments,
-      },
-      { onConflict: "account_id,imap_mailbox,imap_uid" },
-    );
-    if (error) {
-      logger.error({ error, accountId: this.account.id, uid }, "message upsert failed");
-      return;
-    }
-    await touchThread(threadId);
+    return ingestMessage(this.account, uid, seen, source);
   }
-
   /** Remote -> local: seen flags and messages that left INBOX (archived). */
   private async reconcileFlags(client: ImapFlow): Promise<void> {
     const { data: local } = await supabase
@@ -521,4 +450,86 @@ export async function wakeAccount(accountId: string): Promise<void> {
     .update({ next_sync_at: new Date().toISOString() })
     .eq("id", accountId)
     .eq("status", "active");
+}
+
+/** Parse + store one message against an account, threading it as it lands.
+ *  Shared by the live syncer and the on-demand backfill of older mail, so
+ *  both paths produce identical rows and identical threading. */
+export async function ingestMessage(
+  account: AccountRow,
+  uid: number,
+  seen: boolean,
+  source: Buffer,
+): Promise<void> {
+    const parsed = await simpleParser(source);
+    const messageId = parsed.messageId ?? null;
+    const from = parsed.from?.value?.[0];
+    const references = Array.isArray(parsed.references)
+      ? parsed.references
+      : parsed.references
+        ? [parsed.references]
+        : [];
+    const bodyText = parsed.text?.slice(0, 200_000) ?? null;
+    const bodyHtml = parsed.html
+      ? sanitizeHtml(parsed.html, SANITIZE_OPTS).slice(0, 500_000)
+      : null;
+    const snippet = toSnippet(bodyText ?? (parsed.html || null));
+    const date = parsed.date ?? new Date();
+    const toAddresses = addrList(
+      Array.isArray(parsed.to) ? parsed.to[0] : parsed.to,
+    );
+    const ccAddresses = addrList(
+      Array.isArray(parsed.cc) ? parsed.cc[0] : parsed.cc,
+    );
+    const attachments = (parsed.attachments ?? []).map((a, i) => ({
+      filename: a.filename ?? null,
+      contentType: a.contentType ?? null,
+      size: a.size ?? 0,
+      partId: String(i + 1),
+    }));
+
+    const threadId = await resolveThread({
+      ownerId: account.owner_id,
+      accountId: account.id,
+      messageId,
+      inReplyTo: parsed.inReplyTo || null,
+      referencesIds: references,
+      subject: parsed.subject ?? null,
+      fromAddress: (from?.address ?? "unknown").toLowerCase(),
+      toAddresses,
+      date,
+      snippet,
+      seen,
+    });
+
+    const { error } = await supabase.from("messages").upsert(
+      {
+        owner_id: account.owner_id,
+        account_id: account.id,
+        thread_id: threadId,
+        imap_uid: uid,
+        imap_mailbox: "INBOX",
+        message_id: messageId,
+        in_reply_to: parsed.inReplyTo || null,
+        references_ids: references,
+        from_name: from?.name || null,
+        from_address: (from?.address ?? "unknown").toLowerCase(),
+        to_addresses: toAddresses,
+        cc_addresses: ccAddresses,
+        subject: parsed.subject ?? null,
+        date: date.toISOString(),
+        body_text: bodyText,
+        body_html: bodyHtml,
+        snippet,
+        seen,
+        direction: "inbound",
+        attachments,
+      },
+      { onConflict: "account_id,imap_mailbox,imap_uid" },
+    );
+    if (error) {
+      logger.error({ error, accountId: account.id, uid }, "message upsert failed");
+      return;
+    }
+    await touchThread(threadId);
 }

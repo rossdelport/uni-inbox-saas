@@ -44,11 +44,16 @@ const schema = z.object({
   // Absolute dashboard URL used in checkout redirects.
   DASHBOARD_URL: z.string().url().default("http://localhost:5173"),
 
-  // Sync tuning. Retention keeps the storage bill flat: we are an inbox
-  // window, not an archive.
-  MAIL_RETENTION_DAYS: z.coerce.number().default(90),
-  MAIL_RETENTION_MAX_PER_ACCOUNT: z.coerce.number().default(500),
+  // Sync tuning. Retention keeps the storage bill flat: we are a recent-mail
+  // window, not an archive. It only ever deletes OneInbox's own copy; nothing
+  // here touches the user's mailbox on the mail server.
+  MAIL_RETENTION_DAYS: z.coerce.number().default(365),
+  // Also the scroll-back ceiling: backfill stops once an account holds this
+  // many messages, so the two limits can never fight each other.
+  MAIL_RETENTION_MAX_PER_ACCOUNT: z.coerce.number().default(1000),
   INITIAL_SYNC_LIMIT: z.coerce.number().default(200),
+  // How many older messages one "load older mail" request pulls.
+  BACKFILL_BATCH: z.coerce.number().default(200),
 
   // Per-user daily outbound send cap (protects against runaway clients).
   SEND_DAILY_CAP: z.coerce.number().default(50),

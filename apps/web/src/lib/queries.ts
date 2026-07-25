@@ -89,6 +89,28 @@ export function useThread(threadId: string | null) {
   });
 }
 
+export interface BackfillResult {
+  added: number;
+  exhausted: boolean;
+}
+
+/** Pull the next block of older mail from the mail server, once the user has
+ *  scrolled past everything already stored locally. */
+export function useBackfill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (account: string | null) =>
+      api<BackfillResult>(`/api/inbox/backfill${account ? `?account=${account}` : ""}`, {
+        method: "POST",
+      }),
+    onSuccess: (r) => {
+      // Only refetch when something actually landed, so an empty result does
+      // not churn the list the user is reading.
+      if (r.added > 0) void qc.invalidateQueries({ queryKey: ["inbox"] });
+    },
+  });
+}
+
 export function useThreadOp() {
   const qc = useQueryClient();
   return useMutation({
