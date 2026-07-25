@@ -293,7 +293,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
           }}
         >
           <input
-            style={{ flex: 1, minWidth: 160, height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#f7fafd", padding: "0 14px", fontSize: 14, outline: "none" }}
+            style={{ flex: 1, minWidth: 160, height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#fff", padding: "0 14px", fontSize: 14, outline: "none" }}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label in your sidebar"
@@ -324,7 +324,7 @@ function AccountRow({ account }: { account: EmailAccount }) {
           }}
         >
           <input
-            style={{ flex: 1, height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#f7fafd", padding: "0 14px", fontSize: 14, outline: "none" }}
+            style={{ flex: 1, height: 40, borderRadius: 12, border: "1px solid var(--line)", background: "#fff", padding: "0 14px", fontSize: 14, outline: "none" }}
             type="password"
             autoComplete="off"
             placeholder="New password / app password"

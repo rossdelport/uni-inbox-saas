@@ -183,7 +183,7 @@ export function Layout() {
               <HelpIcon /> Help &amp; support
             </a>
             <div className="dd-sep" />
-            <button style={{ color: "#EA4335" }} onClick={() => void supabase.auth.signOut()}>
+            <button style={{ color: "var(--danger-ink)" }} onClick={() => void supabase.auth.signOut()}>
               <LogoutIcon /> Log out
             </button>
           </div>
@@ -234,7 +234,7 @@ export function Layout() {
                     {a.status !== "active" ? (
                       <span
                         className="cnt"
-                        style={{ background: "#fde8e6", color: "#EA4335" }}
+                        style={{ background: "#fde8e6", color: "var(--danger-ink)" }}
                         title={a.status === "auth_failed" ? "Sign in failed" : "Paused"}
                       >
                         !
@@ -512,7 +512,7 @@ function HelpIcon() {
 }
 function LogoutIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="#EA4335" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />

@@ -25,11 +25,11 @@ export function MessageBody({
     clean = clean.replace(/(<img[^>]+src\s*=\s*["'])cid:[^"']*(["'])/gi, "$1$2");
     const html =
       `<base target="_blank"><style>body{font:14px/1.6 -apple-system,system-ui,sans-serif;` +
-      `color:#27272a;margin:0;padding:4px;word-break:break-word}` +
+      `color:#0A2540;margin:0;padding:4px;word-break:break-word}` +
       `img{max-width:100%;height:auto}` +
       // Blocked/stripped images disappear entirely, no broken-image icons.
       `img[src=""],img:not([src]){display:none}` +
-      `a{color:#4f46e5}</style>${clean}`;
+      `a{color:#0B6FE6}</style>${clean}`;
     return { doc: html, hadRemoteImages: hasRemote };
   }, [bodyHtml, loadImages]);
 

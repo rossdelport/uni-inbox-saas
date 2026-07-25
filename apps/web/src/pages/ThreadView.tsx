@@ -262,7 +262,7 @@ function GmMessage({
         <SenderAvatar
           name={outbound ? sender : m.from_name}
           email={outbound ? accountEmail : m.from_address}
-          color={outbound ? "#308dfc" : accountColor}
+          color={outbound ? "#0C7DFF" : accountColor}
         />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="gm-top">
