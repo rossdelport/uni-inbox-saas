@@ -192,6 +192,25 @@ footer.framer-sP0dz{display:none!important}
    they still show if scripts ever fail. */
 html.uni-js:not(.uni-mails-live) [data-framer-name="mails"]{opacity:0}
 html.uni-js.uni-mails-live [data-framer-name="mails"]{opacity:1;transition:opacity .22s ease}
+
+/* Two envelopes sat on top of the headline: framer-t6jvuw on the left and
+   framer-6dq68u on the right. Framer positions them proportionally to the
+   viewport while the hero text is a fixed 1050px centered block, so the
+   overlap changes with width and no single pixel offset clears it.
+
+   These shifts are derived from that geometry. The text block's edges are
+   at 50vw -/+ 525px; each envelope's own edge tracks 0.535 * viewport, so
+   the correction is (0.5 - 0.535)vw plus a constant, landing each envelope
+   24px clear of the text at every desktop width.
+
+   translateX is listed first so it composes as "existing transform, then
+   shift horizontally", preserving each envelope's rotation. */
+@media (min-width:1000px){
+  .framer-t6jvuw{
+    transform:translateX(calc(-3.5vw - 69px)) matrix(.906308,.422618,-.422618,.906308,-44.5,-28.5)!important}
+  .framer-6dq68u{
+    transform:translateX(calc(-3.5vw + 167px)) matrix(.838671,-.544639,.544639,.838671,0,0)!important}
+}
 </style>
 
 <style id="uni-overrides-home">
