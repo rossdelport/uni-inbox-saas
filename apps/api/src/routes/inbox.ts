@@ -7,6 +7,10 @@ import { wakeAccount } from "../services/imapSync.js";
 export const inboxRouter = Router();
 
 const PAGE_SIZE = 50;
+// Sent is resolved by collecting outbound message thread ids first, so it can
+// only reach back this far. Well beyond what a solo founder sends in months,
+// and it keeps the id list a sane size for a single query.
+const SENT_LOOKBACK = 500;
 
 // Keyset cursor: base64 of "<last_message_at>|<thread_id>". Stable under
 // new-mail inserts, unlike offset pagination.
@@ -33,6 +37,7 @@ inboxRouter.get("/", async (req, res) => {
   const starred = String(req.query.starred ?? "0") === "1";
   const later = String(req.query.later ?? "0") === "1";
   const deleted = String(req.query.deleted ?? "0") === "1";
+  const sent = String(req.query.sent ?? "0") === "1";
   const account = typeof req.query.account === "string" ? req.query.account : null;
   const cursor = typeof req.query.cursor === "string" ? decodeCursor(req.query.cursor) : null;
   // PostgREST or() syntax breaks on commas/parens; spaces search fine.
@@ -65,6 +70,25 @@ inboxRouter.get("/", async (req, res) => {
     const ors = [`subject_norm.ilike.%${q}%`, `snippet.ilike.%${q}%`];
     if (ids.length > 0) ors.push(`id.in.(${ids.join(",")})`);
     query = query.is("deleted_at", null).or(ors.join(","));
+  } else if (sent) {
+    // Sent = threads this user has replied to or started. "Outbound" lives on
+    // messages, so collect their thread ids first. Archived state is ignored
+    // here: something you sent stays in Sent wherever the thread ends up.
+    let outQuery = supabase
+      .from("messages")
+      .select("thread_id")
+      .eq("owner_id", uid)
+      .eq("direction", "outbound")
+      .order("date", { ascending: false })
+      .limit(SENT_LOOKBACK);
+    if (account) outQuery = outQuery.eq("account_id", account);
+    const { data: outHits } = await outQuery;
+    const ids = [...new Set((outHits ?? []).map((m) => m.thread_id as string))];
+    query = query.is("deleted_at", null);
+    if (account) query = query.eq("account_id", account);
+    // No sent mail yet: return an empty page rather than the whole inbox.
+    if (ids.length === 0) return res.json({ threads: [], next_cursor: null });
+    query = query.in("id", ids);
   } else {
     query = deleted ? query.not("deleted_at", "is", null) : query.is("deleted_at", null);
     if (!deleted) query = query.eq("archived", archived);

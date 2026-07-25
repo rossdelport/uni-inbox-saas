@@ -11,7 +11,7 @@ import { MAIL_SRC } from "../lib/assets.js";
 import type { AppOutletContext } from "../components/Layout.js";
 import type { ThreadSummary } from "../lib/types.js";
 
-export type InboxViewName = "all" | "starred" | "later" | "archived" | "deleted";
+export type InboxViewName = "all" | "starred" | "later" | "archived" | "deleted" | "sent";
 
 const VIEW_TITLES: Record<InboxViewName, string> = {
   all: "All inboxes",
@@ -19,6 +19,7 @@ const VIEW_TITLES: Record<InboxViewName, string> = {
   later: "Read later",
   archived: "Archived",
   deleted: "Deleted",
+  sent: "Sent",
 };
 
 // List-pane tabs: same views as the sidebar, but they keep the current
@@ -27,6 +28,7 @@ const TABS: Array<{ key: InboxViewName; label: string; path: string }> = [
   { key: "all", label: "Inbox", path: "/" },
   { key: "starred", label: "Starred", path: "/starred" },
   { key: "later", label: "Later", path: "/later" },
+  { key: "sent", label: "Sent", path: "/sent" },
   { key: "archived", label: "Archived", path: "/archived" },
   { key: "deleted", label: "Deleted", path: "/deleted" },
 ];
@@ -57,6 +59,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           starred: view === "starred",
           later: view === "later",
           deleted: view === "deleted",
+          sent: view === "sent",
         },
   );
   const threadOp = useThreadOp();
@@ -187,7 +190,9 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                         ? "Nothing saved for later."
                         : view === "deleted"
                           ? "Trash is empty. Deleted conversations stay here for 30 days."
-                          : "You're at inbox zero. Enjoy it."}
+                          : view === "sent"
+                            ? "Nothing sent yet. Replies and new messages show up here."
+                            : "You're at inbox zero. Enjoy it."}
               </div>
             </div>
           ) : (

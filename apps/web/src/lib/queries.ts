@@ -53,19 +53,22 @@ export interface InboxView {
   starred?: boolean;
   later?: boolean;
   deleted?: boolean;
+  /** Threads this user has replied to or started. */
+  sent?: boolean;
   /** Search across every mailbox at once (server-side; other filters ignored). */
   q?: string;
 }
 
 export function useInbox(view: InboxView) {
-  const { account = null, archived = false, starred = false, later = false, deleted = false, q = "" } = view;
+  const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, q = "" } = view;
   return useInfiniteQuery({
-    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, q],
+    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, sent, q],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set("cursor", pageParam);
       if (q) params.set("q", q);
       if (deleted) params.set("deleted", "1");
+      if (sent) params.set("sent", "1");
       if (account) params.set("account", account);
       if (archived) params.set("archived", "1");
       if (starred) params.set("starred", "1");

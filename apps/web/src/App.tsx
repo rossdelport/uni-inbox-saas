@@ -53,6 +53,7 @@ const router = createBrowserRouter(
         <Route index element={<Inbox />} />
         <Route path="/starred" element={<Inbox view="starred" />} />
         <Route path="/later" element={<Inbox view="later" />} />
+        <Route path="/sent" element={<Inbox view="sent" />} />
         <Route path="/archived" element={<Inbox view="archived" />} />
         <Route path="/deleted" element={<Inbox view="deleted" />} />
         <Route path="/reset" element={<ResetPassword />} />
