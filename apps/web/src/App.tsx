@@ -78,8 +78,13 @@ export function App() {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // A recovery link can land on ANY allowed URL (or the Site URL
+      // fallback); always steer it to the set-new-password page.
+      if (event === "PASSWORD_RECOVERY" && !window.location.pathname.endsWith("/reset")) {
+        window.location.assign("/app/reset");
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
