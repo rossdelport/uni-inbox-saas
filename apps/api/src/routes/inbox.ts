@@ -12,8 +12,10 @@ const PAGE_SIZE = 50;
 // and it keeps the id list a sane size for a single query.
 const SENT_LOOKBACK = 500;
 
-// Keyset cursor: base64 of "<last_message_at>|<thread_id>". Stable under
-// new-mail inserts, unlike offset pagination.
+// Keyset cursor: base64 of "<sort_value>|<thread_id>". Stable under new-mail
+// inserts, unlike offset pagination. The sort value is whichever column is
+// ordering the current view (see SORT_COL below), so the cursor stays
+// consistent with it.
 function encodeCursor(lastMessageAt: string, id: string): string {
   return Buffer.from(`${lastMessageAt}|${id}`, "utf8").toString("base64url");
 }
@@ -46,13 +48,18 @@ inboxRouter.get("/", async (req, res) => {
       ? req.query.q.trim().replace(/[,()%]/g, " ").trim().slice(0, 120)
       : "";
 
+  // Inbox-style views order by mail RECEIVED, so replying to a thread does
+  // not bump it to the top of your own inbox; it rises when someone replies
+  // to you. Sent orders by last activity, which is the reply you just sent.
+  const sortCol = sent ? "last_message_at" : "last_inbound_at";
+
   let query = supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address)",
+      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address)",
     )
     .eq("owner_id", uid)
-    .order("last_message_at", { ascending: false })
+    .order(sortCol, { ascending: false })
     .order("id", { ascending: false })
     .limit(PAGE_SIZE + 1);
 
@@ -99,8 +106,8 @@ inboxRouter.get("/", async (req, res) => {
   if (cursor && !q) {
     // Keyset: strictly older than the cursor row (ties broken by id).
     query = query.or(
-      `last_message_at.lt.${cursor.lastMessageAt},` +
-        `and(last_message_at.eq.${cursor.lastMessageAt},id.lt.${cursor.id})`,
+      `${sortCol}.lt.${cursor.lastMessageAt},` +
+        `and(${sortCol}.eq.${cursor.lastMessageAt},id.lt.${cursor.id})`,
     );
   }
 
@@ -147,7 +154,9 @@ inboxRouter.get("/", async (req, res) => {
       snippet: t.snippet,
       from_name: from?.name ?? null,
       from_address: from?.address ?? null,
-      last_message_at: t.last_message_at,
+      // The row timestamp follows whatever the view is sorted by, otherwise
+      // a thread could show a later time than the one above it.
+      last_message_at: t[sortCol],
       message_count: t.message_count,
       unread: t.unread,
       archived: t.archived,
@@ -162,7 +171,7 @@ inboxRouter.get("/", async (req, res) => {
     // Search is a single page (top 50 across every mailbox).
     next_cursor:
       !q && rows.length > PAGE_SIZE && last
-        ? encodeCursor(last.last_message_at as string, last.id as string)
+        ? encodeCursor(last[sortCol] as string, last.id as string)
         : null,
   });
 });

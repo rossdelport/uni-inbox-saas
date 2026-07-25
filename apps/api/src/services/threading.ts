@@ -99,10 +99,16 @@ export async function touchThread(threadId: string): Promise<void> {
   if (!msgs || msgs.length === 0) return;
   const newest = msgs[0]!;
   const unread = msgs.some((m) => !m.seen && m.direction === "inbound");
+  // msgs is date-descending, so the first inbound one is the newest. This
+  // drives inbox ordering: a thread rises when someone replies to you, not
+  // when you reply to them. Threads you started and are still awaiting a
+  // reply on fall back to the newest message so they sort sensibly.
+  const newestInbound = msgs.find((m) => m.direction === "inbound");
   await supabase
     .from("threads")
     .update({
       last_message_at: newest.date,
+      last_inbound_at: newestInbound?.date ?? newest.date,
       message_count: msgs.length,
       snippet: newest.snippet,
       unread,
