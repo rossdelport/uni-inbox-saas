@@ -10,7 +10,7 @@ import {
 } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase.js";
-import { claimPendingCheckout } from "./lib/checkout.js";
+import { startCheckoutForPendingPlan } from "./lib/checkout.js";
 import { Login } from "./pages/Login.js";
 import { Layout } from "./components/Layout.js";
 import { Inbox } from "./pages/Inbox.js";
@@ -74,13 +74,13 @@ const router = createBrowserRouter(
   { basename: "/app" },
 );
 
-// Attaches a paid checkout to the account on the first authenticated load.
-// Needed because email confirmation can put minutes between paying and having
-// a usable session, so the claim cannot always finish on the signup screen.
-// A no-op when nothing is queued, which is every load after the first.
+// Picks up a plan chosen on the marketing site when the hand-off could not
+// happen on the signup screen: with email confirmation on, signUp returns no
+// session, so the user only becomes billable when they follow the link and
+// log in. A no-op when nothing is pending, which is every load after the first.
 function ClaimCheckout() {
   useEffect(() => {
-    void claimPendingCheckout();
+    void startCheckoutForPendingPlan();
   }, []);
   return null;
 }

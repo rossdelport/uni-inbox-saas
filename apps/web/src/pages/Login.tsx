@@ -3,12 +3,10 @@ import { supabase } from "../lib/supabase.js";
 import { LOGO_SRC, MAIL_SRC } from "../lib/assets.js";
 import { PasswordInput } from "../components/PasswordInput.js";
 import {
-  checkoutSessionFromUrl,
-  claimPendingCheckout,
-  fetchCheckoutSummary,
-  rememberCheckout,
-  PRICING_URL,
-  type CheckoutSummary,
+  planIntentFromUrl,
+  rememberPlanIntent,
+  startCheckoutForPendingPlan,
+  type PlanIntent,
 } from "../lib/checkout.js";
 
 const SRC_KEY = "oi-signup-src";
@@ -25,13 +23,11 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [checkout, setCheckout] = useState<CheckoutSummary | null>(null);
 
   const isSignup = mode === "signup";
-  // Signup is now the second half of a paid checkout, so it needs the session
-  // id Stripe sends back. Read once on mount rather than per render, because
-  // the URL is rewritten by switchMode.
-  const [sessionId] = useState<string | null>(() => checkoutSessionFromUrl());
+  // Which plan the marketing button was for. Read once on mount, because
+  // switchMode rewrites the URL and would drop it on a re-read.
+  const [intent] = useState<PlanIntent | null>(() => planIntentFromUrl());
 
   // Attribution: landing-page buttons arrive with ?src=<page:button>. Keep it
   // through the confirm-email round trip so signup can record it.
@@ -40,32 +36,11 @@ export function Login() {
     if (src) localStorage.setItem(SRC_KEY, src.slice(0, 80));
   }, []);
 
-  // Card-first funnel: an account only exists on the back of a paid checkout.
-  // Arriving at signup without one means the plan was never chosen, so send
-  // them to pricing instead of offering an account we cannot bill.
+  // Remember the plan across the confirm-email round trip, so someone who has
+  // to click a link in their inbox still lands on the checkout they picked.
   useEffect(() => {
-    if (!isSignup) return;
-    if (!sessionId) {
-      window.location.assign(PRICING_URL);
-      return;
-    }
-    rememberCheckout(sessionId);
-    let live = true;
-    void fetchCheckoutSummary(sessionId)
-      .then((s) => {
-        if (!live) return;
-        setCheckout(s);
-        // Bill and account should be the same person by default. Still
-        // editable, since Stripe may hold a personal address.
-        if (s.email) setEmail((cur) => cur || s.email!);
-      })
-      .catch(() => {
-        /* Prefill is a nicety. A failed lookup must not block the form. */
-      });
-    return () => {
-      live = false;
-    };
-  }, [isSignup, sessionId]);
+    if (isSignup && intent) rememberPlanIntent(intent);
+  }, [isSignup, intent]);
 
   function switchMode(m: "signin" | "signup") {
     setMode(m);
@@ -132,15 +107,15 @@ export function Login() {
       if (error) {
         setError(error.message);
       } else if (!data.session) {
-        setNotice(
-          "Almost there. Check your email for a confirmation link, then log in. Your plan is already paid for and will be waiting.",
-        );
+        setNotice("Almost there. Check your email for a confirmation link, then log in.");
         switchMode("signin");
       } else {
-        // Session in hand: attach the payment now so the dashboard opens on
-        // the right plan instead of flashing the paywall first. If it fails
-        // it stays queued and the next authenticated load retries it.
-        await claimPendingCheckout();
+        // Account exists, so the API can bill it. Hand straight over to Stripe
+        // rather than dropping them in the dashboard to find the paywall.
+        // Returns false if there is nothing pending, and then App renders as
+        // normal; on failure it also falls through rather than trapping them.
+        const sent = await startCheckoutForPendingPlan();
+        if (sent) return; // navigating away, leave the button disabled
       }
     }
     setBusy(false);
@@ -179,11 +154,9 @@ export function Login() {
         </p>
         {isSignup && (
           <p className="auth-trial">
-            {checkout?.tier === "lifetime"
-              ? "Payment received. Create your account to get started."
-              : checkout?.trial_ends_at
-                ? `Free until ${new Date(checkout.trial_ends_at).toLocaleDateString(undefined, { day: "numeric", month: "long" })}, then $5/month.`
-                : "Free for 3 days, then $5/month."}
+            {intent?.tier === "lifetime"
+              ? "Create your account, then pay once for Lifetime."
+              : "Free for 3 days, then $5/month. Cancel any time."}
           </p>
         )}
 

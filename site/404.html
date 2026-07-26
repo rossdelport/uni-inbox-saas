@@ -297,10 +297,10 @@ function uniRoute(){
 }
 if (uniRoute()) return;
 
-/* Card-first signup: the plan is paid for at Stripe BEFORE an account
-   exists, and the session id comes back on the success URL for /app/signup
-   to claim. Relative so it rides whatever proxy already serves /api. */
-var CHECKOUT = '/api/checkout/start';
+/* Signup carries the chosen plan through as ?plan=&accounts=, and the app
+   hands straight over to Stripe once the account exists. Payment details are
+   never collected here. */
+var CHECKOUT = '/app/signup';
 
 function q(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
 function climbToContainer(el){
@@ -527,7 +527,7 @@ var PRICING_HTML = `
     <input type="range" min="3" max="15" value="3" step="1" class="uni-slider" oninput="uniSlide(this,'m')" aria-label="Number of email accounts">
     <div class="uni-scale"><span>3 accounts</span><span>15 accounts</span></div>
     <div class="uni-pfoot">
-      <a class="uni-pbtn" data-buy="monthly" href="__CHECKOUT__?tier=monthly&accounts=3">Get started today</a>
+      <a class="uni-pbtn" data-buy="monthly" href="__CHECKOUT__?plan=monthly&accounts=3">Get started today</a>
       <ul class="uni-feats">
         <li>Unified color-coded inbox</li>
         <li>Reply from the right address, always</li>
@@ -542,7 +542,7 @@ var PRICING_HTML = `
     <div class="uni-pprice"><span class="uni-amt">$50</span><span class="uni-per">one-time</span></div>
     <div class="uni-pdesc">Up to <b>10</b> email accounts included</div>
     <div class="uni-pfoot">
-      <a class="uni-pbtn" href="__CHECKOUT__?tier=lifetime">Get lifetime access</a>
+      <a class="uni-pbtn" href="__CHECKOUT__?plan=lifetime">Get lifetime access</a>
       <ul class="uni-feats">
         <li>Everything in Monthly</li>
         <li>Pay once, keep it forever</li>
@@ -616,7 +616,7 @@ window.uniSlide = function(el, type){
     card.querySelector('[data-out]').textContent = '$' + (5 + 2 * (n - 3));
     card.querySelector('[data-acct]').textContent = n;
     var buy = card.querySelector('[data-buy="monthly"]');
-    if (buy) buy.href = CHECKOUT + '?tier=monthly&accounts=' + n;
+    if (buy) buy.href = CHECKOUT + '?plan=monthly&accounts=' + n;
   } else {
     var extra = Math.max(0, n - 5);
     var ex = card.querySelector('[data-extra]');

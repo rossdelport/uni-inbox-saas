@@ -1,75 +1,80 @@
 import { api } from "./api.js";
 
-// Card-first signup. The visitor pays at Stripe before an account exists, so
-// the Checkout session id travels back on the success URL and has to be bound
-// to whatever account they then create. That binding is the "claim".
+// Signup funnel: create the account, then go straight to Stripe with a card
+// and a 3-day trial, which converts on its own when the trial is up.
 //
-// It cannot always happen right after the signup call: when email confirmation
-// is on, supabase.auth.signUp returns no session, and the account is only
-// usable minutes later when they follow the link. So the id is parked in
-// localStorage and claimed on the first authenticated load, whenever that is.
+// The checkout call is made from inside the app on purpose. An earlier version
+// linked the marketing buttons at /api/checkout/start directly, but the
+// marketing site is a separate deployment with no /api route, so those links
+// hit its 404 page. Everything here runs after sign-in, through the same api()
+// helper the rest of the dashboard already uses, so there is one code path to
+// keep working instead of two.
 
-const PENDING_KEY = "oi-checkout-session";
+const PLAN_KEY = "oi-plan-intent";
 
-/** Where someone without a paid session gets sent. Plans are picked first now. */
-export const PRICING_URL = "/pricing";
-
-export function checkoutSessionFromUrl(): string | null {
-  const id = new URLSearchParams(window.location.search).get("session_id");
-  return id && id.startsWith("cs_") ? id : null;
+export interface PlanIntent {
+  tier: "monthly" | "lifetime";
+  accounts?: number;
 }
 
-export function rememberCheckout(sessionId: string): void {
+/** Read ?plan=monthly&accounts=5 off the signup URL. */
+export function planIntentFromUrl(): PlanIntent | null {
+  const q = new URLSearchParams(window.location.search);
+  const plan = q.get("plan");
+  if (plan !== "monthly" && plan !== "lifetime") return null;
+  const n = Number(q.get("accounts"));
+  return {
+    tier: plan,
+    accounts: Number.isFinite(n) && n > 0 ? Math.trunc(n) : undefined,
+  };
+}
+
+export function rememberPlanIntent(intent: PlanIntent): void {
   try {
-    localStorage.setItem(PENDING_KEY, sessionId);
+    localStorage.setItem(PLAN_KEY, JSON.stringify(intent));
   } catch {
-    /* private mode: the in-page claim still runs, only the retry is lost */
+    /* private mode: the in-page hand-off still works, only the retry is lost */
   }
 }
 
-export function pendingCheckout(): string | null {
+export function pendingPlanIntent(): PlanIntent | null {
   try {
-    return localStorage.getItem(PENDING_KEY);
+    const raw = localStorage.getItem(PLAN_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as PlanIntent;
+    return v?.tier === "monthly" || v?.tier === "lifetime" ? v : null;
   } catch {
     return null;
   }
 }
 
-export function clearPendingCheckout(): void {
+export function clearPlanIntent(): void {
   try {
-    localStorage.removeItem(PENDING_KEY);
+    localStorage.removeItem(PLAN_KEY);
   } catch {
     /* ignore */
   }
 }
 
-export interface CheckoutSummary {
-  email: string | null;
-  tier: string;
-  trial_ends_at: string | null;
-  complete: boolean;
-}
-
-/** Non-secret detail about a paid session, for prefilling the signup form. */
-export async function fetchCheckoutSummary(sessionId: string): Promise<CheckoutSummary> {
-  return api<CheckoutSummary>(`/api/checkout/session/${encodeURIComponent(sessionId)}`);
-}
-
-/** Bind a paid checkout to the signed-in account. Safe to call repeatedly. */
-export async function claimPendingCheckout(): Promise<void> {
-  const sessionId = pendingCheckout();
-  if (!sessionId) return;
+/** Send a signed-in user to Stripe for the plan they picked on the site.
+ *  Returns true if the browser is navigating away, false if there was nothing
+ *  pending or checkout could not be started (caller carries on into the app). */
+export async function startCheckoutForPendingPlan(): Promise<boolean> {
+  const intent = pendingPlanIntent();
+  if (!intent) return false;
   try {
-    await api("/api/billing/claim", {
+    const { url } = await api<{ url: string }>("/api/billing/checkout", {
       method: "POST",
-      body: JSON.stringify({ session_id: sessionId }),
+      body: JSON.stringify({ tier: intent.tier, accounts: intent.accounts }),
     });
-    clearPendingCheckout();
-  } catch (err) {
-    // Keep it stored so the next load retries: a claim can legitimately fail
-    // once if Stripe has not finished settling the session. Only drop it when
-    // the server says it belongs to someone else, which retrying cannot fix.
-    const msg = err instanceof Error ? err.message : "";
-    if (/already linked to another account/i.test(msg)) clearPendingCheckout();
+    // Clear before navigating: if Stripe is abandoned we do not want to shove
+    // them back into checkout on every future load, which would make the
+    // dashboard unreachable. The paywall inside the app is the second chance.
+    clearPlanIntent();
+    window.location.assign(url);
+    return true;
+  } catch {
+    clearPlanIntent();
+    return false;
   }
 }
