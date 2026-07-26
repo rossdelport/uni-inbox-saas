@@ -153,11 +153,21 @@ const MX_MAP: Array<{
   smtp_security: "tls" | "starttls";
   note?: string;
   use_oauth?: "google" | "microsoft";
+  // Some providers run per-region data centers whose hostnames all follow one
+  // shape. Deriving the servers from the matched MX beats a hardcoded list
+  // that goes stale every time the provider opens another region.
+  derive?: (m: RegExpMatchArray) => { imap_host: string; smtp_host: string };
 }> = [
   { match: /google\.com$|googlemail\.com$/i, provider: "Google Workspace", imap_host: "imap.gmail.com", imap_port: 993, smtp_host: "smtp.gmail.com", smtp_port: 465, smtp_security: "tls", use_oauth: "google", note: "This domain runs on Google Workspace. The Gmail button is the smoothest way to connect it." },
   { match: /outlook\.com$|office365\.com$/i, provider: "Microsoft 365", imap_host: "outlook.office365.com", imap_port: 993, smtp_host: "smtp.office365.com", smtp_port: 587, smtp_security: "starttls", use_oauth: "microsoft", note: "This domain runs on Microsoft 365. The Outlook button is the smoothest way to connect it." },
   { match: /porkbun\.com$/i, provider: "Porkbun email hosting", imap_host: "imap.porkbun.com", imap_port: 993, smtp_host: "smtp.porkbun.com", smtp_port: 587, smtp_security: "starttls" },
-  { match: /zoho(mail)?\.(com|eu|in)$/i, provider: "Zoho Mail", imap_host: "imap.zoho.com", imap_port: 993, smtp_host: "smtp.zoho.com", smtp_port: 465, smtp_security: "tls" },
+  // Zoho pins every account to the data center it was created in (.com, .eu,
+  // .in, .com.au, .jp, .com.cn, zohocloud.ca ...) and the US servers reject
+  // logins from accounts that live in another region, so the region in the MX
+  // record has to pick the hosts. The old pattern only knew com/eu/in and
+  // hardcoded the US servers, which meant an Australian Zoho domain fell
+  // through to the generic mail.<domain> guess and never connected.
+  { match: /(?:^|\.)(zoho(?:mail|cloud)?\.[a-z]{2,3}(?:\.[a-z]{2})?)$/i, provider: "Zoho Mail", imap_host: "imap.zoho.com", imap_port: 993, smtp_host: "smtp.zoho.com", smtp_port: 465, smtp_security: "tls", derive: (m) => ({ imap_host: `imap.${m[1]!.toLowerCase()}`, smtp_host: `smtp.${m[1]!.toLowerCase()}` }), note: "Zoho turned IMAP off for new free accounts, so this needs a paid Zoho plan (Mail Lite or higher). If two-factor is on, generate an app-specific password and use that instead of your normal one." },
   { match: /messagingengine\.com$|fastmail\.com$/i, provider: "Fastmail", imap_host: "imap.fastmail.com", imap_port: 993, smtp_host: "smtp.fastmail.com", smtp_port: 465, smtp_security: "tls" },
   { match: /privateemail\.com$|registrar-servers\.com$/i, provider: "Namecheap Private Email", imap_host: "mail.privateemail.com", imap_port: 993, smtp_host: "mail.privateemail.com", smtp_port: 465, smtp_security: "tls" },
   { match: /titan\.email$/i, provider: "Titan", imap_host: "imap.titan.email", imap_port: 993, smtp_host: "smtp.titan.email", smtp_port: 465, smtp_security: "tls" },
@@ -186,12 +196,13 @@ accountsRouter.post("/discover", async (req, res) => {
     const target = mx[0]?.exchange?.toLowerCase() ?? "";
     const hit = MX_MAP.find((m) => m.match.test(target));
     if (hit) {
+      const derived = hit.derive?.(target.match(hit.match)!);
       return res.json({
         detected: hit.provider,
         mx: target,
-        imap_host: hit.imap_host,
+        imap_host: derived?.imap_host ?? hit.imap_host,
         imap_port: hit.imap_port,
-        smtp_host: hit.smtp_host,
+        smtp_host: derived?.smtp_host ?? hit.smtp_host,
         smtp_port: hit.smtp_port,
         smtp_security: hit.smtp_security,
         use_oauth: hit.use_oauth ?? null,
