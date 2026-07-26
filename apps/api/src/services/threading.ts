@@ -115,8 +115,13 @@ export async function touchThread(threadId: string): Promise<void> {
       message_count: msgs.length,
       snippet: newest.snippet,
       unread,
-      // New mail into an archived thread pulls it back to the inbox.
-      ...(unread ? { archived: false } : {}),
+      // New mail pulls a thread back into the inbox, out of both archive and
+      // trash. Without the deleted_at reset a reply to a deleted thread landed
+      // in a thread still flagged deleted, so the inbox query filtered it out
+      // and the reply was never seen: silently losing mail someone actually
+      // sent you, which is the worst thing an inbox can do. Deleting says
+      // "done with this", not "never show me this person again".
+      ...(unread ? { archived: false, deleted_at: null } : {}),
     })
     .eq("id", threadId);
 }

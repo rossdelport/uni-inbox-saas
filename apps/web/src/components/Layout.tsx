@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
-import { useAccounts, useBillingState, useInbox, useUpdateAccount } from "../lib/queries.js";
+import { useAccounts, useBillingState, useInbox, useOauthProviders, useUpdateAccount } from "../lib/queries.js";
 import { LOGO_SRC } from "../lib/assets.js";
 import { toast, type ToastKind } from "../lib/toast.js";
 import { PlansModal } from "./PlansModal.js";
@@ -19,6 +19,10 @@ export interface AppOutletContext {
 // the .dash-side sidebar (views, accounts, add account, plan upsell card).
 export function Layout() {
   const { data: accounts } = useAccounts();
+  // Warms the OAuth provider list while the user is reading their inbox. The
+  // connect modal needs it to choose between the Google button and the password
+  // form, and fetching it on open is what made the modal visibly change shape.
+  useOauthProviders();
   const { data: billing } = useBillingState();
   const inbox = useInbox({});
   const [params, setParams] = useSearchParams();
@@ -288,43 +292,29 @@ export function Layout() {
             Add account
           </button>
 
-          <div className="side-upsell">
-            {billing?.plan === "lifetime" ? (
-              <>
-                <h4>Lifetime member</h4>
-                <p>
-                  {billing.pricing.lifetime_max} accounts included. Share OneInbox with a friend.
-                </p>
-              </>
-            ) : billing?.plan === "monthly" ? (
-              <>
-                <h4>Go Lifetime</h4>
-                <p>
-                  ${billing.pricing.lifetime_usd} once. Up to {billing.pricing.lifetime_max}{" "}
-                  accounts, every future update included.
-                </p>
-              </>
-            ) : billing ? (
-              <>
-                <h4>{billing.trial_expired ? "Trial ended" : "Free trial"}</h4>
-                <p>
-                  {billing.trial_expired
-                    ? "Pick a plan to keep every inbox syncing."
-                    : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. $${billing.pricing.monthly_base_usd}/month after, or $${billing.pricing.lifetime_usd} once for Lifetime.`}
-                </p>
-              </>
-            ) : null}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setDrawer(false);
-                setPlansOpen(true);
-              }}
-            >
-              {billing?.plan === "lifetime" ? "View plan" : "See plans"}
-            </a>
-          </div>
+          {/* Trial only. Someone who has already paid does not need a card
+              selling them a plan they are on, so the sidebar ends at their
+              accounts. Billing stays reachable from Plans & billing above. */}
+          {billing && billing.plan !== "monthly" && billing.plan !== "lifetime" && (
+            <div className="side-upsell">
+              <h4>{billing.trial_expired ? "Trial ended" : "Free trial"}</h4>
+              <p>
+                {billing.trial_expired
+                  ? "Pick a plan to keep every inbox syncing."
+                  : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left. $${billing.pricing.monthly_base_usd}/month after, or $${billing.pricing.lifetime_usd} once for Lifetime.`}
+              </p>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDrawer(false);
+                  setPlansOpen(true);
+                }}
+              >
+                See plans
+              </a>
+            </div>
+          )}
           <PaneResizer cssVar="--side-w" storageKey="oi-side-w" min={176} max={360} fallback={232} />
         </aside>
 

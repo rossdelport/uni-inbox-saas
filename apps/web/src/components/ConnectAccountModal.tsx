@@ -232,9 +232,21 @@ export function ConnectForm({
     doConnect();
   }
 
-  const oauthReady = sel === "gmail" ? oauth?.google : sel === "outlook" ? oauth?.microsoft : false;
+  // `oauth` is undefined until the providers query resolves. Reading that as
+  // "OAuth unavailable" made the modal paint the whole Gmail password form and
+  // then replace it with the Continue with Google button the instant the
+  // request landed, which looked like the modal reloading itself on open. So
+  // gmail and outlook wait for the real answer instead of guessing at one.
+  // iCloud and own domains are always password flows and never need it.
+  const oauthKnown = oauth !== undefined;
+  const oauthReady = sel === "gmail" ? oauth?.google === true : sel === "outlook" ? oauth?.microsoft === true : false;
   const oauthProvider = sel === "gmail" ? "google" : "microsoft";
-  const passwordFlow = sel === "icloud" || sel === "custom" || (sel === "gmail" && !oauth?.google) || (sel === "outlook" && oauth && !oauth.microsoft);
+  const awaitingOauth = !oauthKnown && (sel === "gmail" || sel === "outlook");
+  const passwordFlow =
+    sel === "icloud" ||
+    sel === "custom" ||
+    (oauthKnown && sel === "gmail" && !oauth.google) ||
+    (oauthKnown && sel === "outlook" && !oauth.microsoft);
 
   return (
     <div>
@@ -256,6 +268,16 @@ export function ConnectForm({
           </button>
         ))}
       </div>
+
+      {/* Holds the button's footprint for the moment before we know which flow
+          this provider uses, so opening the modal never jumps. Layout warms
+          this query at app start, so in practice it is already resolved. */}
+      {awaitingOauth && (
+        <div
+          aria-hidden
+          style={{ marginTop: 18, height: 48, borderRadius: 10, background: "var(--line)", opacity: 0.35 }}
+        />
+      )}
 
       {/* OAuth path: one button, zero passwords */}
       {(sel === "gmail" || sel === "outlook") && oauthReady && (
@@ -375,7 +397,10 @@ export function ConnectForm({
             <ColorDots value={form.color} onChange={(c) => set("color", c)} />
           </div>
 
-          <details className="m-server" open={sel === "custom" && !discovery?.detected && Boolean(form.email_address)}>
+          {/* Left uncontrolled on purpose: closed until the user opens it. A
+              computed `open` also fought the user, since every keystroke
+              re-rendered and forced the panel back open after they closed it. */}
+          <details className="m-server">
             <summary>Server settings</summary>
             <div className="field">
               <label>Username</label>

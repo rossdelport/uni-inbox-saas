@@ -188,7 +188,10 @@ export function useOauthProviders() {
   return useQuery({
     queryKey: ["oauth-providers"],
     queryFn: () => api<{ google: boolean; microsoft: boolean }>("/api/oauth/providers"),
-    staleTime: 300_000,
+    // Which OAuth providers are configured is deploy-time server config, so it
+    // cannot change under a running tab. Caching it for the session keeps the
+    // connect modal instant on every open, not just within a 5 minute window.
+    staleTime: Infinity,
   });
 }
 
