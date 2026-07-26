@@ -203,7 +203,7 @@ export class AccountSyncer {
       maxSeen = Math.max(maxSeen, msg.uid);
       if (msg.internalDate && msg.internalDate < cutoff) continue; // outside window
       if (!msg.source) continue;
-      await this.ingest(msg.uid, Boolean(msg.flags?.has("\\Seen")), msg.source);
+      await this.ingest(msg.uid, Boolean(msg.flags?.has("\\Seen")), msg.source, msg.internalDate);
     }
     if (maxSeen > lastSeenUid) {
       await supabase
@@ -226,8 +226,8 @@ export class AccountSyncer {
   }
 
   /** Parse + store one message, threading it as it lands. */
-  private async ingest(uid: number, seen: boolean, source: Buffer): Promise<void> {
-    return ingestMessage(this.account, uid, seen, source);
+  private async ingest(uid: number, seen: boolean, source: Buffer, internalDate?: Date | null): Promise<void> {
+    return ingestMessage(this.account, uid, seen, source, internalDate);
   }
   /** Remote -> local: seen flags and messages that left INBOX (archived). */
   private async reconcileFlags(client: ImapFlow): Promise<void> {
@@ -460,6 +460,7 @@ export async function ingestMessage(
   uid: number,
   seen: boolean,
   source: Buffer,
+  internalDate?: Date | null,
 ): Promise<void> {
     const parsed = await simpleParser(source);
     const messageId = parsed.messageId ?? null;
@@ -474,7 +475,13 @@ export async function ingestMessage(
       ? sanitizeHtml(parsed.html, SANITIZE_OPTS).slice(0, 500_000)
       : null;
     const snippet = toSnippet(bodyText ?? (parsed.html || null));
-    const date = parsed.date ?? new Date();
+    // Fall back to the server's INTERNALDATE (when the message actually landed
+    // in the mailbox) before ever reaching for the clock. Plenty of senders
+    // emit headers strict parsers reject, and stamping those with "now" buries
+    // weeks of real mail under one timestamp at the top of the inbox, then
+    // re-dates it again on the next resync. INTERNALDATE is the server's own
+    // record of arrival and does not move.
+    const date = parsed.date ?? internalDate ?? new Date();
     const toAddresses = addrList(
       Array.isArray(parsed.to) ? parsed.to[0] : parsed.to,
     );

@@ -94,6 +94,7 @@ export async function backfillOlder(
         msg.uid,
         Boolean(msg.flags?.has("\\Seen")),
         msg.source,
+        msg.internalDate,
       );
       added += 1;
       if (msg.uid < lowestFetched) lowestFetched = msg.uid;
