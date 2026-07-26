@@ -90,6 +90,11 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
 .uni-scale{display:flex;justify-content:space-between;font:500 12px Inter,sans-serif;color:rgba(0,0,0,.35);margin-bottom:22px}
 .uni-pbtn{display:block;text-align:center;background:linear-gradient(182deg,#3C3C3C,#000);color:#fff;font:600 16px "M PLUS 1",Inter,sans-serif;padding:15px 20px;border-radius:999px;text-decoration:none;box-shadow:inset 0 2.4px 4.9px rgba(255,255,255,.35),inset 0 -1.2px 2.9px rgba(0,102,255,.39),0 8px 20px rgba(0,0,0,.25);transition:transform .2s ease,box-shadow .2s ease}
 .uni-pbtn:hover{transform:scale(1.03)}
+/* The two cards already stretch to equal height, so pinning the button and
+   feature list to the bottom of each one lines them up across both plans
+   whatever sits above. The Monthly slider then eats the slack instead of
+   shoving its own button below Lifetime's. No fixed heights to drift. */
+.uni-pfoot{margin-top:auto;display:flex;flex-direction:column}
 .uni-feats{list-style:none;margin:26px 0 0;padding:22px 0 0;border-top:1px solid rgba(0,0,0,.07);display:flex;flex-direction:column;gap:13px}
 .uni-feats li{position:relative;padding-left:32px;font:400 15.5px Inter,sans-serif;color:rgba(0,0,0,.55);text-align:left}
 .uni-feats li::before{content:"";position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:50%;background:linear-gradient(180deg,#4A9BF5,#0C7DFF);box-shadow:inset 0 -1px 1px rgba(10,114,237,.64)}
@@ -1048,27 +1053,31 @@ var PRICING_HTML = `
     <div class="uni-pdesc"><b data-acct>3</b> email accounts included</div>
     <input type="range" min="3" max="15" value="3" step="1" class="uni-slider" oninput="uniSlide(this,'m')" aria-label="Number of email accounts">
     <div class="uni-scale"><span>3 accounts</span><span>15 accounts</span></div>
-    <a class="uni-pbtn" href="__LEMON__">Get started today</a>
-    <ul class="uni-feats">
-      <li>Unified color-coded inbox</li>
-      <li>Reply from the right address, always</li>
-      <li>Two-way read and archive sync</li>
-      <li>3-day free trial, no card needed</li>
-      <li>Cancel anytime</li>
-    </ul>
+    <div class="uni-pfoot">
+      <a class="uni-pbtn" href="__LEMON__">Get started today</a>
+      <ul class="uni-feats">
+        <li>Unified color-coded inbox</li>
+        <li>Reply from the right address, always</li>
+        <li>Two-way read and archive sync</li>
+        <li>3-day free trial, no card needed</li>
+        <li>Cancel anytime</li>
+      </ul>
+    </div>
   </div>
   <div class="uni-pcard">
     <div class="uni-ptitle">Lifetime <span class="uni-ribbon">Best value</span></div>
     <div class="uni-pprice"><span class="uni-amt">$50</span><span class="uni-per">one-time</span></div>
-    <div class="uni-pdesc" style="padding-bottom:10px">Up to <b>10</b> email accounts included</div>
-    <a class="uni-pbtn" href="__LEMON__">Get lifetime access</a>
-    <ul class="uni-feats">
-      <li>Everything in Monthly</li>
-      <li>Pay once, keep it forever</li>
-      <li>Lifetime updates included</li>
-      <li>Up to 10 accounts connected</li>
-      <li>Priority support</li>
-    </ul>
+    <div class="uni-pdesc">Up to <b>10</b> email accounts included</div>
+    <div class="uni-pfoot">
+      <a class="uni-pbtn" href="__LEMON__">Get lifetime access</a>
+      <ul class="uni-feats">
+        <li>Everything in Monthly</li>
+        <li>Pay once, keep it forever</li>
+        <li>Lifetime updates included</li>
+        <li>Up to 10 accounts connected</li>
+        <li>Priority support</li>
+      </ul>
+    </div>
   </div>
 </div>`.replace(/__LEMON__/g, LEMON);
 function patchPricing(){
