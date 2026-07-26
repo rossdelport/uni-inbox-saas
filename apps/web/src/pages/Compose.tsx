@@ -99,8 +99,7 @@ export function Compose() {
           <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
             <button
               type="submit"
-              className="btn-black"
-              style={{ width: "auto", padding: "0 34px", height: 46, fontSize: 15 }}
+              className="btn-black btn-auto"
               disabled={compose.isPending}
             >
               {compose.isPending ? "Sending…" : "Send"}

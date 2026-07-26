@@ -150,8 +150,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
             </p>
           </div>
           <button
-            className="btn-black"
-            style={{ width: "auto", padding: "0 34px", height: 48, fontSize: 15 }}
+            className="btn-black btn-auto"
             onClick={() => setWizard("connect")}
           >
             Add account

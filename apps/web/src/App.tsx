@@ -29,8 +29,8 @@ function RouteError() {
         <p style={{ fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>Something broke</p>
         <p style={{ marginTop: 8, fontSize: 13.5 }}>{message}</p>
         <button
-          className="btn-black"
-          style={{ width: "auto", padding: "0 26px", height: 42, fontSize: 14, margin: "16px auto 0" }}
+          className="btn-black btn-auto"
+          style={{ margin: "16px auto 0" }}
           onClick={() => window.location.reload()}
         >
           Reload

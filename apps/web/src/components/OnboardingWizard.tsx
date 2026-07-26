@@ -66,7 +66,7 @@ export function OnboardingWizard({
               ))}
             </div>
             <div style={{ marginTop: 26 }}>
-              <button className="btn-black" style={{ width: "100%", height: 50 }} onClick={() => setStep("connect")}>
+              <button className="btn-black" onClick={() => setStep("connect")}>
                 Connect my first inbox
               </button>
               <button
@@ -134,7 +134,7 @@ export function OnboardingWizard({
             )}
 
             <div style={{ marginTop: 22 }}>
-              <button className="btn-black" style={{ width: "100%", height: 50 }} onClick={() => setStep("connect")}>
+              <button className="btn-black" onClick={() => setStep("connect")}>
                 Add another inbox
               </button>
               <button className="btn-ghost" style={{ width: "100%", marginTop: 10 }} onClick={finish}>

@@ -109,7 +109,7 @@ function ProfilePane() {
           <input value={user?.email ?? ""} disabled style={{ opacity: 0.6 }} />
         </div>
         <div style={{ marginTop: 18 }}>
-          <button type="submit" className="btn-black" style={{ width: "auto", padding: "0 26px", height: 44, fontSize: 14 }} disabled={busy}>
+          <button type="submit" className="btn-black btn-auto" disabled={busy}>
             Save profile
           </button>
         </div>
@@ -138,7 +138,7 @@ function ProfilePane() {
         </div>
         {err && <p className="err">{err}</p>}
         <div style={{ marginTop: 18 }}>
-          <button type="submit" className="btn-black" style={{ width: "auto", padding: "0 26px", height: 44, fontSize: 14 }} disabled={busy || !password}>
+          <button type="submit" className="btn-black btn-auto" disabled={busy || !password}>
             Update password
           </button>
         </div>
@@ -184,7 +184,7 @@ function AccountsPane() {
       </div>
 
       <div style={{ marginTop: 18 }}>
-        <button className="btn-black" style={{ width: "auto", padding: "0 30px", height: 46, fontSize: 14.5 }} onClick={() => setConnectOpen(true)}>
+        <button className="btn-black btn-auto" onClick={() => setConnectOpen(true)}>
           Add account
         </button>
       </div>
@@ -390,7 +390,7 @@ function PlanPane() {
       </div>
 
       <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button className="btn-black" style={{ width: "auto", padding: "0 28px", height: 46, fontSize: 14.5 }} onClick={() => setPlansOpen(true)}>
+        <button className="btn-black btn-auto" onClick={() => setPlansOpen(true)}>
           See plans
         </button>
         {billing && billing.plan !== "trial" && (

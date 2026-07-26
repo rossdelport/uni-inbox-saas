@@ -83,17 +83,16 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
             <li>Cancel anytime</li>
           </ul>
           {isMonthly ? (
-            <button className="btn-black" style={{ height: 44, fontSize: 14, opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
               Current plan
             </button>
           ) : isLifetime ? (
-            <button className="btn-black" style={{ height: 44, fontSize: 14, opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
               Covered by Lifetime
             </button>
           ) : (
             <button
               className="btn-black"
-              style={{ height: 44, fontSize: 14 }}
               disabled={checkout.isPending}
               onClick={() => checkout.mutate("monthly")}
             >
@@ -122,13 +121,12 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
             <li>30-day money-back guarantee</li>
           </ul>
           {isLifetime ? (
-            <button className="btn-black" style={{ height: 44, fontSize: 14, opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
               Current plan
             </button>
           ) : (
             <button
               className="btn-black"
-              style={{ height: 44, fontSize: 14 }}
               disabled={checkout.isPending}
               onClick={() => checkout.mutate("lifetime")}
             >

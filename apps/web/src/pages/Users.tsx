@@ -71,8 +71,7 @@ export function Users() {
             <div style={{ marginTop: 16 }}>
               <button
                 type="submit"
-                className="btn-black"
-                style={{ width: "auto", padding: "0 26px", height: 42, fontSize: 14 }}
+                className="btn-black btn-auto"
                 disabled={!entry}
               >
                 Unlock

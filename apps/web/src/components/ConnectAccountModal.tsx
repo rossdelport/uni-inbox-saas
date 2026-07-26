@@ -68,7 +68,6 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
             {billing.plan === "monthly" ? (
               <button
                 className="btn-black"
-                style={{ height: 46, fontSize: 14 }}
                 disabled={addSeat.isPending}
                 onClick={() =>
                   addSeat.mutate(undefined, {
@@ -83,7 +82,6 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
             ) : (
               <button
                 className="btn-black"
-                style={{ height: 46, fontSize: 14 }}
                 disabled={checkout.isPending}
                 onClick={() => checkout.mutate("monthly")}
               >
@@ -275,7 +273,7 @@ export function ConnectForm({
       {awaitingOauth && (
         <div
           aria-hidden
-          style={{ marginTop: 18, height: 48, borderRadius: 10, background: "var(--line)", opacity: 0.35 }}
+          style={{ marginTop: 18, height: "var(--btn-h)", borderRadius: 999, background: "var(--line)", opacity: 0.35 }}
         />
       )}
 
@@ -285,7 +283,7 @@ export function ConnectForm({
           <button
             type="button"
             className="btn-black"
-            style={{ width: "100%", height: 48, fontSize: 15, gap: 10 }}
+            style={{ gap: 10 }}
             disabled={oauthStart.isPending}
             onClick={() => oauthStart.mutate(oauthProvider)}
           >
@@ -460,7 +458,7 @@ export function ConnectForm({
           <button
             type="submit"
             className="btn-black"
-            style={{ width: "100%", height: 46, fontSize: 14.5, marginTop: 16 }}
+            style={{ marginTop: 16 }}
             disabled={connect.isPending || testMutation.isPending}
           >
             {testMutation.isPending ? "Testing connection…" : connect.isPending ? "Connecting…" : "Connect account"}
