@@ -79,6 +79,9 @@ export async function resolveThread(meta: IncomingMeta): Promise<string> {
       account_id: meta.accountId,
       subject_norm: subjectNorm || "(no subject)",
       last_message_at: meta.date.toISOString(),
+      // Set explicitly, not left to the column default: this row is inserted
+      // before touchThread() fills in the rollups, and the inbox sorts on it.
+      last_inbound_at: meta.date.toISOString(),
       message_count: 0, // bumped by touchThread below
       unread: !meta.seen,
       snippet: meta.snippet,
