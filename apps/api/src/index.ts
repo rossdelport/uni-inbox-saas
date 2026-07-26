@@ -14,6 +14,7 @@ import { messagesRouter } from "./routes/messages.js";
 import { sendRouter } from "./routes/send.js";
 import { billingRouter } from "./routes/billing.js";
 import { contactRouter } from "./routes/contact.js";
+import { checkoutRouter } from "./routes/checkout.js";
 import { oauthRouter } from "./routes/oauth.js";
 import { metricsRouter } from "./routes/metrics.js";
 import { adminRouter } from "./routes/admin.js";
@@ -119,6 +120,11 @@ app.use("/api/contact", contactRouter);
 app.post("/api/metrics/view", (req, res) => {
   void import("./routes/metrics.js").then((m) => m.recordView(req, res));
 });
+
+// Public: card-first signup checkout. The visitor pays before an account
+// exists, so this cannot sit behind requireAuth. Binding the payment to an
+// account happens later at POST /api/billing/claim, which is authenticated.
+app.use("/api/checkout", checkoutRouter);
 
 // Public: OAuth provider callbacks (browser redirects carry signed state,
 // not a bearer token).

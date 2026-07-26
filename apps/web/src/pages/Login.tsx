@@ -2,6 +2,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase.js";
 import { LOGO_SRC, MAIL_SRC } from "../lib/assets.js";
 import { PasswordInput } from "../components/PasswordInput.js";
+import {
+  checkoutSessionFromUrl,
+  claimPendingCheckout,
+  fetchCheckoutSummary,
+  rememberCheckout,
+  PRICING_URL,
+  type CheckoutSummary,
+} from "../lib/checkout.js";
 
 const SRC_KEY = "oi-signup-src";
 
@@ -17,8 +25,13 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checkout, setCheckout] = useState<CheckoutSummary | null>(null);
 
   const isSignup = mode === "signup";
+  // Signup is now the second half of a paid checkout, so it needs the session
+  // id Stripe sends back. Read once on mount rather than per render, because
+  // the URL is rewritten by switchMode.
+  const [sessionId] = useState<string | null>(() => checkoutSessionFromUrl());
 
   // Attribution: landing-page buttons arrive with ?src=<page:button>. Keep it
   // through the confirm-email round trip so signup can record it.
@@ -26,6 +39,33 @@ export function Login() {
     const src = new URLSearchParams(window.location.search).get("src");
     if (src) localStorage.setItem(SRC_KEY, src.slice(0, 80));
   }, []);
+
+  // Card-first funnel: an account only exists on the back of a paid checkout.
+  // Arriving at signup without one means the plan was never chosen, so send
+  // them to pricing instead of offering an account we cannot bill.
+  useEffect(() => {
+    if (!isSignup) return;
+    if (!sessionId) {
+      window.location.assign(PRICING_URL);
+      return;
+    }
+    rememberCheckout(sessionId);
+    let live = true;
+    void fetchCheckoutSummary(sessionId)
+      .then((s) => {
+        if (!live) return;
+        setCheckout(s);
+        // Bill and account should be the same person by default. Still
+        // editable, since Stripe may hold a personal address.
+        if (s.email) setEmail((cur) => cur || s.email!);
+      })
+      .catch(() => {
+        /* Prefill is a nicety. A failed lookup must not block the form. */
+      });
+    return () => {
+      live = false;
+    };
+  }, [isSignup, sessionId]);
 
   function switchMode(m: "signin" | "signup") {
     setMode(m);
@@ -92,8 +132,15 @@ export function Login() {
       if (error) {
         setError(error.message);
       } else if (!data.session) {
-        setNotice("Almost there. Check your email for a confirmation link, then log in.");
+        setNotice(
+          "Almost there. Check your email for a confirmation link, then log in. Your plan is already paid for and will be waiting.",
+        );
         switchMode("signin");
+      } else {
+        // Session in hand: attach the payment now so the dashboard opens on
+        // the right plan instead of flashing the paywall first. If it fails
+        // it stays queued and the next authenticated load retries it.
+        await claimPendingCheckout();
       }
     }
     setBusy(false);
@@ -130,7 +177,15 @@ export function Login() {
             ? "One dashboard for every project inbox."
             : "Log in to your unified inbox. Every account, one dashboard."}
         </p>
-        {isSignup && <p className="auth-trial">Free for 3 days. No card needed.</p>}
+        {isSignup && (
+          <p className="auth-trial">
+            {checkout?.tier === "lifetime"
+              ? "Payment received. Create your account to get started."
+              : checkout?.trial_ends_at
+                ? `Free until ${new Date(checkout.trial_ends_at).toLocaleDateString(undefined, { day: "numeric", month: "long" })}, then $5/month.`
+                : "Free for 3 days, then $5/month."}
+          </p>
+        )}
 
         <div className="oauth">
           <a

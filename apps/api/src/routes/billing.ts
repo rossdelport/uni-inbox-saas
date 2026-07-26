@@ -6,6 +6,7 @@ import { logger } from "../lib/logger.js";
 import { getBilling, planPriceLabel, PRICING } from "../lib/plans.js";
 import {
   addSeat,
+  claimSignupCheckout,
   confirmCheckout,
   createCheckoutSession,
   createPortalSession,
@@ -55,6 +56,21 @@ billingRouter.post("/checkout", async (req, res) => {
   } catch (err) {
     logger.error({ err, uid: userId(res) }, "checkout session failed");
     res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// Card-first signup, second half: the visitor paid before they had an
+// account, then created one. This binds that payment to the new account.
+// Authenticated on purpose, so a caller can only ever claim onto themselves.
+billingRouter.post("/claim", async (req, res) => {
+  const parsed = z.object({ session_id: z.string().startsWith("cs_") }).safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: "invalid session id" });
+  try {
+    const result = await claimSignupCheckout(userId(res), parsed.data.session_id);
+    res.json(result);
+  } catch (err) {
+    logger.error({ err, uid: userId(res) }, "signup checkout claim failed");
+    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

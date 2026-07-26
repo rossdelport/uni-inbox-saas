@@ -167,6 +167,161 @@ export async function createCheckoutSession(uid: string, tier: CheckoutTier): Pr
   return session.url;
 }
 
+/** Days of trial on a card-first signup, mirrored into profiles.trial_ends_at. */
+export const SIGNUP_TRIAL_DAYS = 3;
+
+/** Marketing site root, derived from the dashboard URL (".../app" -> "..."). */
+function siteRoot(): string {
+  return env.DASHBOARD_URL.replace(/\/app\/?$/, "");
+}
+
+/** Card-first signup: a Checkout session created before any account exists.
+ *  There is no uid to attach yet, so the session carries no user_id and the
+ *  binding happens later in claimSignupCheckout, once the account is made. */
+export async function createSignupCheckoutSession(
+  tier: CheckoutTier,
+  accounts: number | null,
+): Promise<string> {
+  const prices = await ensurePrices();
+  const success = `${env.DASHBOARD_URL}/signup?session_id={CHECKOUT_SESSION_ID}`;
+  const cancel = `${siteRoot()}/pricing`;
+
+  if (tier === "lifetime") {
+    const session = await stripe().checkout.sessions.create({
+      mode: "payment",
+      line_items: [{ price: prices.lifetime, quantity: 1 }],
+      // Payment mode does not create a customer on its own, and we need one
+      // to hang the account off once it exists.
+      customer_creation: "always",
+      metadata: { tier: "lifetime", signup: "1" },
+      allow_promotion_codes: true,
+      success_url: success,
+      cancel_url: cancel,
+    });
+    if (!session.url) throw new Error("Stripe returned no checkout URL.");
+    return session.url;
+  }
+
+  const quantity = Math.min(
+    Math.max(accounts ?? PRICING.monthlyIncluded, PRICING.monthlyIncluded),
+    PRICING.monthlyHardCap,
+  );
+  const session = await stripe().checkout.sessions.create({
+    mode: "subscription",
+    line_items: [{ price: prices.monthly, quantity }],
+    subscription_data: {
+      trial_period_days: SIGNUP_TRIAL_DAYS,
+      metadata: { signup: "1" },
+    },
+    // The whole point of the card-first funnel: the trial converts on its own
+    // when the days are up, which only works with a card already on file.
+    payment_method_collection: "always",
+    metadata: { tier: "monthly", signup: "1" },
+    allow_promotion_codes: true,
+    success_url: success,
+    cancel_url: cancel,
+  });
+  if (!session.url) throw new Error("Stripe returned no checkout URL.");
+  return session.url;
+}
+
+/** True if some other account already holds this customer or subscription. */
+async function heldByAnotherUser(
+  uid: string,
+  customerId: string | null,
+  subId: string | null,
+): Promise<boolean> {
+  const checks: Array<[string, string]> = [];
+  if (customerId) checks.push(["stripe_customer_id", customerId]);
+  if (subId) checks.push(["stripe_subscription_id", subId]);
+  for (const [col, val] of checks) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq(col, val)
+      .neq("user_id", uid)
+      .limit(1);
+    if (data && data.length > 0) return true;
+  }
+  return false;
+}
+
+/** Bind a paid signup session to the account that was just created for it.
+ *  Idempotent: re-running it for the same user is a no-op reapply, which
+ *  matters because the signup page may retry after a refresh. */
+export async function claimSignupCheckout(
+  uid: string,
+  sessionId: string,
+): Promise<{ plan: PlanId; status: string }> {
+  const session = await stripe().checkout.sessions.retrieve(sessionId, {
+    expand: ["subscription", "customer"],
+  });
+  if (session.status !== "complete") {
+    throw new Error("That payment hasn't completed yet.");
+  }
+
+  const customerId =
+    typeof session.customer === "string" ? session.customer : (session.customer?.id ?? null);
+  const sub =
+    session.subscription && typeof session.subscription !== "string" ? session.subscription : null;
+
+  // A session belongs to exactly one account. Without this, anyone holding a
+  // session id (it travels in a URL) could staple someone else's paid plan
+  // onto their own signup, and one shared link could mint many free accounts.
+  if (await heldByAnotherUser(uid, customerId, sub?.id ?? null)) {
+    throw new Error("This payment is already linked to another account.");
+  }
+
+  if (customerId) {
+    await supabase.from("profiles").update({ stripe_customer_id: customerId }).eq("user_id", uid);
+    // Stamp the user onto the Stripe objects so later webhooks resolve without
+    // the session: renewals and cancellations arrive long after this request,
+    // and by then the session id is nowhere in the payload.
+    await stripe()
+      .customers.update(customerId, { metadata: { user_id: uid } })
+      .catch((err: unknown) => logger.warn({ err, uid, customerId }, "could not tag stripe customer"));
+  }
+
+  if (session.mode === "payment") {
+    if (session.payment_status !== "paid") throw new Error("That payment hasn't cleared yet.");
+    await applyLifetime(uid, session.id);
+    logger.info({ uid, sessionId }, "signup checkout claimed: lifetime");
+    return { plan: "lifetime", status: "paid" };
+  }
+
+  if (!sub) throw new Error("That checkout has no subscription on it.");
+  await stripe()
+    .subscriptions.update(sub.id, { metadata: { user_id: uid } })
+    .catch((err: unknown) => logger.warn({ err, uid, subId: sub.id }, "could not tag stripe subscription"));
+  await applySubscription(uid, sub);
+  // Stripe owns the trial clock now. Mirror its end date so anything still
+  // reading profiles.trial_ends_at agrees with what the customer will be
+  // charged and when.
+  if (sub.trial_end) {
+    await supabase
+      .from("profiles")
+      .update({ trial_ends_at: new Date(sub.trial_end * 1000).toISOString() })
+      .eq("user_id", uid);
+  }
+  logger.info({ uid, sessionId, status: sub.status }, "signup checkout claimed: monthly");
+  return { plan: sub.status === "trialing" || sub.status === "active" ? "monthly" : "trial", status: sub.status };
+}
+
+/** Minimal, non-secret view of a signup session, for prefilling the form. */
+export async function signupSessionSummary(
+  sessionId: string,
+): Promise<{ email: string | null; tier: string; trial_ends_at: string | null; complete: boolean }> {
+  const session = await stripe().checkout.sessions.retrieve(sessionId, { expand: ["subscription"] });
+  const sub =
+    session.subscription && typeof session.subscription !== "string" ? session.subscription : null;
+  return {
+    email: session.customer_details?.email ?? session.customer_email ?? null,
+    tier: String(session.metadata?.tier ?? (session.mode === "payment" ? "lifetime" : "monthly")),
+    trial_ends_at: sub?.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+    complete: session.status === "complete",
+  };
+}
+
 /** "+$2/month" paywall button: bump the Monthly subscription by one seat. */
 export async function addSeat(uid: string): Promise<{ quantity: number }> {
   const billing = await getBilling(uid);
