@@ -226,7 +226,7 @@ export class AccountSyncer {
   }
 
   /** Parse + store one message, threading it as it lands. */
-  private async ingest(uid: number, seen: boolean, source: Buffer, internalDate?: Date | null): Promise<void> {
+  private async ingest(uid: number, seen: boolean, source: Buffer, internalDate?: string | Date | null): Promise<void> {
     return ingestMessage(this.account, uid, seen, source, internalDate);
   }
   /** Remote -> local: seen flags and messages that left INBOX (archived). */
@@ -460,7 +460,9 @@ export async function ingestMessage(
   uid: number,
   seen: boolean,
   source: Buffer,
-  internalDate?: Date | null,
+  // ImapFlow hands this back as either a Date or a raw string depending on
+  // the server, so take both and normalise below.
+  internalDate?: string | Date | null,
 ): Promise<void> {
     const parsed = await simpleParser(source);
     const messageId = parsed.messageId ?? null;
@@ -481,7 +483,9 @@ export async function ingestMessage(
     // weeks of real mail under one timestamp at the top of the inbox, then
     // re-dates it again on the next resync. INTERNALDATE is the server's own
     // record of arrival and does not move.
-    const date = parsed.date ?? internalDate ?? new Date();
+    const arrived = internalDate ? new Date(internalDate) : null;
+    const date =
+      parsed.date ?? (arrived && !Number.isNaN(arrived.getTime()) ? arrived : new Date());
     const toAddresses = addrList(
       Array.isArray(parsed.to) ? parsed.to[0] : parsed.to,
     );
