@@ -170,6 +170,32 @@ export function useThreadOp() {
     onMutate: async ({ threadId, op }) => {
       await qc.cancelQueries({ queryKey: ["inbox"] });
       const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+
+      // Move the badge on the click, not two round trips later (the op, then
+      // a refetch of the count). Only threads the server says are counted can
+      // move it: opening one of the pre-connection backlog must leave it
+      // alone, since it was never in the number to begin with.
+      const before = snapshots
+        .flatMap(([, d]) => d?.pages.flatMap((p) => p.threads) ?? [])
+        .find((t) => t.id === threadId);
+      const delta =
+        op === "read" && before?.counts_unread
+          ? -1
+          : op === "unread" && before && !before.unread
+            ? 1
+            : 0;
+      const countsKey = ["unread-counts"] as const;
+      const countsBefore = qc.getQueryData<UnreadCounts>(countsKey);
+      if (delta !== 0 && countsBefore && before) {
+        const acct = before.account_id;
+        qc.setQueryData<UnreadCounts>(countsKey, {
+          total: Math.max(0, countsBefore.total + delta),
+          by_account: {
+            ...countsBefore.by_account,
+            [acct]: Math.max(0, (countsBefore.by_account[acct] ?? 0) + delta),
+          },
+        });
+      }
       for (const [key, data] of snapshots) {
         if (!data) continue;
         qc.setQueryData(key, {
@@ -182,6 +208,9 @@ export function useThreadOp() {
                   ? {
                       ...t,
                       unread: op === "unread" ? true : op === "read" ? false : t.unread,
+                      // Cleared with unread so a second click cannot decrement
+                      // the badge twice off one conversation.
+                      counts_unread: op === "read" ? false : t.counts_unread,
                       archived: op === "archive" ? true : op === "unarchive" ? false : t.archived,
                       starred: op === "star" ? true : op === "unstar" ? false : t.starred,
                       read_later: op === "later" ? true : op === "unlater" ? false : t.read_later,
@@ -195,10 +224,13 @@ export function useThreadOp() {
           })),
         });
       }
-      return { snapshots };
+      return { snapshots, countsBefore };
     },
     onError: (_err, _vars, ctx) => {
       for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
+      // Put the badge back too, or a failed request leaves a number that is
+      // quietly one lower than the truth until the next refetch.
+      if (ctx?.countsBefore) qc.setQueryData(["unread-counts"], ctx.countsBefore);
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });

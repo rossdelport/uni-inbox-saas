@@ -58,7 +58,7 @@ inboxRouter.get("/", async (req, res) => {
   let query = supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address)",
+      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address, created_at)",
     )
     .eq("owner_id", uid)
     .order(sortCol, { ascending: false })
@@ -144,6 +144,7 @@ inboxRouter.get("/", async (req, res) => {
       label: string;
       color: string;
       email_address: string;
+      created_at: string;
     };
     const from = latestFrom.get(t.id as string);
     return {
@@ -164,6 +165,13 @@ inboxRouter.get("/", async (req, res) => {
       archived: t.archived,
       starred: t.starred,
       read_later: t.read_later,
+      // Whether this row is part of the sidebar/tab-title count, which only
+      // includes mail that arrived after the account was connected. Sent by
+      // the server so the client can drop the badge the instant a thread is
+      // opened, without having to reimplement the rule and drift from it.
+      counts_unread:
+        Boolean(t.unread) &&
+        String(t.last_inbound_at) >= String(acct.created_at),
     };
   });
 

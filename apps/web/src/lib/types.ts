@@ -36,6 +36,11 @@ export interface ThreadSummary {
   archived: boolean;
   starred: boolean;
   read_later: boolean;
+  /** True when this thread is part of the sidebar / tab-title count: unread
+   *  AND arrived after its account was connected. Sent by the server so the
+   *  badge can drop the instant a thread is opened, instead of waiting on a
+   *  round trip, and without the client reimplementing that rule. */
+  counts_unread: boolean;
 }
 
 export interface AttachmentMeta {
