@@ -156,6 +156,7 @@ export function useReadAll() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
     },
   });
 }
@@ -202,6 +203,11 @@ export function useThreadOp() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["thread"] });
+      // Opening a thread marks it read, and read/unread/archive all move the
+      // badge. Without this the count is server-held and nothing tells it to
+      // refetch, so it sat unchanged until the 60s poll: you clicked four
+      // emails and the "4" stayed put.
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
     },
   });
 }
@@ -229,7 +235,11 @@ export function useDeleteThread() {
     onError: (_err, _vars, ctx) => {
       for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
     },
-    onSettled: () => void qc.invalidateQueries({ queryKey: ["inbox"] }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      // Binning an unread conversation drops it out of the count too.
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+    },
   });
 }
 
