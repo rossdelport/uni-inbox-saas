@@ -41,7 +41,16 @@ a[href*="framer.com"]{display:none!important;visibility:hidden!important;opacity
    nothing from a fade-in). Pinning opacity beats the inline style the
    animation runtime writes. */
 section[data-framer-name="footer"]{opacity:1!important}
-.uni-bigbrand{display:block;width:100%;text-align:center;font-family:"M PLUS Rounded 1c",sans-serif;font-weight:800;font-size:clamp(56px,10.5vw,240px);line-height:1.02;letter-spacing:-0.02em;color:rgba(171,226,255,.45);white-space:nowrap;user-select:none;overflow:hidden}
+/* Exactly one footer variant may render at any width. Framer's SSR gates
+   variants with .ssr-variant wrappers, but hydration strips those wrappers,
+   and forcing every variant visible then stacked two footers with two brand
+   marks. Media queries do the gating the wrappers used to. */
+footer.framer-sP0dz{display:none!important}
+@media (min-width:1200px){footer.framer-sP0dz.framer-v-6f8f2g{display:flex!important}}
+@media (max-width:1199px){footer.framer-sP0dz.framer-v-loo4z9{display:flex!important}}
+/* The big letters: an uppercase ghost strip at the very bottom of the footer,
+   clipped slightly at the baseline so it bleeds off the page end. */
+.uni-bigbrand{display:block;width:100%;height:.8em;overflow:hidden;text-align:center;font-family:"M PLUS Rounded 1c",sans-serif;font-weight:800;font-size:clamp(64px,11.5vw,270px);line-height:.95;letter-spacing:-0.02em;color:rgba(255,255,255,.4);white-space:nowrap;user-select:none}
 /* search animation card */
 .uni-anim{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:2}
 .uni-window{position:relative;width:74%;max-width:340px;transform:scale(.8);transform-origin:center center;background:linear-gradient(180deg,#ffffff,#f4f8ff);border-radius:24px;box-shadow:0 20px 40px rgba(0,20,60,.18),inset 0 0 0 1px rgba(255,255,255,.8);padding:16px 16px 18px;overflow:hidden}
@@ -1124,39 +1133,19 @@ function patchPricing(){
 /* ---------- footer brand ---------- */
 function patchFooter(){
   q('[data-framer-name="MAILY"]').forEach(function(el){
-    /* The whole footer component computes display:none on desktop, from
-       something Framer-side that matches no stylesheet rule and no inline
-       style we could find, so the site shipped with NO footer at all: no
-       links, no copyright, and no big letters. Whatever sets it, an inline
-       !important outranks it. Breakpoint gating is unaffected because every
-       variant sits in its own .ssr-variant wrapper. Re-applied on every
-       pass, before the injection guard, so a hydration re-render cannot
-       quietly hide the footer again. */
-    var foot = el.closest('footer');
-    if (foot) foot.style.setProperty('display', 'flex', 'important');
-    if (el.querySelector('.uni-bigbrand')) return;
-    var w = el.querySelector('[data-framer-background-image-wrapper]');
-    if (w) w.remove();
-    var img = el.querySelector('img');
-    if (img) img.remove();
-    /* The template sized this box from the image we just removed (its
-       aspect-ratio needs a width, the width came from the image), so the
-       whole chain collapsed to 0x0 and the letters were injected into an
-       invisible box on every page. Let the text size the box instead, and
-       prop the collapsed ancestors back open. */
-    el.style.width = '100%';
-    el.style.height = 'auto';
-    el.style.aspectRatio = 'auto';
-    var up = el.parentElement;
-    for (var i = 0; i < 3 && up; i++){
-      if (getComputedStyle(up).width === 'min-content' || up.offsetWidth === 0) up.style.width = '100%';
-      if (up.getAttribute('data-framer-name') === 'footer') break;
-      up = up.parentElement;
+    /* The lowercase mid-footer wordmark is gone by request. The MAILY box it
+       lived in (which the template sized off a background image) goes with
+       it, and the brand mark is now an uppercase ONEINBOX strip appended as
+       the footer's last child, so it sits at the very bottom on every page.
+       Idempotent: once MAILY is removed the selector matches nothing. */
+    var host = el.closest('footer') || el.parentElement;
+    el.remove();
+    if (host && !host.querySelector('.uni-bigbrand')){
+      var d = document.createElement('div');
+      d.className = 'uni-bigbrand';
+      d.textContent = 'ONEINBOX';
+      host.appendChild(d);
     }
-    var d = document.createElement('div');
-    d.className = 'uni-bigbrand';
-    d.textContent = 'oneinbox';
-    el.appendChild(d);
   });
 }
 
