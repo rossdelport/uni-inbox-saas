@@ -11,6 +11,28 @@ import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 logger.info("sync supervisor starting");
 markWorkerStarted();
 
+// Deploy-restart recovery. While a connection is healthy its account carries
+// a far-future next_sync_at so the supervisor leaves it alone; when a deploy
+// kills the process, the connections die but those placeholders survive, and
+// every mailbox sits dead until its placeholder expires, up to 30 minutes.
+// With a dozen-plus deploys in a day, that WAS the product's mail latency.
+// On boot no syncer exists, so any far-future stamp is a lie: clamp anything
+// beyond the maximum failure backoff (5 min) down to now. Real backoffs sit
+// inside that window and stay respected.
+void import("./lib/supabase.js")
+  .then(({ supabase }) =>
+    supabase
+      .from("email_accounts")
+      .update({ next_sync_at: new Date().toISOString() })
+      .eq("status", "active")
+      .gt("next_sync_at", new Date(Date.now() + 6 * 60_000).toISOString()),
+  )
+  .then(({ error }) => {
+    if (error) throw error;
+    logger.info("boot: stale sync placeholders clamped");
+  })
+  .catch((err) => logger.error({ err }, "boot placeholder clamp failed"));
+
 const SUPERVISOR_INTERVAL_MS = 30_000;
 let ticking = false;
 

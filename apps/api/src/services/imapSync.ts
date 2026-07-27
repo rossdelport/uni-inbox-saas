@@ -104,7 +104,21 @@ export class AccountSyncer {
           this.wakeTimer = setTimeout(resolve, 45_000);
         });
         if (this.stopped) break;
-        await this.safeCycle("interval");
+        // The cycle itself gets a hard deadline. A dead socket can leave a
+        // fetch hanging forever, and an await that never resolves means the
+        // liveness probe below never runs: Gmail sat wedged for 20+ minutes
+        // in exactly this state. Two minutes is generous for an incremental
+        // cycle (the full first sync happens before this loop); past that the
+        // connection is condemned and rebuilt. The orphaned promise settles
+        // when cleanup closes the client.
+        const cycled = await Promise.race([
+          this.safeCycle("interval").then(() => true),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 120_000)),
+        ]);
+        if (!cycled) {
+          logger.warn({ accountId: this.account.id }, "sync cycle exceeded deadline; reconnecting");
+          break;
+        }
         // Zombie check. A connection that dies without a FIN (NAT timeout,
         // Zoho dropping idle sessions) keeps `usable` true forever: the loop
         // spins, cycles fail quietly, and mail stalls until the 25-minute
