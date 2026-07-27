@@ -49,6 +49,7 @@ adminRouter.get("/users", async (_req, res) => {
       const trialEnds = (p as { trial_ends_at?: string | null }).trial_ends_at ?? null;
       const mrr = plan === "monthly" ? monthlyMrr(qty) : 0;
       return {
+        id: u.id,
         email: u.email ?? "(no email)",
         joined_at: u.created_at,
         plan,
@@ -106,4 +107,49 @@ adminRouter.get("/users", async (_req, res) => {
     },
     users,
   });
+});
+
+// Delete a user outright: auth row, and through the FK cascades their
+// profile, accounts, sync state, threads, messages and flag ops. Built for
+// clearing test signups without a Supabase round trip. Any live Stripe
+// subscription is cancelled FIRST: a deleted trial would otherwise convert
+// in three days and charge a card for an account that no longer exists.
+adminRouter.delete("/users/:id", async (req, res) => {
+  const targetId = String(req.params.id ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(targetId)) return res.status(400).json({ error: "invalid user id" });
+
+  const { data: target } = await supabase.auth.admin.getUserById(targetId);
+  if (!target?.user) return res.status(404).json({ error: "no such user" });
+  // The admin account is load-bearing; deleting it from its own dashboard
+  // would be a memorable afternoon.
+  if ((target.user.email ?? "").toLowerCase() === env.CONTACT_TO_EMAIL.toLowerCase()) {
+    return res.status(400).json({ error: "You cannot delete your own account from here." });
+  }
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("stripe_subscription_id")
+    .eq("user_id", targetId)
+    .maybeSingle();
+  if (prof?.stripe_subscription_id) {
+    try {
+      const { getStripe } = await import("../services/stripeBilling.js");
+      await getStripe().subscriptions.cancel(prof.stripe_subscription_id);
+      logger.info({ targetId, sub: prof.stripe_subscription_id }, "admin delete: subscription cancelled");
+    } catch (err) {
+      // Do not delete the user if the live subscription could not be
+      // cancelled: an orphaned subscription bills a card forever with no
+      // account left to cancel it from.
+      logger.error({ err, targetId }, "admin delete: could not cancel subscription");
+      return res.status(502).json({ error: "Could not cancel their Stripe subscription. User NOT deleted." });
+    }
+  }
+
+  const { error } = await supabase.auth.admin.deleteUser(targetId);
+  if (error) {
+    logger.error({ error, targetId }, "admin delete user failed");
+    return res.status(502).json({ error: "Delete failed." });
+  }
+  logger.info({ targetId, email: target.user.email }, "admin deleted user");
+  res.json({ ok: true });
 });

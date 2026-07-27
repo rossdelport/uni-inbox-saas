@@ -577,5 +577,7 @@ export async function ingestMessage(
       logger.error({ error, accountId: account.id, uid }, "message upsert failed");
       return;
     }
-    await touchThread(threadId);
+    // Ingest is the one caller allowed to pull threads out of trash/archive:
+    // this is real mail arriving, not a recount.
+    await touchThread(threadId, true);
 }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { toast } from "../lib/toast.js";
 import { PasswordInput } from "../components/PasswordInput.js";
 
 // Founder dashboard: every user, plan, MRR, cash collected, join date and
@@ -8,6 +9,7 @@ import { PasswordInput } from "../components/PasswordInput.js";
 // server-side; the password is remembered for the session only.
 
 interface AdminUser {
+  id: string;
   email: string;
   joined_at: string;
   plan: "trial" | "monthly" | "lifetime";
@@ -36,6 +38,15 @@ const PW_KEY = "oi-admin-pw";
 export function Users() {
   const [pw, setPw] = useState<string>(() => sessionStorage.getItem(PW_KEY) ?? "");
   const [entry, setEntry] = useState("");
+
+  const qc = useQueryClient();
+  const del = useMutation({
+    mutationFn: (u: { id: string; email: string }) =>
+      api(`/api/admin/users/${u.id}`, { method: "DELETE", headers: { "X-Admin-Password": pw } }),
+    onSuccess: (_d, u) => toast(`${u.email} deleted.`, "success"),
+    onError: (err) => toast((err as Error).message, "warn"),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
 
   const query = useQuery({
     queryKey: ["admin-users", pw],
@@ -137,11 +148,12 @@ export function Users() {
                     <th>Joined</th>
                     <th>Trial ends</th>
                     <th>Signed up via</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {d.users.map((u) => (
-                    <tr key={u.email}>
+                    <tr key={u.id}>
                       <td>{u.email}</td>
                       <td>
                         <span className={`adm-plan ${u.plan}`}>{u.plan_label}</span>
@@ -150,6 +162,24 @@ export function Users() {
                       <td>{when(u.joined_at)}</td>
                       <td>{u.plan === "trial" ? when(u.trial_ends_at) : "·"}</td>
                       <td className="adm-src">{u.signup_source ?? "direct"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          className="btn-mini danger"
+                          disabled={del.isPending}
+                          onClick={() => {
+                            // Server refuses the admin's own row; everything
+                            // else is gone for good, mail and billing included.
+                            if (
+                              window.confirm(
+                                `Delete ${u.email} and ALL their data (accounts, mail, billing)? This cannot be undone.`,
+                              )
+                            )
+                              del.mutate({ id: u.id, email: u.email });
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

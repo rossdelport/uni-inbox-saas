@@ -92,8 +92,10 @@ export async function resolveThread(meta: IncomingMeta): Promise<string> {
   return created.id as string;
 }
 
-/** Refresh a thread's rollup fields after inserting a message into it. */
-export async function touchThread(threadId: string): Promise<void> {
+/** Refresh a thread's rollup fields after inserting a message into it.
+ *  `inboundMail` marks a call from the ingest path, i.e. real mail arriving,
+ *  as opposed to a flag reconcile or an outbound send re-counting the rows. */
+export async function touchThread(threadId: string, inboundMail = false): Promise<void> {
   const { data: msgs } = await supabase
     .from("messages")
     .select("date, snippet, seen, direction")
@@ -107,6 +109,30 @@ export async function touchThread(threadId: string): Promise<void> {
   // when you reply to them. Threads you started and are still awaiting a
   // reply on fall back to the newest message so they sort sensibly.
   const newestInbound = msgs.find((m) => m.direction === "inbound");
+
+  // A reply that arrives AFTER a thread was binned pulls it back out of the
+  // trash: deleting says "done with this", not "never show me this person
+  // again", and silently dropping a real reply is the worst thing an inbox
+  // can do. The first version of this cleared deleted_at whenever the thread
+  // merely HAD unread messages, and almost every deleted thread does (promos
+  // are deleted unread). The 45-second flag reconcile then re-counted the
+  // rows and resurrected the deletion a minute or two later, every time. Now
+  // rising from the trash requires actual new mail: an ingest-path call AND
+  // an inbound message dated after the deletion, so re-ingests of old
+  // messages (reconnects, resyncs) cannot do it either.
+  let undelete = false;
+  if (inboundMail && newestInbound) {
+    const { data: t } = await supabase
+      .from("threads")
+      .select("deleted_at")
+      .eq("id", threadId)
+      .maybeSingle();
+    const deletedAt = t?.deleted_at as string | null | undefined;
+    undelete = Boolean(
+      deletedAt && new Date(newestInbound.date as string).getTime() > new Date(deletedAt).getTime(),
+    );
+  }
+
   await supabase
     .from("threads")
     .update({
@@ -115,13 +141,10 @@ export async function touchThread(threadId: string): Promise<void> {
       message_count: msgs.length,
       snippet: newest.snippet,
       unread,
-      // New mail pulls a thread back into the inbox, out of both archive and
-      // trash. Without the deleted_at reset a reply to a deleted thread landed
-      // in a thread still flagged deleted, so the inbox query filtered it out
-      // and the reply was never seen: silently losing mail someone actually
-      // sent you, which is the worst thing an inbox can do. Deleting says
-      // "done with this", not "never show me this person again".
-      ...(unread ? { archived: false, deleted_at: null } : {}),
+      // Unarchiving is likewise reserved for real arriving mail, so a flag
+      // sweep cannot drag an archived-but-unread thread back to the inbox.
+      ...(unread && inboundMail ? { archived: false } : {}),
+      ...(undelete ? { deleted_at: null } : {}),
     })
     .eq("id", threadId);
 }
