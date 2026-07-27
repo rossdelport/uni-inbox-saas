@@ -20,6 +20,18 @@ import { supabase } from "./supabase.js";
  *  then the rollup update), and a first sync lands in bursts. */
 const COALESCE_MS = 400;
 
+// Whether the postgres_changes channel is currently delivering. The polls in
+// queries.ts read this each interval: 60s while realtime carries the load,
+// 15s the moment it does not, so a broken socket degrades to "slightly slower"
+// instead of "minutes stale", visibly logged either way.
+let healthy = false;
+function setRealtimeHealthy(v: boolean): void {
+  healthy = v;
+}
+export function realtimeHealthy(): boolean {
+  return healthy;
+}
+
 export function useRealtimeInbox(userId: string | null): void {
   const qc = useQueryClient();
 
@@ -51,11 +63,26 @@ export function useRealtimeInbox(userId: string | null): void {
         },
         refresh,
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         // A dropped socket is normal: browsers freeze long-backgrounded tabs
         // and laptops sleep. Anything that arrived while we were away was
         // missed, so treat every (re)connect as a reason to catch up.
-        if (status === "SUBSCRIBED") refresh();
+        if (status === "SUBSCRIBED") {
+          setRealtimeHealthy(true);
+          console.info("[oneinbox] realtime subscribed: live inbox updates on");
+          refresh();
+        } else {
+          // Say so out loud instead of degrading silently. This channel
+          // already failed silently once (a missing SELECT grant: the socket
+          // connected, subscribed, and delivered nothing), and it was only
+          // found by auditing the database. Never again: any non-subscribed
+          // state is logged and flips the polls to their fast fallback.
+          setRealtimeHealthy(false);
+          console.warn(
+            `[oneinbox] realtime ${status}${err ? `: ${err.message}` : ""}. ` +
+              "Falling back to 15s polling until it recovers.",
+          );
+        }
       });
 
     return () => {

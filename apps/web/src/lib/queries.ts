@@ -14,6 +14,7 @@ import type {
   ThreadDetail,
 } from "./types.js";
 import { api } from "./api.js";
+import { realtimeHealthy } from "./realtime.js";
 
 export type ThreadOpName =
   | "archive"
@@ -77,12 +78,12 @@ export function useInbox(view: InboxView) {
     },
     initialPageParam: "",
     getNextPageParam: (last) => last.next_cursor ?? undefined,
-    // Realtime is the fast path; this is the safety net for a dropped socket,
-    // so it can be slow. refetchIntervalInBackground because the default skips
+    // Realtime is the fast path; this is the safety net, so its pace depends
+    // on whether realtime is actually delivering: 60s while it is, 15s the
+    // moment it is not. refetchIntervalInBackground because the default skips
     // ticks on an unfocused tab, which froze the "(3) OneInbox" badge exactly
-    // when it was the only thing the user could see. Net traffic is still down
-    // on the old 15s foreground poll.
-    refetchInterval: 60_000,
+    // when it was the only thing the user could see.
+    refetchInterval: () => (realtimeHealthy() ? 60_000 : 15_000),
     refetchIntervalInBackground: true,
   });
 }
@@ -130,8 +131,9 @@ export function useUnreadCounts() {
     queryFn: () => api<UnreadCounts>("/api/inbox/counts"),
     // Realtime invalidates this the moment mail lands; the interval is the
     // fallback, in the background so the tab badge keeps moving while the
-    // user is on another tab, which is the whole point of a badge.
-    refetchInterval: 60_000,
+    // user is on another tab, which is the whole point of a badge. Fast
+    // fallback whenever the realtime channel is not actually delivering.
+    refetchInterval: () => (realtimeHealthy() ? 60_000 : 15_000),
     refetchIntervalInBackground: true,
   });
 }
