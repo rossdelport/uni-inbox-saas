@@ -48,6 +48,31 @@
   --btn-pad:0 16px;  --btn-pad-sm:0 12px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
+
+/* macOS-style scrollbars. The default gutter on Windows and Linux is a wide
+   grey trough with a squared-off thumb, which reads as chrome from another
+   application inside an otherwise soft UI.
+   The look is: no track at all, and a translucent rounded thumb inset from
+   the gutter so it floats rather than filling it. That inset is the
+   transparent border plus background-clip:content-box, which is the only way
+   to pad a scrollbar thumb. Tinted with the app's ink blue rather than plain
+   black so it sits with everything else.
+   Anything that hides its own scrollbar (the view tabs) keeps doing so: a
+   class beats the universal selector whatever the order. */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-corner{background:transparent}
+*::-webkit-scrollbar-thumb{
+  background-color:rgba(2,20,50,.20);
+  border-radius:999px;
+  border:2.5px solid transparent;
+  background-clip:content-box;
+  transition:background-color .16s ease}
+*::-webkit-scrollbar-thumb:hover{background-color:rgba(2,20,50,.34)}
+*::-webkit-scrollbar-thumb:active{background-color:rgba(2,20,50,.45)}
+/* Firefox has no thumb pseudo-element; these two properties are the whole API. */
+*{scrollbar-width:thin;scrollbar-color:rgba(2,20,50,.20) transparent}
+
 html,body{height:100%}
 body{font-family:'Inter',-apple-system,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
 a{color:var(--b1-ink);text-decoration:none}
