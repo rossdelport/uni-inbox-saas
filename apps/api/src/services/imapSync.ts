@@ -105,6 +105,23 @@ export class AccountSyncer {
         });
         if (this.stopped) break;
         await this.safeCycle("interval");
+        // Zombie check. A connection that dies without a FIN (NAT timeout,
+        // Zoho dropping idle sessions) keeps `usable` true forever: the loop
+        // spins, cycles fail quietly, and mail stalls until the 25-minute
+        // refresh. This happened live: 20 minutes of silence with zero
+        // errors recorded. A NOOP with a hard deadline turns that into a
+        // break, and the exit path schedules an immediate reconnect.
+        const alive = await Promise.race([
+          this.client
+            .noop()
+            .then(() => true)
+            .catch(() => false),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10_000)),
+        ]);
+        if (!alive) {
+          logger.warn({ accountId: this.account.id }, "imap liveness probe failed; reconnecting");
+          break;
+        }
         if (Date.now() - startedAt > 25 * 60_000) break; // supervisor restarts us
       }
     } catch (err) {
@@ -379,7 +396,11 @@ export class AccountSyncer {
       .eq("id", this.account.id)
       .maybeSingle();
     const failures = Number(data?.consecutive_failures ?? 0) + 1;
-    const delayMin = Math.min(2 ** failures, 60);
+    // Capped at 5 minutes, not 60. This is an inbox: a mailbox that is dark
+    // for an hour because a flaky provider dropped a few connections in a row
+    // is indistinguishable from broken. Auth failures pause the account above
+    // and never reach this backoff, so the cap cannot hammer a bad password.
+    const delayMin = Math.min(2 ** failures, 5);
     logger.warn(
       { accountId: this.account.id, failures, delayMin, err: message },
       "imap sync failed; backing off",
