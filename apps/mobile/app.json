@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "OneInbox",
+    "slug": "oneinbox",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "oneinbox",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "co.tryoneinbox.app"
+    },
+    "plugins": ["expo-router"]
+  }
+}

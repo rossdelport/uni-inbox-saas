@@ -3,6 +3,14 @@
 Target: **Tuesday 28 July 2026**, running on Ross's iPhone.
 Stack: **Expo SDK 57 + React Native + expo-router**, TypeScript.
 
+> **Status (Mon 27 Jul, overnight):** steps 1–6 are BUILT at `apps/mobile` —
+> sign-in, inbox (tabs, account filter, badges, pull-to-refresh, read all),
+> thread view (HTML in WebViews with auto-height), actions, reply, plan gate.
+> Typecheck and a full Metro iOS export pass. What no container can do is
+> touch a phone, so Tuesday is now the device day: `cd apps/mobile && npm run
+> start`, scan the QR with Expo Go, and shake out on real hardware (step 7
+> below). See `apps/mobile/README.md`.
+
 ---
 
 ## Definition of done (agreed)
@@ -89,7 +97,7 @@ breaks in RN) and `storage: AsyncStorage` so sessions survive app restarts.
 
 ---
 
-## Tomorrow, in order
+## The build sequence (steps 1–6 done overnight; 7 needs the phone)
 
 Each step ends in something visible on the phone. If we run out of day, we
 stop at a working app rather than a half-finished one.
