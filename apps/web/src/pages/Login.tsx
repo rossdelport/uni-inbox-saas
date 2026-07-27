@@ -5,7 +5,7 @@ import { PasswordInput } from "../components/PasswordInput.js";
 import {
   planIntentFromUrl,
   rememberPlanIntent,
-  startCheckoutForPendingPlan,
+  startCheckoutAfterSignup,
   type PlanIntent,
 } from "../lib/checkout.js";
 
@@ -114,7 +114,7 @@ export function Login() {
         // rather than dropping them in the dashboard to find the paywall.
         // Returns false if there is nothing pending, and then App renders as
         // normal; on failure it also falls through rather than trapping them.
-        const sent = await startCheckoutForPendingPlan();
+        const sent = await startCheckoutAfterSignup();
         if (sent) return; // navigating away, leave the button disabled
       }
     }

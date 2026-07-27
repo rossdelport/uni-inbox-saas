@@ -56,12 +56,29 @@ export function clearPlanIntent(): void {
   }
 }
 
-/** Send a signed-in user to Stripe for the plan they picked on the site.
- *  Returns true if the browser is navigating away, false if there was nothing
- *  pending or checkout could not be started (caller carries on into the app). */
-export async function startCheckoutForPendingPlan(): Promise<boolean> {
+/** After a successful signup, hand over to Stripe.
+ *
+ *  Falls back to Monthly when no plan was chosen, because most signup links on
+ *  the site (the nav CTA, the closing banners) are a bare /app/signup with
+ *  nothing attached. Without this default those users finished signup and
+ *  dropped straight into the dashboard having never seen a payment screen. */
+export async function startCheckoutAfterSignup(): Promise<boolean> {
+  return startCheckout(pendingPlanIntent() ?? { tier: "monthly" });
+}
+
+/** On an ordinary authenticated load, only act on a plan actually queued.
+ *  This is the resume path for signups that had to wait on email
+ *  confirmation. It must never default to a tier: it runs on EVERY load, so a
+ *  default here would throw existing users into checkout again and again. */
+export async function resumePendingCheckout(): Promise<boolean> {
   const intent = pendingPlanIntent();
   if (!intent) return false;
+  return startCheckout(intent);
+}
+
+/** Returns true if the browser is navigating away to Stripe, false if
+ *  checkout could not be started (caller carries on into the app). */
+async function startCheckout(intent: PlanIntent): Promise<boolean> {
   try {
     const { url } = await api<{ url: string }>("/api/billing/checkout", {
       method: "POST",

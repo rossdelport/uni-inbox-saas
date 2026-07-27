@@ -10,7 +10,7 @@ import {
 } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase.js";
-import { startCheckoutForPendingPlan } from "./lib/checkout.js";
+import { resumePendingCheckout } from "./lib/checkout.js";
 import { Login } from "./pages/Login.js";
 import { Layout } from "./components/Layout.js";
 import { Inbox } from "./pages/Inbox.js";
@@ -80,7 +80,7 @@ const router = createBrowserRouter(
 // log in. A no-op when nothing is pending, which is every load after the first.
 function ClaimCheckout() {
   useEffect(() => {
-    void startCheckoutForPendingPlan();
+    void resumePendingCheckout();
   }, []);
   return null;
 }

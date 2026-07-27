@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import type { AccountInput, DiscoverResult, TestResult } from "../lib/types.js";
 import {
   useAddSeat,
@@ -267,209 +274,245 @@ export function ConnectForm({
         ))}
       </div>
 
-      {/* Holds the button's footprint for the moment before we know which flow
-          this provider uses, so opening the modal never jumps. Layout warms
-          this query at app start, so in practice it is already resolved. */}
-      {awaitingOauth && (
-        <div
-          aria-hidden
-          style={{ marginTop: 18, height: "var(--btn-h)", borderRadius: 999, background: "var(--line)", opacity: 0.35 }}
-        />
-      )}
-
-      {/* OAuth path: one button, zero passwords */}
-      {(sel === "gmail" || sel === "outlook") && oauthReady && (
-        <div style={{ marginTop: 18 }}>
-          <button
-            type="button"
-            className="btn-black"
-            style={{ gap: 10 }}
-            disabled={oauthStart.isPending}
-            onClick={() => oauthStart.mutate(oauthProvider)}
-          >
-            {sel === "gmail" ? <GoogleG dark /> : <MsLogo />}
-            {oauthStart.isPending
-              ? "Opening…"
-              : sel === "gmail"
-                ? "Continue with Google"
-                : "Continue with Microsoft"}
-          </button>
-          {oauthStart.error && <p className="err">{(oauthStart.error as Error).message}</p>}
-          <p style={{ marginTop: 10, fontSize: 12, color: "var(--ink3)", textAlign: "center", lineHeight: 1.5 }}>
-            {sel === "gmail" ? "Google" : "Microsoft"} will ask you to approve OneInbox reading and
-            sending your mail. No passwords, revoke anytime from your account.
-          </p>
-        </div>
-      )}
-
-      {sel === "outlook" && oauth && !oauth.microsoft && (
-        <p style={{ marginTop: 16, fontSize: 13, color: "var(--ink2)", lineHeight: 1.5 }}>
-          Outlook connections are coming shortly. Microsoft requires app approval that is still in
-          progress.
-        </p>
-      )}
-
-      {/* Password path: iCloud, own domains, and fallbacks */}
-      {passwordFlow && sel !== "outlook" && (
-        <form onSubmit={onSubmit}>
-          {sel === "gmail" && (
-            <p className="m-note">
-              Gmail needs an app password: turn on 2 step verification, then create one at{" "}
-              <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
-                myaccount.google.com/apppasswords
-              </a>{" "}
-              and paste it below.
-            </p>
-          )}
-          {sel === "icloud" && (
-            <p className="m-note">
-              iCloud needs an app-specific password: create one at{" "}
-              <a href="https://account.apple.com/account/manage" target="_blank" rel="noreferrer">
-                account.apple.com
-              </a>{" "}
-              under Sign-In and Security, then paste it below.
-            </p>
-          )}
-
-          <div className="field" style={{ marginTop: 14 }}>
-            <label>Email address</label>
-            <input
-              type="email"
-              required
-              placeholder={
-                sel === "gmail" ? "name@gmail.com" : sel === "icloud" ? "name@icloud.com" : "you@yourbusiness.com"
-              }
-              value={form.email_address}
-              onChange={(e) => set("email_address", e.target.value)}
+      <AutoHeight>
+        {/* Keyed on the provider so switching replays the rise, while the
+            panel around it eases to the new height. */}
+        <div key={sel} className="m-swap-in">
+          {/* Holds the button's footprint for the moment before we know which flow
+              this provider uses, so opening the modal never jumps. Layout warms
+              this query at app start, so in practice it is already resolved. */}
+          {awaitingOauth && (
+            <div
+              aria-hidden
+              style={{ marginTop: 18, height: "var(--btn-h)", borderRadius: 999, background: "var(--line)", opacity: 0.35 }}
             />
-          </div>
-
-          {sel === "custom" &&
-            form.email_address.includes("@") &&
-            !/@[^@\s]+\.[^@\s]{2,}$/.test(form.email_address) && (
-              <div className="m-note" style={{ marginTop: 10 }}>
-                Finish typing your full address including the ending, like <b>.com</b> or{" "}
-                <b>.com.au</b>. We detect your email host and fill in the servers automatically.
-              </div>
-            )}
-
-          {sel === "custom" && (discover.isPending || discovery) && (
-            <div className="m-note" style={{ marginTop: 10 }}>
-              {discover.isPending ? (
-                "Looking up where this domain's mail lives…"
-              ) : discovery?.detected ? (
-                <>
-                  <b>{discovery.detected}</b> detected. Server settings are filled in, just add the
-                  mailbox password from your email host.
-                </>
-              ) : (
-                (discovery?.note ?? "")
-              )}
-              {discovery?.detected && discovery.note && <> {discovery.note}</>}
-            </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div className="field">
-              <label>{sel === "gmail" || sel === "icloud" ? "App password" : "Mailbox password"}</label>
-              <PasswordInput
-                required
-                autoComplete="off"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label>Label in your sidebar</label>
-              <input
-                required
-                value={form.label}
-                onChange={(e) => set("label", e.target.value)}
-                placeholder="e.g. Solar Cleaning"
-              />
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Colour</label>
-            <ColorDots value={form.color} onChange={(c) => set("color", c)} />
-          </div>
-
-          {/* Left uncontrolled on purpose: closed until the user opens it. A
-              computed `open` also fought the user, since every keystroke
-              re-rendered and forced the panel back open after they closed it. */}
-          <details className="m-server">
-            <summary>Server settings</summary>
-            <div className="field">
-              <label>Username</label>
-              <input required value={form.imap_username} onChange={(e) => set("imap_username", e.target.value)} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div className="field">
-                <label>IMAP host</label>
-                <input required value={form.imap_host} onChange={(e) => set("imap_host", e.target.value)} />
-              </div>
-              <div className="field">
-                <label>IMAP port</label>
-                <input type="number" required value={form.imap_port} onChange={(e) => set("imap_port", Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>SMTP host</label>
-                <input required value={form.smtp_host} onChange={(e) => set("smtp_host", e.target.value)} />
-              </div>
-              <div className="field">
-                <label>SMTP port</label>
-                <input type="number" required value={form.smtp_port} onChange={(e) => set("smtp_port", Number(e.target.value))} />
-              </div>
-            </div>
-            <div className="field">
-              <label>SMTP security</label>
-              <select value={form.smtp_security} onChange={(e) => set("smtp_security", e.target.value as "tls" | "starttls")}>
-                <option value="tls">TLS (port 465)</option>
-                <option value="starttls">STARTTLS (port 587)</option>
-              </select>
-            </div>
-          </details>
-
-          {test && (
-            <p className={test.imap_ok && test.smtp_ok ? "ok-note" : "err"}>
-              {test.imap_ok ? "✓ Receiving" : "✕ Receiving"} · {test.smtp_ok ? "✓ Sending" : "✕ Sending"}
-              {test.error ? ` · ${test.error}` : ""}
-            </p>
-          )}
-          {test && test.imap_ok && !test.smtp_ok && (
-            <div style={{ marginTop: 10 }}>
+          {/* OAuth path: one button, zero passwords */}
+          {(sel === "gmail" || sel === "outlook") && oauthReady && (
+            <div style={{ marginTop: 18 }}>
               <button
                 type="button"
-                className="btn-ghost"
-                style={{ width: "100%" }}
-                disabled={connect.isPending}
-                onClick={doConnect}
+                className="btn-black"
+                style={{ gap: 10 }}
+                disabled={oauthStart.isPending}
+                onClick={() => oauthStart.mutate(oauthProvider)}
               >
-                {connect.isPending ? "Connecting…" : "Connect anyway, receive only for now"}
+                {sel === "gmail" ? <GoogleG dark /> : <MsLogo />}
+                {oauthStart.isPending
+                  ? "Opening…"
+                  : sel === "gmail"
+                    ? "Continue with Google"
+                    : "Continue with Microsoft"}
               </button>
-              <p style={{ marginTop: 6, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
-                Mail syncs and reads normally. Sending turns on once the outgoing server is reachable.
+              {oauthStart.error && <p className="err">{(oauthStart.error as Error).message}</p>}
+              <p style={{ marginTop: 10, fontSize: 12, color: "var(--ink3)", textAlign: "center", lineHeight: 1.5 }}>
+                {sel === "gmail" ? "Google" : "Microsoft"} will ask you to approve OneInbox reading and
+                sending your mail. No passwords, revoke anytime from your account.
               </p>
             </div>
           )}
-          {connect.error && <p className="err">{(connect.error as Error).message}</p>}
 
-          <button
-            type="submit"
-            className="btn-black"
-            style={{ marginTop: 16 }}
-            disabled={connect.isPending || testMutation.isPending}
-          >
-            {testMutation.isPending ? "Testing connection…" : connect.isPending ? "Connecting…" : "Connect account"}
-          </button>
-        </form>
-      )}
+          {sel === "outlook" && oauth && !oauth.microsoft && (
+            <p style={{ marginTop: 16, fontSize: 13, color: "var(--ink2)", lineHeight: 1.5 }}>
+              Outlook connections are coming shortly. Microsoft requires app approval that is still in
+              progress.
+            </p>
+          )}
 
-      <p style={{ marginTop: 12, fontSize: 11.5, color: "var(--ink3)", textAlign: "center" }}>
-        We test the connection before saving.
-        {usedAfter !== null && max !== null && <> {Math.min(usedAfter, max)} of {max} accounts used after this.</>}
-      </p>
+          {/* Password path: iCloud, own domains, and fallbacks */}
+          {passwordFlow && sel !== "outlook" && (
+            <form onSubmit={onSubmit}>
+              {sel === "gmail" && (
+                <p className="m-note">
+                  Gmail needs an app password: turn on 2 step verification, then create one at{" "}
+                  <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
+                    myaccount.google.com/apppasswords
+                  </a>{" "}
+                  and paste it below.
+                </p>
+              )}
+              {sel === "icloud" && (
+                <p className="m-note">
+                  iCloud needs an app-specific password: create one at{" "}
+                  <a href="https://account.apple.com/account/manage" target="_blank" rel="noreferrer">
+                    account.apple.com
+                  </a>{" "}
+                  under Sign-In and Security, then paste it below.
+                </p>
+              )}
+
+              <div className="field" style={{ marginTop: 14 }}>
+                <label>Email address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder={
+                    sel === "gmail" ? "name@gmail.com" : sel === "icloud" ? "name@icloud.com" : "you@yourbusiness.com"
+                  }
+                  value={form.email_address}
+                  onChange={(e) => set("email_address", e.target.value)}
+                />
+              </div>
+
+              {sel === "custom" &&
+                form.email_address.includes("@") &&
+                !/@[^@\s]+\.[^@\s]{2,}$/.test(form.email_address) && (
+                  <div className="m-note" style={{ marginTop: 10 }}>
+                    Finish typing your full address including the ending, like <b>.com</b> or{" "}
+                    <b>.com.au</b>. We detect your email host and fill in the servers automatically.
+                  </div>
+                )}
+
+              {sel === "custom" && (discover.isPending || discovery) && (
+                <div className="m-note" style={{ marginTop: 10 }}>
+                  {discover.isPending ? (
+                    "Looking up where this domain's mail lives…"
+                  ) : discovery?.detected ? (
+                    <>
+                      <b>{discovery.detected}</b> detected. Server settings are filled in, just add the
+                      mailbox password from your email host.
+                    </>
+                  ) : (
+                    (discovery?.note ?? "")
+                  )}
+                  {discovery?.detected && discovery.note && <> {discovery.note}</>}
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="field">
+                  <label>{sel === "gmail" || sel === "icloud" ? "App password" : "Mailbox password"}</label>
+                  <PasswordInput
+                    required
+                    autoComplete="off"
+                    value={form.password}
+                    onChange={(e) => set("password", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Label in your sidebar</label>
+                  <input
+                    required
+                    value={form.label}
+                    onChange={(e) => set("label", e.target.value)}
+                    placeholder="e.g. Solar Cleaning"
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Colour</label>
+                <ColorDots value={form.color} onChange={(c) => set("color", c)} />
+              </div>
+
+              {/* Left uncontrolled on purpose: closed until the user opens it. A
+                  computed `open` also fought the user, since every keystroke
+                  re-rendered and forced the panel back open after they closed it. */}
+              <details className="m-server">
+                <summary>Server settings</summary>
+                <div className="field">
+                  <label>Username</label>
+                  <input required value={form.imap_username} onChange={(e) => set("imap_username", e.target.value)} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="field">
+                    <label>IMAP host</label>
+                    <input required value={form.imap_host} onChange={(e) => set("imap_host", e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>IMAP port</label>
+                    <input type="number" required value={form.imap_port} onChange={(e) => set("imap_port", Number(e.target.value))} />
+                  </div>
+                  <div className="field">
+                    <label>SMTP host</label>
+                    <input required value={form.smtp_host} onChange={(e) => set("smtp_host", e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>SMTP port</label>
+                    <input type="number" required value={form.smtp_port} onChange={(e) => set("smtp_port", Number(e.target.value))} />
+                  </div>
+                </div>
+                <div className="field">
+                  <label>SMTP security</label>
+                  <select value={form.smtp_security} onChange={(e) => set("smtp_security", e.target.value as "tls" | "starttls")}>
+                    <option value="tls">TLS (port 465)</option>
+                    <option value="starttls">STARTTLS (port 587)</option>
+                  </select>
+                </div>
+              </details>
+
+              {test && (
+                <p className={test.imap_ok && test.smtp_ok ? "ok-note" : "err"}>
+                  {test.imap_ok ? "✓ Receiving" : "✕ Receiving"} · {test.smtp_ok ? "✓ Sending" : "✕ Sending"}
+                  {test.error ? ` · ${test.error}` : ""}
+                </p>
+              )}
+              {test && test.imap_ok && !test.smtp_ok && (
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ width: "100%" }}
+                    disabled={connect.isPending}
+                    onClick={doConnect}
+                  >
+                    {connect.isPending ? "Connecting…" : "Connect anyway, receive only for now"}
+                  </button>
+                  <p style={{ marginTop: 6, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
+                    Mail syncs and reads normally. Sending turns on once the outgoing server is reachable.
+                  </p>
+                </div>
+              )}
+              {connect.error && <p className="err">{(connect.error as Error).message}</p>}
+
+              <button
+                type="submit"
+                className="btn-black"
+                style={{ marginTop: 16 }}
+                disabled={connect.isPending || testMutation.isPending}
+              >
+                {testMutation.isPending ? "Testing connection…" : connect.isPending ? "Connecting…" : "Connect account"}
+              </button>
+            </form>
+          )}
+
+          <p style={{ marginTop: 12, fontSize: 11.5, color: "var(--ink3)", textAlign: "center" }}>
+            We test the connection before saving.
+            {usedAfter !== null && max !== null && <> {Math.min(usedAfter, max)} of {max} accounts used after this.</>}
+          </p>
+        </div>
+      </AutoHeight>
+    </div>
+  );
+}
+
+/** Eases its own height to whatever it currently holds.
+ *
+ *  Picking a provider swaps a single OAuth button for a full credential form,
+ *  a difference of a couple of hundred pixels, and the modal used to snap
+ *  between the two. Measuring rather than hardcoding means the same easing
+ *  also covers the server-settings panel opening and the discovery note
+ *  appearing, without either of those needing to know about it. */
+function AutoHeight({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    const measure = () => setHeight(el.offsetHeight);
+    // Measured before paint, so the modal opens at its real size instead of
+    // easing up from nothing the first time it is shown.
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div className="m-swap" style={{ height }}>
+      <div ref={inner}>{children}</div>
     </div>
   );
 }

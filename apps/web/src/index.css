@@ -248,6 +248,18 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 
 /* ---------- add-account / paywall ---------- */
 .m-provs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}
+/* Provider swap in the connect modal. .m-swap eases to the height React just
+   measured; .m-swap-in is keyed on the provider so the incoming fields rise
+   in rather than appearing all at once. The negative margin with matching
+   padding buys room for input focus rings, which overflow:hidden would
+   otherwise clip, while keeping the content the same width. */
+.m-swap{overflow:hidden;margin:0 -8px;padding:0 8px;transition:height .42s cubic-bezier(.22,1,.36,1)}
+.m-swap-in{animation:m-swap-rise .42s cubic-bezier(.22,1,.36,1) both}
+@keyframes m-swap-rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .m-swap{transition:none}
+  .m-swap-in{animation:none}
+}
 .m-prov{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:16px;padding:14px 16px;
   cursor:pointer;font-weight:700;font-size:14.5px;color:var(--ink);background:#fff;transition:border-color .12s,box-shadow .12s}
 .m-prov:hover{border-color:var(--b1);box-shadow:0 6px 16px rgba(var(--b1-rgb),.12)}
