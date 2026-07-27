@@ -117,6 +117,25 @@ export function useBackfill() {
   });
 }
 
+export interface UnreadCounts {
+  total: number;
+  by_account: Record<string, number>;
+}
+
+/** Sidebar and tab-title numbers. Server-counted, and only mail that landed
+ *  after each account was connected: an imported backlog is not news. */
+export function useUnreadCounts() {
+  return useQuery({
+    queryKey: ["unread-counts"],
+    queryFn: () => api<UnreadCounts>("/api/inbox/counts"),
+    // Realtime invalidates this the moment mail lands; the interval is the
+    // fallback, in the background so the tab badge keeps moving while the
+    // user is on another tab, which is the whole point of a badge.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
+  });
+}
+
 export interface ReadAllScope {
   account?: string | null;
   archived?: boolean;

@@ -3,7 +3,14 @@ import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
-import { useAccounts, useBillingState, useInbox, useOauthProviders, useUpdateAccount } from "../lib/queries.js";
+import {
+  useAccounts,
+  useBillingState,
+  useInbox,
+  useOauthProviders,
+  useUnreadCounts,
+  useUpdateAccount,
+} from "../lib/queries.js";
 import { useRealtimeInbox } from "../lib/realtime.js";
 import { LOGO_SRC } from "../lib/assets.js";
 import { toast, type ToastKind } from "../lib/toast.js";
@@ -24,6 +31,7 @@ export function Layout() {
   // connect modal needs it to choose between the Google button and the password
   // form, and fetching it on open is what made the modal visibly change shape.
   useOauthProviders();
+  const counts = useUnreadCounts();
   const { data: billing } = useBillingState();
   const inbox = useInbox({});
   const [params, setParams] = useSearchParams();
@@ -105,16 +113,21 @@ export function Layout() {
   }, [colorFor]);
 
   const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
-  const totalUnread = threads.filter((t) => t.unread).length;
+
+  // Counted by the server, and only mail that arrived after each account was
+  // connected. Counting the loaded threads here was wrong twice over: it saw
+  // one page since paging became manual, and it counted an imported backlog as
+  // though it were news. The unread dot in the list is unaffected, so older
+  // unread mail still looks unread; it just does not demand attention.
+  const totalUnread = counts.data?.total ?? 0;
+  const unreadByAccount = new Map<string, number>(
+    Object.entries(counts.data?.by_account ?? {}),
+  );
 
   // Pinned-tab glanceability: unread count lives in the browser tab title.
   useEffect(() => {
     document.title = totalUnread > 0 ? `(${totalUnread}) OneInbox` : "OneInbox";
   }, [totalUnread]);
-  const unreadByAccount = new Map<string, number>();
-  for (const t of threads) {
-    if (t.unread) unreadByAccount.set(t.account_id, (unreadByAccount.get(t.account_id) ?? 0) + 1);
-  }
 
   const displayName =
     (user?.user_metadata?.full_name as string | undefined) || user?.email?.split("@")[0] || "You";

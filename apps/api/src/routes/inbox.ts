@@ -215,6 +215,50 @@ inboxRouter.post("/backfill", async (req, res) => {
   res.json({ added, exhausted });
 });
 
+// GET /api/inbox/counts — the numbers on the sidebar and in the tab title.
+//
+// Counts only mail that arrived AFTER the account was connected. Connecting a
+// mailbox imports its whole backlog, and mirroring the server's \Seen flags
+// honestly meant one account alone could open with 625 unread. A badge reading
+// 625 on day one is noise: nobody acts on it, and it buries the one message
+// that actually arrived since.
+//
+// The unread flag itself is untouched, so those older messages keep their dot
+// in the list. Unread is a fact about the mailbox; the badge is a claim that
+// something needs attention, and only new mail earns that.
+inboxRouter.get("/counts", async (_req, res) => {
+  const uid = userId(res);
+  const { data: accounts, error } = await supabase
+    .from("email_accounts")
+    .select("id, created_at")
+    .eq("owner_id", uid)
+    .neq("status", "disabled");
+  if (error) {
+    logger.error({ err: error, uid }, "unread counts failed");
+    return res.status(502).json({ error: "Could not load counts." });
+  }
+
+  // One HEAD count per account rather than pulling rows and tallying here:
+  // an account can hold thousands of unread threads and none of them need to
+  // cross the wire to be counted. Bounded by the plan's account cap.
+  const byAccount: Record<string, number> = {};
+  let total = 0;
+  for (const a of accounts ?? []) {
+    const { count } = await supabase
+      .from("threads")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", uid)
+      .eq("account_id", a.id as string)
+      .eq("unread", true)
+      .eq("archived", false)
+      .is("deleted_at", null)
+      .gte("last_inbound_at", a.created_at as string);
+    byAccount[a.id as string] = count ?? 0;
+    total += count ?? 0;
+  }
+  res.json({ total, by_account: byAccount });
+});
+
 // POST /api/inbox/read-all — clear unread across whatever the user is
 // currently looking at. Takes the same view filters as the list above so
 // "read all" means the list on screen, not every thread they own: hitting it

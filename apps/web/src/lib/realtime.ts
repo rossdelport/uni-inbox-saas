@@ -35,6 +35,7 @@ export function useRealtimeInbox(userId: string | null): void {
         // is how the two drift apart. This is a nudge, not a data channel.
         void qc.invalidateQueries({ queryKey: ["inbox"] });
         void qc.invalidateQueries({ queryKey: ["accounts"] });
+        void qc.invalidateQueries({ queryKey: ["unread-counts"] });
       }, COALESCE_MS);
     };
 
