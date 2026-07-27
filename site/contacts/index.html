@@ -615,20 +615,28 @@ function patchPricing(){
 
 /* ---------- footer brand ---------- */
 function patchFooter(){
-  q('[data-framer-name="MAILY"]').forEach(function(el){
-    /* The lowercase mid-footer wordmark is gone by request. The MAILY box it
-       lived in (which the template sized off a background image) goes with
-       it, and the brand mark is now an uppercase ONEINBOX strip appended as
-       the footer's last child, so it sits at the very bottom on every page.
-       Idempotent: once MAILY is removed the selector matches nothing. */
-    var host = el.closest('footer') || el.parentElement;
-    el.remove();
-    if (host && !host.querySelector('.uni-bigbrand')){
+  /* Convergent by design. Framer hydration rebuilds the footer's children,
+     so an append guarded by "is a strip already here" can run against a
+     rebuilt footer while the previous strip still renders elsewhere, which
+     is exactly how the live site ended up with two ONEINBOX strips. Every
+     pass now enforces the end state outright: no MAILY box, exactly one
+     strip per footer, nothing stranded outside one. Idempotent, so the
+     mutation observer re-running it converges instead of accumulating. */
+  q('[data-framer-name="MAILY"]').forEach(function(el){ el.remove(); });
+  q('footer.framer-sP0dz').forEach(function(foot){
+    var marks = foot.querySelectorAll('.uni-bigbrand');
+    for (var i = 1; i < marks.length; i++) marks[i].remove();
+    if (marks.length === 0){
       var d = document.createElement('div');
       d.className = 'uni-bigbrand';
       d.textContent = 'ONEINBOX';
-      host.appendChild(d);
+      foot.appendChild(d);
+    } else if (foot.lastElementChild !== marks[0]){
+      foot.appendChild(marks[0]);
     }
+  });
+  q('.uni-bigbrand').forEach(function(d){
+    if (!d.closest('footer')) d.remove();
   });
 }
 
