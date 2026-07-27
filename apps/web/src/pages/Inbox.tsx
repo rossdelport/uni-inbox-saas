@@ -77,7 +77,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   // steadier than a scroll handler, which fires constantly and has to
   // re-measure. rootMargin starts the fetch a screen early so the next page
   // is usually there before the user reaches the bottom.
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = inbox;
   const backfill = useBackfill();
   // Set once the mail server says there is nothing older left (or the
@@ -105,19 +104,10 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, canBackfill, backfill, account]);
 
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) loadMore();
-      },
-      { root: el.closest(".list-rows"), rootMargin: "600px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-    // Re-observed when the sentinel remounts (new view) or paging state moves.
-  }, [loadMore, view, account, debouncedQ]);
+  // Paging is deliberately manual. Auto-loading on scroll meant the list had
+  // no bottom: you could never tell whether you had reached the end of your
+  // mail or simply the end of what had been fetched so far, and each new block
+  // is a real IMAP round trip, not just a page of rows already in hand.
   // First-run onboarding: auto-open once for brand-new users (guarded below
   // so it only ever shows while zero accounts are connected).
   const [wizard, setWizard] = useState<null | "welcome" | "connect">(() =>
@@ -333,27 +323,31 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
             ))
           )}
 
-          {/* Infinite scroll: this sentinel sits below the last row and pulls
-              the next page as it comes into view. The button stays as a
-              fallback for anyone who lands here without IntersectionObserver
-              firing (and it shows the loading state). */}
-          {(inbox.hasNextPage || canBackfill) && (
-            <div ref={sentinelRef} style={{ padding: "14px 0", textAlign: "center" }}>
-              <button
-                className="btn-mini"
-                disabled={inbox.isFetchingNextPage || backfill.isPending}
-                onClick={loadMore}
-              >
-                {inbox.isFetchingNextPage
-                  ? "Loading…"
-                  : backfill.isPending
-                    ? "Fetching older mail…"
-                    : inbox.hasNextPage
-                      ? "Load more"
-                      : "Load older mail"}
-              </button>
-            </div>
-          )}
+          {/* The foot of the list. Generous space above and below on purpose:
+              it has to read as a deliberate end rather than the list being
+              clipped, whether there is more to fetch or not. */}
+          {threads.length > 0 &&
+            ((inbox.hasNextPage || canBackfill) ? (
+              <div className="list-foot">
+                <button
+                  className="btn-ghost"
+                  disabled={inbox.isFetchingNextPage || backfill.isPending}
+                  onClick={loadMore}
+                >
+                  {inbox.isFetchingNextPage
+                    ? "Loading…"
+                    : backfill.isPending
+                      ? "Fetching older mail…"
+                      : inbox.hasNextPage
+                        ? "Load more"
+                        : "Load older mail"}
+                </button>
+              </div>
+            ) : (
+              <div className="list-foot">
+                <span className="list-end">That's all your mail</span>
+              </div>
+            ))}
         </div>
         <PaneResizer cssVar="--list-w" storageKey="oi-list-w" min={280} max={620} fallback={368} />
       </section>
