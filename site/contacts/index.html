@@ -715,6 +715,16 @@ if (!window.__uniClickGuard){
 // offending envelope horizontally away from the headline, and give the
 // headline a soft blue halo as guaranteed contrast insurance.
 function patchHero(){
+  // Same dead "X Reach us" button as the homepage hero: its href was "/", so
+  // it reloaded the page you were already on. Removed here rather than in the
+  // markup because Framer rehydrates and would restore it; patchAll re-runs on
+  // every mutation. Scoped to href "/" or empty so a real one would survive.
+  Array.prototype.forEach.call(document.querySelectorAll('a'), function(a){
+    if (a.textContent.replace(/\s+/g, ' ').trim().indexOf('Reach us') < 0) return;
+    var href = a.getAttribute('href') || '';
+    if (href !== '/' && href !== '') return;
+    (climbToContainer(a) || a).remove();
+  });
   var canvas = document.querySelector('[data-framer-name="mails"]');
   if (!canvas) return;
 
