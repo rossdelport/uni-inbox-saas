@@ -77,7 +77,13 @@ export function useInbox(view: InboxView) {
     },
     initialPageParam: "",
     getNextPageParam: (last) => last.next_cursor ?? undefined,
-    refetchInterval: 15_000,
+    // Realtime is the fast path; this is the safety net for a dropped socket,
+    // so it can be slow. refetchIntervalInBackground because the default skips
+    // ticks on an unfocused tab, which froze the "(3) OneInbox" badge exactly
+    // when it was the only thing the user could see. Net traffic is still down
+    // on the old 15s foreground poll.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
   });
 }
 

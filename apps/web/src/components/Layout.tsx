@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase.js";
 import { useAccounts, useBillingState, useInbox, useOauthProviders, useUpdateAccount } from "../lib/queries.js";
+import { useRealtimeInbox } from "../lib/realtime.js";
 import { LOGO_SRC } from "../lib/assets.js";
 import { toast, type ToastKind } from "../lib/toast.js";
 import { PlansModal } from "./PlansModal.js";
@@ -31,6 +32,10 @@ export function Layout() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState<User | null>(null);
+  // Lives here rather than on the inbox page: Layout owns the unread count and
+  // the tab title, and stays mounted on every dashboard route, so the badge
+  // keeps counting whichever screen was left open.
+  useRealtimeInbox(user?.id ?? null);
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
