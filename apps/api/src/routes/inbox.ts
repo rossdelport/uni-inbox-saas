@@ -215,6 +215,66 @@ inboxRouter.post("/backfill", async (req, res) => {
   res.json({ added, exhausted });
 });
 
+// POST /api/inbox/read-all — clear unread across whatever the user is
+// currently looking at. Takes the same view filters as the list above so
+// "read all" means the list on screen, not every thread they own: hitting it
+// on Starred must not silently read the rest of the mailbox.
+//
+// Bounded rather than unbounded: each thread also queues an IMAP flag op, so
+// an account with 20k unread would otherwise write 20k rows and hand the flag
+// pump a queue it works through for a very long time. Anything above the cap
+// is left unread and reported, so the button can simply be pressed again.
+const READ_ALL_CAP = 2000;
+
+inboxRouter.post("/read-all", async (req, res) => {
+  const uid = userId(res);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const account = typeof body.account === "string" ? body.account : null;
+  const archived = body.archived === true;
+  const starred = body.starred === true;
+  const later = body.later === true;
+
+  let q = supabase
+    .from("threads")
+    .select("id, account_id")
+    .eq("owner_id", uid)
+    .eq("unread", true)
+    .is("deleted_at", null)
+    .eq("archived", archived)
+    .limit(READ_ALL_CAP);
+  if (account) q = q.eq("account_id", account);
+  if (starred) q = q.eq("starred", true);
+  if (later) q = q.eq("read_later", true);
+
+  const { data: rows, error } = await q;
+  if (error) {
+    logger.error({ err: error, uid }, "read-all lookup failed");
+    return res.status(502).json({ error: "Could not mark everything read." });
+  }
+  const threads = rows ?? [];
+  if (threads.length === 0) return res.json({ marked: 0, remaining: false });
+
+  const ids = threads.map((t) => t.id as string);
+  await supabase.from("threads").update({ unread: false }).in("id", ids);
+  await supabase
+    .from("messages")
+    .update({ seen: true })
+    .in("thread_id", ids)
+    .eq("direction", "inbound");
+
+  // One op per thread, same as the single-thread path, so the read state
+  // reaches Gmail and friends rather than only living in our database.
+  await supabase.from("flag_ops").insert(
+    threads.map((t) => ({ account_id: t.account_id as string, thread_id: t.id as string, op: "read" })),
+  );
+  for (const id of new Set(threads.map((t) => t.account_id as string))) {
+    await wakeAccount(id);
+  }
+
+  logger.info({ uid, marked: ids.length, account }, "read-all applied");
+  res.json({ marked: ids.length, remaining: ids.length === READ_ALL_CAP });
+});
+
 // Thread-level state flips. Local change is immediate; a flag_ops row queues
 // the same change for the IMAP server, and the account gets nudged.
 const flagOps = z.enum([

@@ -117,6 +117,30 @@ export function useBackfill() {
   });
 }
 
+export interface ReadAllScope {
+  account?: string | null;
+  archived?: boolean;
+  starred?: boolean;
+  later?: boolean;
+}
+
+/** Clear unread across the current view. Scoped server-side by the same
+ *  filters the list uses, so it only touches what is actually on screen. */
+export function useReadAll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (scope: ReadAllScope) =>
+      api<{ marked: number; remaining: boolean }>("/api/inbox/read-all", {
+        method: "POST",
+        body: JSON.stringify(scope),
+      }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+}
+
 export function useThreadOp() {
   const qc = useQueryClient();
   return useMutation({

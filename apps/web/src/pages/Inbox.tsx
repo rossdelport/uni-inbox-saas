@@ -8,7 +8,14 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
-import { useAccounts, useBackfill, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
+import {
+  useAccounts,
+  useBackfill,
+  useDeleteThread,
+  useInbox,
+  useReadAll,
+  useThreadOp,
+} from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
@@ -79,6 +86,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   // is usually there before the user reaches the bottom.
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = inbox;
   const backfill = useBackfill();
+  const readAll = useReadAll();
   // Set once the mail server says there is nothing older left (or the
   // storage ceiling is reached), so we stop asking on every scroll.
   const [noOlderMail, setNoOlderMail] = useState(false);
@@ -186,7 +194,34 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         style={activeAcct ? { background: `color-mix(in srgb, ${activeAcct.color} 5%, #f6f7f9)` } : undefined}
       >
         <div className="list-head">
-          <h2>{title}</h2>
+          <div className="list-head-top">
+            <h2>{title}</h2>
+            {/* Only when there is something to clear, and never over search
+                results, where "all" would mean more than what is listed. */}
+            {unreadN > 0 && !searching && (
+              <button
+                className="btn-mini"
+                disabled={readAll.isPending}
+                onClick={() =>
+                  readAll.mutate(
+                    { account, archived: view === "archived", starred: view === "starred", later: view === "later" },
+                    {
+                      onSuccess: (r) =>
+                        toast(
+                          r.remaining
+                            ? `Marked ${r.marked} read. Press again for the rest.`
+                            : `Marked ${r.marked} read.`,
+                          "success",
+                        ),
+                      onError: () => toast("Could not mark everything read.", "warn"),
+                    },
+                  )
+                }
+              >
+                {readAll.isPending ? "Marking…" : "Read all"}
+              </button>
+            )}
+          </div>
           <p>
             {searching
               ? `${threads.length} result${threads.length === 1 ? "" : "s"} across every inbox for "${debouncedQ}"`

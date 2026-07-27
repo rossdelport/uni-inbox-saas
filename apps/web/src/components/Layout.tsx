@@ -228,6 +228,9 @@ export function Layout() {
           <SideLink to="/later" label="Read later" onGo={go}>
             <ClockIcon />
           </SideLink>
+          <SideLink to="/sent" label="Sent" onGo={go}>
+            <SentIcon />
+          </SideLink>
           <SideLink to="/archived" label="Archived" onGo={go}>
             <ArchiveIcon />
           </SideLink>
@@ -466,6 +469,15 @@ function StarIcon() {
     </svg>
   );
 }
+function SentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...S}>
+      <path d="M22 2L11 13" />
+      <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
 function ClockIcon() {
   return (
     <svg viewBox="0 0 24 24" {...S}>

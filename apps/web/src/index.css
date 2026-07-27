@@ -125,7 +125,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 
 /* sidebar */
 .dash-side{width:262px;flex:none;background:#fff;border-right:1px solid var(--line);padding:18px 14px;
-  display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+  /* overflow-x is explicit because setting overflow-y alone makes the other
+     axis compute to auto, which put a horizontal scrollbar along the bottom
+     of the sidebar as soon as any account address ran long. */
+  display:flex;flex-direction:column;gap:2px;overflow-y:auto;overflow-x:hidden}
 .side-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:12px;font-size:14.5px;
   font-weight:600;color:var(--ink2);cursor:pointer;border:none;background:none;width:100%;text-align:left}
 .side-item:hover{background:rgba(2,20,50,.045)}
@@ -150,6 +153,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 /* list pane */
 .dash-list{width:430px;flex:none;background:#f6f7f9;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .list-head{padding:20px 22px 14px}
+/* Title on the left, Read all on the right. min-width:0 on the row and the
+   heading so the title keeps truncating instead of pushing the button out. */
+.list-head-top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.list-head-top h2{min-width:0}
+.list-head-top .btn-mini{flex:none}
+
 /* The list pane is drag-resizable, so its header has to survive being made
    narrow: the account name and summary line clip to one line instead of
    wrapping into three and shoving the tabs down. */
