@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { useAccounts, useBackfill, useDeleteThread, useInbox, useThreadOp } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
@@ -199,7 +207,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   : "")}
           </p>
           {!searching && (
-            <div className="list-tabs">
+            <TabStrip>
               {TABS.map((t) => (
                 <button
                   key={t.key}
@@ -209,10 +217,12 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   {t.label}
                 </button>
               ))}
-            </div>
+            </TabStrip>
           )}
         </div>
-        <div className="list-rows">
+        {/* Keyed on what you switched to, so changing tab or account replays
+            the entrance and resets the scroll to the top of the new list. */}
+        <div className="list-rows rise" key={`${view}:${account ?? "all"}`}>
           {inbox.isLoading ? (
             <div className="empty-state" style={{ padding: "60px 20px" }}>
               <div>Loading your mail…</div>
@@ -348,7 +358,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         <PaneResizer cssVar="--list-w" storageKey="oi-list-w" min={280} max={620} fallback={368} />
       </section>
 
-      <section className="dash-read">
+      <section className="dash-read rise" key={threadId ?? "empty"}>
         <ReadingPane threadId={threadId} onBack={closeThread} />
       </section>
 
@@ -356,5 +366,89 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           first-run branch above unmounts the moment accounts exist). */}
       {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
     </>
+  );
+}
+
+/** The view tabs, which have to survive the list pane being dragged narrow.
+ *  They scroll sideways rather than squashing, and once there is more strip
+ *  than room, arrows appear at both ends. Both are rendered together (the one
+ *  at the end you are already on just greys out) so the row does not shift
+ *  sideways under the cursor as you page through it. */
+function TabStrip({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState({ overflowing: false, atStart: true, atEnd: false });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      setState({
+        overflowing: max > 1,
+        atStart: el.scrollLeft <= 1,
+        atEnd: el.scrollLeft >= max - 1,
+      });
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    // Catches the pane being resized, which is the whole reason this exists.
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, []);
+
+  const nudge = (dir: 1 | -1) => {
+    const el = ref.current;
+    if (el) el.scrollBy({ left: dir * Math.max(90, el.clientWidth * 0.6), behavior: "smooth" });
+  };
+
+  return (
+    <div className="list-tabs-wrap">
+      {state.overflowing && (
+        <button
+          type="button"
+          className="tab-arrow"
+          aria-label="Scroll tabs left"
+          disabled={state.atStart}
+          onClick={() => nudge(-1)}
+        >
+          <Chevron dir="left" />
+        </button>
+      )}
+      <div className="list-tabs" ref={ref}>
+        {children}
+      </div>
+      {state.overflowing && (
+        <button
+          type="button"
+          className="tab-arrow"
+          aria-label="Scroll tabs right"
+          disabled={state.atEnd}
+          onClick={() => nudge(1)}
+        >
+          <Chevron dir="right" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={dir === "left" ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
+    </svg>
   );
 }
