@@ -478,8 +478,13 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 /* Tabs scroll sideways rather than squashing when the pane is narrow. The
    scrollbar itself is hidden because the arrows are the affordance; the strip
    still scrolls by wheel, trackpad and keyboard. */
-.list-tabs-wrap{display:flex;align-items:center;gap:2px;margin-top:9px;min-width:0}
-.list-tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;
+.list-tabs-wrap{display:flex;align-items:center;gap:2px;margin-top:6px;min-width:0}
+/* The vertical padding is not decorative. Scrolling on one axis makes the
+   other compute to auto, and the selected pill paints a hard edge below its
+   box (0 1.6px 0 #000), so with the strip exactly pill-height that edge was
+   clipped off square. The 3px gives it room; the wrap's margin drops by the
+   same amount so the header spacing is unchanged. */
+.list-tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;padding:3px 0;
   scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
 .list-tabs::-webkit-scrollbar{display:none}
 .list-tabs .ltab{flex:none}
