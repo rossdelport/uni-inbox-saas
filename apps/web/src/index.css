@@ -477,7 +477,11 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .ltab{border:none;background:none;font-family:inherit;font-size:11.5px;font-weight:700;color:var(--ink3);padding:4.5px 11px;border-radius:999px;cursor:pointer}
 .ltab:hover{background:rgba(0,0,0,.05);color:var(--ink)}
 .ltab.on{background:#111;color:#fff}
-.mrow{padding:9px 10px;gap:10px;border-radius:11px}
+/* Extra left padding clears the unread bead. It is absolutely positioned and
+   ends at 10px, which was exactly where the avatar began, so the two were
+   touching. Padding rather than moving the bead, so read and unread rows keep
+   the same left edge. */
+.mrow{padding:9px 10px 9px 17px;gap:10px;border-radius:11px}
 .mrow.sel{background:color-mix(in srgb, var(--acc,var(--b1)) 8%, #fff);box-shadow:inset 2.5px 0 0 var(--acc,var(--b1))}
 .mrow .ava{width:31px;height:31px;font-size:12.5px;font-weight:700}
 .mrow .who{font-size:12.6px}
