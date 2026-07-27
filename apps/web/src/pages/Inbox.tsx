@@ -149,13 +149,14 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
               list and replies always come from the right address.
             </p>
           </div>
-          <button
-            className="btn-black btn-auto"
-            onClick={() => setWizard("connect")}
-          >
-            Add account
-          </button>
-          <p style={{ fontSize: 12.5 }}>Takes about a minute. Passwords stored encrypted.</p>
+          {/* No button here on purpose. The sidebar already has Add account,
+              and with no inboxes connected every sidebar item opens the same
+              modal, so a second button in the middle of the pane was just
+              floating clutter. */}
+          <p style={{ fontSize: 12.5 }}>
+            Pick <b>Add account</b> in the sidebar to connect one. Takes about a minute, and
+            passwords are stored encrypted.
+          </p>
         </div>
         {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
       </section>

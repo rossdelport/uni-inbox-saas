@@ -119,8 +119,19 @@ export function Layout() {
     ? Math.max(0, Math.ceil((new Date(billing.trial_ends_at).getTime() - Date.now()) / 86_400_000))
     : null;
 
+  // Nothing in the sidebar means anything until a mailbox is connected:
+  // Starred, Archived and the rest can only ever be empty, and Compose has no
+  // address to send from. So while there are no accounts, every one of them
+  // opens the connect modal instead of navigating to a dead end. Routed here
+  // rather than on each link because Compose and the SideLinks all call go().
+  const noAccounts = accounts !== undefined && accounts.length === 0;
+
   function go(path: string) {
     setDrawer(false);
+    if (noAccounts) {
+      setConnectOpen(true);
+      return;
+    }
     navigate(path);
   }
 
