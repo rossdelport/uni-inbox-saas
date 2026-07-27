@@ -1559,6 +1559,20 @@ function patchHero(){
   // Envelopes are STATIC: their appear animations are stripped from the
   // appear JSON, so they render at their resting spots from the first
   // frame. This now only adds the headline halo for contrast insurance.
+  // The hero shipped with an "X Reach us" button beside Get Started that
+  // only linked back to "/". One call to action under the hero, not two,
+  // and certainly not one that goes nowhere. Removed here rather than in the
+  // markup because Framer rehydrates the hero and would put it back; patchAll
+  // re-runs on every mutation, so this outlives that.
+  Array.prototype.forEach.call(document.querySelectorAll('a'), function(a){
+    if (a.textContent.replace(/\s+/g, ' ').trim().indexOf('Reach us') < 0) return;
+    // Only the dead hero one. The contacts page has a real Reach us that goes
+    // somewhere, and that must survive.
+    var href = a.getAttribute('href') || '';
+    if (href !== '/' && href !== '') return;
+    var cont = climbToContainer(a) || a;
+    cont.remove();
+  });
   var heads = document.querySelectorAll('h1[data-styles-preset="UJJoASFq5"]');
   Array.prototype.forEach.call(heads, function(h){
     if ((h.style.textShadow || '').indexOf('rgba(13,61,150') < 0)
