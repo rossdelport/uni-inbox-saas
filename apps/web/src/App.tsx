@@ -10,7 +10,7 @@ import {
 } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase.js";
-import { resumePendingCheckout } from "./lib/checkout.js";
+import { pendingPlanIntent, resumePendingCheckout } from "./lib/checkout.js";
 import { Login } from "./pages/Login.js";
 import { Layout } from "./components/Layout.js";
 import { Inbox } from "./pages/Inbox.js";
@@ -74,20 +74,45 @@ const router = createBrowserRouter(
   { basename: "/app" },
 );
 
-// Picks up a plan chosen on the marketing site when the hand-off could not
-// happen on the signup screen: with email confirmation on, signUp returns no
-// session, so the user only becomes billable when they follow the link and
-// log in. A no-op when nothing is pending, which is every load after the first.
-function ClaimCheckout() {
-  useEffect(() => {
-    void resumePendingCheckout();
-  }, []);
-  return null;
+// Shown instead of the dashboard while the app is redirecting to Stripe.
+// Signup used to paint the inbox for a beat before the checkout URL came
+// back, which read as "I'm in!" followed by being yanked away. Now the
+// dashboard is withheld until the hand-off resolves.
+function CheckoutSplash() {
+  return (
+    <div className="empty-state" style={{ height: "100vh" }}>
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+          Taking you to secure checkout…
+        </p>
+        <p style={{ marginTop: 7, fontSize: 13, color: "var(--ink3)" }}>
+          Card details are handled by Stripe. You'll be back here right after.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [, bump] = useState(0);
+
+  // A stored plan intent means this session exists to be sent to Stripe:
+  // signup stores it before creating the account, and the confirm-email path
+  // preserves it across the round trip. Derived at render time so the very
+  // first paint after sign-in is already the splash, never the dashboard.
+  const handingOff = Boolean(session) && pendingPlanIntent() !== null;
+
+  useEffect(() => {
+    if (!session || !pendingPlanIntent()) return;
+    void resumePendingCheckout().then((sent) => {
+      // false = checkout could not start (already subscribed, network...).
+      // The intent has been cleared; re-render so the dashboard appears
+      // rather than leaving the splash up forever.
+      if (!sent) bump((n) => n + 1);
+    });
+  }, [session]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -113,10 +138,6 @@ export function App() {
     );
   }
   if (!session) return <Login />;
-  return (
-    <>
-      <ClaimCheckout />
-      <RouterProvider router={router} />
-    </>
-  );
+  if (handingOff) return <CheckoutSplash />;
+  return <RouterProvider router={router} />;
 }

@@ -3,9 +3,9 @@ import { supabase } from "../lib/supabase.js";
 import { LOGO_SRC, MAIL_SRC } from "../lib/assets.js";
 import { PasswordInput } from "../components/PasswordInput.js";
 import {
+  clearPlanIntent,
   planIntentFromUrl,
   rememberPlanIntent,
-  startCheckoutAfterSignup,
   type PlanIntent,
 } from "../lib/checkout.js";
 
@@ -49,18 +49,6 @@ export function Login() {
     window.history.replaceState(null, "", m === "signup" ? "/app/signup" : "/app/login");
   }
 
-  async function oauth(provider: "google" | "azure") {
-    setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/app` },
-    });
-    if (error) {
-      const label = provider === "google" ? "Google" : "Outlook";
-      setError(`${label} sign in is not available right now. Use email and password below.`);
-    }
-  }
-
   async function forgotPassword() {
     setError(null);
     setNotice(null);
@@ -91,6 +79,12 @@ export function Login() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
     } else {
+      // Store the plan BEFORE creating the account. App owns the Stripe
+      // redirect: the moment a session exists it sees this intent, holds the
+      // dashboard back behind a "taking you to checkout" screen, and
+      // navigates. One path for both the instant case and the
+      // confirm-email-first case, and no dashboard flash in between.
+      rememberPlanIntent(intent ?? { tier: "monthly" });
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -105,18 +99,16 @@ export function Login() {
         },
       });
       if (error) {
+        // No account was made, so nothing must lie in wait to redirect a
+        // future sign-in to checkout.
+        clearPlanIntent();
         setError(error.message);
       } else if (!data.session) {
         setNotice("Almost there. Check your email for a confirmation link, then log in.");
         switchMode("signin");
-      } else {
-        // Account exists, so the API can bill it. Hand straight over to Stripe
-        // rather than dropping them in the dashboard to find the paywall.
-        // Returns false if there is nothing pending, and then App renders as
-        // normal; on failure it also falls through rather than trapping them.
-        const sent = await startCheckoutAfterSignup();
-        if (sent) return; // navigating away, leave the button disabled
       }
+      // With a session, App takes over: it sees the stored plan and goes
+      // straight to Stripe without ever painting the dashboard.
     }
     setBusy(false);
   }
@@ -160,41 +152,6 @@ export function Login() {
           </p>
         )}
 
-        <div className="oauth">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              void oauth("google");
-            }}
-          >
-            <svg viewBox="0 0 24 18">
-              <path d="M1.6 18h3.2V8.3L0 4.9v11.5C0 17.3.7 18 1.6 18Z" fill="#4285F4" />
-              <path d="M19.2 18h3.2c.9 0 1.6-.7 1.6-1.6V4.9l-4.8 3.4V18Z" fill="#34A853" />
-              <path d="M19.2 1.6v6.7L24 4.9V2.4c0-2-2.3-3.1-3.9-1.9l-.9.7v.4Z" fill="#FBBC04" />
-              <path d="M4.8 8.3V1.6L12 7l7.2-5.4v6.7L12 13.7 4.8 8.3Z" fill="#EA4335" />
-              <path d="M0 2.4v2.5l4.8 3.4V1.6l-.9-.7C2.3-.3 0 .9 0 2.4Z" fill="#C5221F" />
-            </svg>
-            Continue with Google
-          </a>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              void oauth("azure");
-            }}
-          >
-            <svg viewBox="0 0 24 24">
-              <rect width="24" height="24" rx="6" fill="#0078D4" />
-              <text x="12" y="16.5" fontFamily="Arial, sans-serif" fontSize="11" fontWeight="700" fill="#ffffff" textAnchor="middle">
-                O
-              </text>
-            </svg>
-            Continue with Outlook
-          </a>
-        </div>
-
-        <div className="divider">or with email</div>
 
         <form onSubmit={onSubmit}>
           {isSignup && (

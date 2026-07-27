@@ -56,16 +56,6 @@ export function clearPlanIntent(): void {
   }
 }
 
-/** After a successful signup, hand over to Stripe.
- *
- *  Falls back to Monthly when no plan was chosen, because most signup links on
- *  the site (the nav CTA, the closing banners) are a bare /app/signup with
- *  nothing attached. Without this default those users finished signup and
- *  dropped straight into the dashboard having never seen a payment screen. */
-export async function startCheckoutAfterSignup(): Promise<boolean> {
-  return startCheckout(pendingPlanIntent() ?? { tier: "monthly" });
-}
-
 /** On an ordinary authenticated load, only act on a plan actually queued.
  *  This is the resume path for signups that had to wait on email
  *  confirmation. It must never default to a tier: it runs on EVERY load, so a

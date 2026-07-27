@@ -153,8 +153,34 @@ export function Layout() {
     navigate(path);
   }
 
+  // Payment gate. Signup redirects to Stripe, but the browser's back button
+  // lands right back here with an account and no plan: card-first, evaded in
+  // one click. So no plan means the plans modal fronts everything: it opens
+  // on arrival, and any click outside it reopens it instead of doing what it
+  // would normally do. Paid users (monthly covers a Stripe trial with a card
+  // on file, since that converts by itself) never see any of this.
+  const unpaid = Boolean(billing) && billing?.plan !== "monthly" && billing?.plan !== "lifetime";
+  useEffect(() => {
+    // Open on becoming unpaid, and close on becoming paid, so the modal the
+    // gate forced open does not outlive the payment it was asking for. Only
+    // transitions land here, so a paid user opening Plans from the menu is
+    // never fought.
+    setPlansOpen(unpaid);
+  }, [unpaid]);
+  function gateClicks(e: React.MouseEvent) {
+    if (!unpaid || plansOpen) return;
+    const el = e.target as Element;
+    // The modal handles its own clicks (checkout buttons), and the avatar
+    // menu stays usable so an unpaid user can still sign out rather than
+    // being sealed inside a paywall.
+    if (el.closest?.(".uni-modal-bg, .dash-avatar, .uni-dd")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setPlansOpen(true);
+  }
+
   return (
-    <div className="dash">
+    <div className="dash" onClickCapture={gateClicks}>
       <header className="dash-top">
         <button className="dash-burger" aria-label="Menu" onClick={() => setDrawer((d) => !d)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
