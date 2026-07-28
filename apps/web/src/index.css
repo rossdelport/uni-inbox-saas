@@ -174,6 +174,26 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .side-upsell a{display:flex;align-items:center;justify-content:center;margin-top:12px;height:var(--btn-h);border-radius:999px;
   background:#111;color:#fff;font-size:var(--btn-fs);font-weight:700}
 .side-upsell a:hover{text-decoration:none;background:#000}
+/* Sidebar foot. Holds the plan card and the security chip together so the pair
+   sits at the bottom whether or not the upsell is showing (the upsell's own
+   margin-top:auto resolves to 0 in here, where there is no free space). */
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:12px}
+.secure-chip{display:flex;align-items:center;gap:7px;width:100%;padding:7px 11px;border:1px solid var(--line);
+  border-radius:999px;background:#fff;cursor:pointer;font-size:11.5px;font-weight:700;letter-spacing:-.01em;
+  color:var(--ink2);text-align:left}
+.secure-chip svg{width:14px;height:14px;flex:none;color:#12a150}
+.secure-chip:hover{background:rgba(2,20,50,.045);color:var(--ink)}
+.secure-chip.on{border-color:rgba(var(--b1-rgb),.45);color:var(--b1)}
+/* Portalled out of the sidebar (which clips overflow), so this is fixed and
+   positioned from the chip's rect at open time. */
+.secure-pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;
+  box-shadow:0 18px 44px rgba(13,40,80,.16)}
+.secure-pop h4{font-size:13px;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+.secure-pop ul{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+.secure-pop li{font-size:11.5px;line-height:1.5;color:var(--ink2)}
+.secure-pop li b{color:var(--ink);font-weight:700}
+.secure-foot{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11px;line-height:1.5;color:var(--ink3)}
+.secure-foot a{color:var(--b1);font-weight:700;white-space:nowrap}
 
 /* list pane */
 .dash-list{width:430px;flex:none;background:#f6f7f9;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}

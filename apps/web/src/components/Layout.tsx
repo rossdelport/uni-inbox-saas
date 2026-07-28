@@ -18,6 +18,7 @@ import { PlansModal } from "./PlansModal.js";
 import { ConnectAccountModal } from "./ConnectAccountModal.js";
 import { ColorDots } from "./ColorDots.js";
 import { PaneResizer, restorePaneWidths } from "./PaneResizer.js";
+import { SecurityBadge } from "./SecurityBadge.js";
 
 export interface AppOutletContext {
   search: string;
@@ -350,6 +351,7 @@ export function Layout() {
             Add account
           </button>
 
+          <div className="side-foot">
           {/* Trial only. Someone who has already paid does not need a card
               selling them a plan they are on, so the sidebar ends at their
               accounts. Billing stays reachable from Plans & billing above. */}
@@ -373,6 +375,8 @@ export function Layout() {
               </a>
             </div>
           )}
+            <SecurityBadge />
+          </div>
           <PaneResizer cssVar="--side-w" storageKey="oi-side-w" min={176} max={360} fallback={232} />
         </aside>
 
