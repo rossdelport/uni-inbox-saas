@@ -211,6 +211,28 @@ export function Login() {
               {busy ? "Working…" : isSignup ? "Create account" : "Log in"}
             </button>
           </div>
+
+          {/* The moment someone hands over a mailbox password is the moment they
+              want to know what happens to it, so the answer sits right under the
+              button. Claims here mirror SecurityBadge and lib/crypto.ts. */}
+          <div className="auth-secure">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 3l7 3v6c0 4.2-2.9 7.7-7 9-4.1-1.3-7-4.8-7-9V6l7-3z" />
+              <path d="M9 12.2l2.1 2.1L15.2 10" />
+            </svg>
+            <p>
+              <b>Your mailbox password is encrypted with AES-256-GCM</b> before it is
+              stored, so we never hold it in readable form. Choose Google or Microsoft
+              and we never receive a password at all.
+            </p>
+          </div>
         </form>
 
         <p className="auth-swap">
@@ -225,7 +247,12 @@ export function Login() {
             {isSignup ? "Log in" : "Create an account"}
           </a>
         </p>
-        <p className="auth-legal">Protected by AES-256 encryption. Only you ever see your messages.</p>
+        {/* "Only you ever see your messages" used to sit here. It was not true:
+            mail bodies are stored so the unified inbox can show and search them.
+            Isolation and non-sale are the real, checkable promises. */}
+        <p className="auth-legal">
+          Your mail is isolated to your account, never sold, and never used to train AI.
+        </p>
       </div>
     </div>
   );
