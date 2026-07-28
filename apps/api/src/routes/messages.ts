@@ -12,7 +12,7 @@ messagesRouter.get("/threads/:id", async (req, res) => {
   const { data: thread } = await supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, email_accounts!inner(label, color, email_address)",
+      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address)",
     )
     .eq("id", req.params.id)
     .eq("owner_id", uid)
@@ -49,6 +49,13 @@ messagesRouter.get("/threads/:id", async (req, res) => {
       message_count: thread.message_count,
       unread: thread.unread,
       archived: thread.archived,
+      // Both clients render star / read-later toggles from the thread they
+      // are showing. Omitting these here left the buttons reading undefined,
+      // so a starred thread showed as unstarred and every tap sent "star"
+      // again: the control looked dead and un-starring from inside a
+      // conversation was impossible.
+      starred: thread.starred,
+      read_later: thread.read_later,
     },
     messages: messages ?? [],
   });

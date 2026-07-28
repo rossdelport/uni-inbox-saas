@@ -1,11 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  ActionSheetIOS,
   ActivityIndicator,
-  Alert,
   FlatList,
   Linking,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ActionSheet, type SheetAction } from "@/components/ActionSheet";
 import { Chip } from "@/components/Chip";
 import { ThreadRow } from "@/components/ThreadRow";
 import { useSession } from "@/lib/auth";
@@ -27,7 +25,6 @@ import {
   useThreadOp,
   useUnreadCounts,
   type InboxView,
-  type ThreadOpName,
 } from "@/lib/queries";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
@@ -55,6 +52,13 @@ export default function InboxScreen() {
   const { session } = useSession();
   const [viewKey, setViewKey] = useState<ViewKey>("inbox");
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<{ title?: string | null; actions: SheetAction[] } | null>(null);
+  // Pull-to-refresh has its own flag rather than reading isRefetching: that
+  // is true for EVERY background refetch (the 15-60s poll, each realtime
+  // nudge, every mutation's invalidation), and iOS reveals the spinner
+  // programmatically, so the list visibly shoved itself down every time mail
+  // arrived or a row was archived.
+  const [pulling, setPulling] = useState(false);
 
   const viewDef = VIEWS.find((v) => v.key === viewKey)!;
   const view: InboxView = { ...viewDef.view, account: accountId };
@@ -65,6 +69,12 @@ export default function InboxScreen() {
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
   const readAll = useReadAll();
+
+  const { refetch } = inbox;
+  const onPull = useCallback(() => {
+    setPulling(true);
+    void refetch().finally(() => setPulling(false));
+  }, [refetch]);
 
   const threads = useMemo(
     () => inbox.data?.pages.flatMap((p) => p.threads) ?? [],
@@ -78,56 +88,31 @@ export default function InboxScreen() {
   };
 
   const rowActions = (th: ThreadSummary) => {
-    const actions: { label: string; op?: ThreadOpName; del?: boolean }[] = [
-      th.archived ? { label: "Move to inbox", op: "unarchive" } : { label: "Archive", op: "archive" },
-      th.starred ? { label: "Unstar", op: "unstar" } : { label: "Star", op: "star" },
-      th.read_later ? { label: "Remove from Later", op: "unlater" } : { label: "Read later", op: "later" },
-      th.unread ? { label: "Mark read", op: "read" } : { label: "Mark unread", op: "unread" },
-      ...(viewKey === "trash" ? [{ label: "Restore", op: "restore" as ThreadOpName }] : []),
-      { label: "Delete", del: true },
-    ];
-    const run = (a: { op?: ThreadOpName; del?: boolean }) => {
-      if (a.del) deleteThread.mutate(th.id);
-      else if (a.op) threadOp.mutate({ threadId: th.id, op: a.op });
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title: th.subject ?? undefined,
-          options: [...actions.map((a) => a.label), "Cancel"],
-          destructiveButtonIndex: actions.findIndex((a) => a.del),
-          cancelButtonIndex: actions.length,
-        },
-        (i) => {
-          if (i < actions.length) run(actions[i]!);
-        },
-      );
-    } else {
-      Alert.alert(th.subject ?? "Conversation", undefined, [
-        ...actions.map((a) => ({ text: a.label, onPress: () => run(a) })),
-        { text: "Cancel", style: "cancel" as const },
-      ]);
-    }
+    const op = (label: string, name: Parameters<typeof threadOp.mutate>[0]["op"]): SheetAction => ({
+      label,
+      onPress: () => threadOp.mutate({ threadId: th.id, op: name }),
+    });
+    setSheet({
+      title: th.subject ?? null,
+      actions: [
+        th.archived ? op("Move to inbox", "unarchive") : op("Archive", "archive"),
+        th.starred ? op("Unstar", "unstar") : op("Star", "star"),
+        th.read_later ? op("Remove from Later", "unlater") : op("Read later", "later"),
+        th.unread ? op("Mark read", "read") : op("Mark unread", "unread"),
+        ...(viewKey === "trash" ? [op("Restore", "restore")] : []),
+        { label: "Delete", destructive: true, onPress: () => deleteThread.mutate(th.id) },
+      ],
+    });
   };
 
   const accountMenu = () => {
-    const options = ["Open web dashboard", "Sign out", "Cancel"];
-    const handle = (i: number) => {
-      if (i === 0) void Linking.openURL(`${WEB_URL}/app`);
-      if (i === 1) void supabase.auth.signOut();
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { title: session?.user.email ?? "", options, cancelButtonIndex: 2 },
-        handle,
-      );
-    } else {
-      Alert.alert(session?.user.email ?? "", undefined, [
-        { text: options[0]!, onPress: () => handle(0) },
-        { text: options[1]!, onPress: () => handle(1) },
-        { text: "Cancel", style: "cancel" },
-      ]);
-    }
+    setSheet({
+      title: session?.user.email ?? null,
+      actions: [
+        { label: "Open web dashboard", onPress: () => void Linking.openURL(`${WEB_URL}/app`) },
+        { label: "Sign out", destructive: true, onPress: () => void supabase.auth.signOut() },
+      ],
+    });
   };
 
   const total = counts?.total ?? 0;
@@ -257,12 +242,7 @@ export default function InboxScreen() {
           )}
           style={{ backgroundColor: t.card }}
           contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={inbox.isRefetching && !inbox.isFetchingNextPage}
-              onRefresh={() => void inbox.refetch()}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={pulling} onRefresh={onPull} />}
           onEndReachedThreshold={0.4}
           onEndReached={() => {
             if (inbox.hasNextPage && !inbox.isFetchingNextPage) void inbox.fetchNextPage();
@@ -276,6 +256,13 @@ export default function InboxScreen() {
           }
         />
       )}
+
+      <ActionSheet
+        visible={sheet !== null}
+        title={sheet?.title}
+        actions={sheet?.actions ?? []}
+        onClose={() => setSheet(null)}
+      />
     </SafeAreaView>
   );
 }

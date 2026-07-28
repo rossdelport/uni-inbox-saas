@@ -36,6 +36,11 @@ export function useBillingState() {
   return useQuery({
     queryKey: ["billing"],
     queryFn: () => api<BillingState>("/api/billing/state"),
+    // This one gates the whole app, so it must not be able to get stuck. The
+    // usual unstick is refetch-on-focus (wired to AppState in the root
+    // layout); the interval is the belt to that pair of braces, for a user
+    // sitting on the plan screen while a webhook lands.
+    refetchInterval: 60_000,
   });
 }
 

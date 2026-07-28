@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionSheetIOS,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,6 +11,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ActionSheet, type SheetAction } from "@/components/ActionSheet";
 import { MessageCard } from "@/components/MessageCard";
 import { ReplyBar } from "@/components/ReplyBar";
 import { useDeleteThread, useThread, useThreadOp } from "@/lib/queries";
@@ -34,18 +33,15 @@ export default function ThreadScreen() {
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
   const scrollRef = useRef<ScrollView>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Which messages are open. Starts as "just the newest" once data arrives;
-  // taps toggle from there.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Which messages the user has toggled AWAY from their default. The newest
+  // message is open by default and that default is recomputed every render,
+  // so a reply that lands while the thread is open shows expanded instead of
+  // as a collapsed grey row (which is what a one-shot seed produced).
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const messages = useMemo(() => data?.messages ?? [], [data]);
-  useEffect(() => {
-    if (messages.length === 0) return;
-    setExpanded((prev) => {
-      if (Object.keys(prev).length > 0) return prev;
-      return { [messages[messages.length - 1]!.id]: true };
-    });
-  }, [messages]);
+  const newestId = messages[messages.length - 1]?.id;
 
   // Opening from the list already marked it read, but a thread can also be
   // reached with the list stale (realtime nudge mid-navigation); this is the
@@ -60,23 +56,24 @@ export default function ThreadScreen() {
 
   const thread = data?.thread;
 
-  const moreMenu = () => {
-    if (!thread) return;
-    const actions: { label: string; run: () => void; destructive?: boolean }[] = [
+  const moreActions = (): SheetAction[] => {
+    if (!thread) return [];
+    return [
       {
         label: thread.archived ? "Move to inbox" : "Archive",
-        run: () => {
+        onPress: () => {
           threadOp.mutate({ threadId: thread.id, op: thread.archived ? "unarchive" : "archive" });
           router.back();
         },
       },
       {
         label: thread.read_later ? "Remove from Later" : "Read later",
-        run: () => threadOp.mutate({ threadId: thread.id, op: thread.read_later ? "unlater" : "later" }),
+        onPress: () =>
+          threadOp.mutate({ threadId: thread.id, op: thread.read_later ? "unlater" : "later" }),
       },
       {
         label: "Mark unread",
-        run: () => {
+        onPress: () => {
           threadOp.mutate({ threadId: thread.id, op: "unread" });
           router.back();
         },
@@ -84,29 +81,12 @@ export default function ThreadScreen() {
       {
         label: "Delete",
         destructive: true,
-        run: () => {
+        onPress: () => {
           deleteThread.mutate(thread.id);
           router.back();
         },
       },
     ];
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [...actions.map((a) => a.label), "Cancel"],
-          destructiveButtonIndex: actions.findIndex((a) => a.destructive),
-          cancelButtonIndex: actions.length,
-        },
-        (i) => {
-          if (i < actions.length) actions[i]!.run();
-        },
-      );
-    } else {
-      Alert.alert("Conversation", undefined, [
-        ...actions.map((a) => ({ text: a.label, onPress: a.run })),
-        { text: "Cancel", style: "cancel" as const },
-      ]);
-    }
   };
 
   return (
@@ -136,7 +116,7 @@ export default function ThreadScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={moreMenu}
+              onPress={() => setSheetOpen(true)}
               hitSlop={8}
               style={({ pressed }) => [styles.headerBtn, { opacity: pressed ? 0.6 : 1 }]}
             >
@@ -174,24 +154,25 @@ export default function ThreadScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              ref={scrollRef}
-              style={styles.flex}
-              contentContainerStyle={styles.messages}
-              onContentSizeChange={() => {
-                // New content (a sent reply landing) belongs on screen.
-                scrollRef.current?.scrollToEnd({ animated: false });
-              }}
-            >
-              {messages.map((m) => (
-                <MessageCard
-                  key={m.id}
-                  message={m}
-                  accountColor={thread.account_color}
-                  expanded={Boolean(expanded[m.id])}
-                  onToggle={() => setExpanded((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
-                />
-              ))}
+            <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={styles.messages}>
+              {messages.map((m) => {
+                // Default open for the newest, closed for the rest; a tap
+                // flips whichever default applies. Note there is deliberately
+                // no scroll-on-content-change here: WebView bodies report
+                // their height asynchronously and several times, so a blanket
+                // onContentSizeChange handler yanked the reader to the bottom
+                // of the thread every time they opened an older message.
+                const open = (m.id === newestId) !== Boolean(toggled[m.id]);
+                return (
+                  <MessageCard
+                    key={m.id}
+                    message={m}
+                    accountColor={thread.account_color}
+                    expanded={open}
+                    onToggle={() => setToggled((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
+                  />
+                );
+              })}
             </ScrollView>
             <ReplyBar
               threadId={thread.id}
@@ -202,6 +183,13 @@ export default function ThreadScreen() {
           </>
         )}
       </KeyboardAvoidingView>
+
+      <ActionSheet
+        visible={sheetOpen}
+        title={thread?.subject ?? null}
+        actions={moreActions()}
+        onClose={() => setSheetOpen(false)}
+      />
     </SafeAreaView>
   );
 }

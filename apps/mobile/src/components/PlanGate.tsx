@@ -1,4 +1,6 @@
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { WEB_URL } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
@@ -11,6 +13,16 @@ import { useTheme } from "@/lib/theme";
 // purchase links need an entitlement); for the dev build it is a convenience.
 export function PlanGate({ email }: { email: string }) {
   const t = useTheme();
+  const qc = useQueryClient();
+  const [checking, setChecking] = useState(false);
+
+  const recheck = () => {
+    setChecking(true);
+    void qc
+      .invalidateQueries({ queryKey: ["billing"] })
+      .finally(() => setChecking(false));
+  };
+
   return (
     <View style={[styles.wrap, { backgroundColor: t.bg }]}>
       <Text style={[styles.brand, { color: t.text }]}>ONEINBOX</Text>
@@ -27,6 +39,17 @@ export function PlanGate({ email }: { email: string }) {
         ]}
       >
         <Text style={styles.buttonText}>Open tryoneinbox.co</Text>
+      </Pressable>
+      <Pressable
+        onPress={recheck}
+        disabled={checking}
+        style={({ pressed }) => [styles.recheck, { opacity: pressed || checking ? 0.6 : 1 }]}
+      >
+        {checking ? (
+          <ActivityIndicator size="small" color={t.sub} />
+        ) : (
+          <Text style={[styles.recheckText, { color: t.accent }]}>Check again</Text>
+        )}
       </Pressable>
       <Pressable onPress={() => void supabase.auth.signOut()} style={styles.signOut}>
         <Text style={[styles.signOutText, { color: t.sub }]}>Sign out</Text>
@@ -55,6 +78,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  recheck: { paddingHorizontal: 16, paddingVertical: 10, minHeight: 38, justifyContent: "center" },
+  recheckText: { fontSize: 14, fontWeight: "600" },
   signOut: { padding: 10 },
   signOutText: { fontSize: 14, fontWeight: "500" },
 });
