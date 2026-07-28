@@ -14,7 +14,7 @@ import { useTheme } from "@/lib/theme";
 export default function AppLayout() {
   const t = useTheme();
   const { session, loading } = useSession();
-  const { data: billing } = useBillingState();
+  const { data: billing } = useBillingState(Boolean(session));
   useRealtimeInbox(session?.user.id ?? null);
 
   if (loading) {

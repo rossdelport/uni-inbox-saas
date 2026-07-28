@@ -32,10 +32,16 @@ export function useAccounts() {
   });
 }
 
-export function useBillingState() {
+/** `enabled` exists because this one runs in the session-guarded layout,
+ *  which mounts for a beat on cold start before the stored session has been
+ *  read back. Firing then means an unauthenticated 401 that React Query
+ *  caches as an error, leaving billing undefined after sign-in with nothing
+ *  scheduled to retry it: the gate would quietly fail open. */
+export function useBillingState(enabled = true) {
   return useQuery({
     queryKey: ["billing"],
     queryFn: () => api<BillingState>("/api/billing/state"),
+    enabled,
     // This one gates the whole app, so it must not be able to get stuck. The
     // usual unstick is refetch-on-focus (wired to AppState in the root
     // layout); the interval is the belt to that pair of braces, for a user

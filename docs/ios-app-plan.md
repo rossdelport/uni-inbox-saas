@@ -133,8 +133,36 @@ Per-account filter, unread counts, and the "manage your plan on the web"
 screen for unpaid users.
 → *Milestone: switch accounts, counts match the web dashboard.*
 
-**7. Shake-out on device** (~1h)
-Real use over the flaky-network case, empty states, dark mode sanity.
+**7. Shake-out on device** (~1h) — **this is Tuesday's actual work**
+
+Run `cd apps/mobile && npm run start`, scan the QR with Expo Go, then walk
+this list. It is ordered so a failure stops you early rather than late.
+
+1. **Sign in** as ross@. Kill the app, reopen: still signed in, no flash of
+   the sign-in screen.
+2. **Inbox loads**, rows show the right account colours, timestamps read
+   sensibly. Pull to refresh. Scroll to the bottom for a Load-more page.
+3. **The spinner stays put** while you sit on the list for a minute. If it
+   appears on its own, the pull-to-refresh state regressed.
+4. **Open a thread.** The newest message is expanded. Tap an older message:
+   it opens and the view does NOT jump to the bottom.
+5. **HTML rendering.** Find a marketing email, the ugliest one you have.
+   Does it fit the width, is the height right, is there a huge blank gap
+   below it? Tap "Load remote images". Tap a link: it opens in Safari and
+   the message card is still there when you come back. This is the piece
+   most likely to need work.
+6. **Reply** to something real. It appears expanded at the bottom, and
+   arrives at the other end from the right address.
+7. **Actions**: long-press a row, archive it, star it, delete it. Check each
+   against the web dashboard.
+8. **Badge**: send yourself mail. It should appear within seconds without
+   touching anything, and the count should drop the instant you tap it.
+9. **Dark mode**, and one pass with the phone off Wi-Fi on cellular.
+
+Known unknowns, all of which need hardware to settle: WebView auto-height on
+real mail, whether an offline cold start with an expired token bounces you to
+the sign-in screen (Supabase refresh behaviour differs when the network is
+gone), and keyboard behaviour around the reply bar on a notched screen.
 
 ---
 
