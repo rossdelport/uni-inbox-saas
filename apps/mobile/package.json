@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
+  "//react-dom": "Pinned even though nothing here renders to the DOM. expo-router declares react-dom as an optional peer, so with no pin npm installs the latest (19.2.8), which requires React ^19.2.8 and conflicts with the React 19.1.0 that SDK 54 needs. Newer npm refuses to install at all; older npm resolves it into a lockfile that only works by luck.",
   "scripts": {
     "start": "expo start",
     "ios": "expo start --ios",
@@ -19,6 +20,7 @@
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.11",
     "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
