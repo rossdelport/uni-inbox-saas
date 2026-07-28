@@ -18,4 +18,17 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
+// Resolve ONLY through the two paths above, instead of also walking up every
+// parent directory's node_modules.
+//
+// Without this the app shipped two Reacts and died on first render with
+// "Cannot read property 'useState' of null". The web app pins React 18 and
+// this app pins 19, so npm hoists one copy to the repo root and nests the
+// other here. React Native lives at the root, so its own `require("react")`
+// found the root copy while app code got the nested one: two dispatchers,
+// and hooks blow up the moment a component calls useState. Confirmed by
+// exporting with source maps and finding react files from both paths in one
+// bundle.
+config.resolver.disableHierarchicalLookup = true;
+
 module.exports = config;
