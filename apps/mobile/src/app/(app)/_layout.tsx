@@ -1,7 +1,7 @@
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Stack } from "expo-router";
 import { useSession } from "@/lib/auth";
-import { useBillingState } from "@/lib/queries";
+import { useBillingState, useOauthProviders } from "@/lib/queries";
 import { useRealtimeInbox } from "@/lib/realtime";
 import { PlanGate } from "@/components/PlanGate";
 import { useTheme } from "@/lib/theme";
@@ -16,6 +16,10 @@ export default function AppLayout() {
   const { session, loading } = useSession();
   const { data: billing } = useBillingState(Boolean(session));
   useRealtimeInbox(session?.user.id ?? null);
+  // Warm the OAuth provider list here so the connect sheet knows which flow
+  // each provider uses the instant it opens, instead of showing a
+  // placeholder and then swapping in the real button.
+  useOauthProviders();
 
   if (loading) {
     return (

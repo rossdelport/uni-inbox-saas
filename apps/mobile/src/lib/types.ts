@@ -79,6 +79,39 @@ export interface InboxPage {
   next_cursor: string | null;
 }
 
+/** Connection settings the user fills in when adding an account. */
+export interface AccountInput {
+  label: string;
+  email_address: string;
+  provider_preset: ProviderPreset;
+  imap_host: string;
+  imap_port: number;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_security: "tls" | "starttls";
+  imap_username: string;
+  password: string;
+  color?: string;
+}
+
+export interface TestResult {
+  imap_ok: boolean;
+  smtp_ok: boolean;
+  error: string | null;
+}
+
+export interface DiscoverResult {
+  detected: string | null;
+  mx: string | null;
+  imap_host: string;
+  imap_port: number;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_security: "tls" | "starttls";
+  use_oauth: "google" | "microsoft" | null;
+  note: string | null;
+}
+
 export interface BillingState {
   plan: PlanId;
   plan_label: string;

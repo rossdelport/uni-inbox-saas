@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,9 +13,10 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ActionSheet, type SheetAction } from "@/components/ActionSheet";
 import { Chip } from "@/components/Chip";
+import { ComposeSheet } from "@/components/ComposeSheet";
+import { ConnectAccountSheet } from "@/components/ConnectAccountSheet";
 import { ThreadRow } from "@/components/ThreadRow";
 import { useSession } from "@/lib/auth";
-import { WEB_URL } from "@/lib/config";
 import {
   useAccounts,
   useDeleteThread,
@@ -26,7 +26,6 @@ import {
   useUnreadCounts,
   type InboxView,
 } from "@/lib/queries";
-import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
 import type { ThreadSummary } from "@/lib/types";
 
@@ -53,6 +52,8 @@ export default function InboxScreen() {
   const [viewKey, setViewKey] = useState<ViewKey>("inbox");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ title?: string | null; actions: SheetAction[] } | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   // Pull-to-refresh has its own flag rather than reading isRefetching: that
   // is true for EVERY background refetch (the 15-60s poll, each realtime
   // nudge, every mutation's invalidation), and iOS reveals the spinner
@@ -105,12 +106,15 @@ export default function InboxScreen() {
     });
   };
 
-  const accountMenu = () => {
+  // The + is the app's main navigation, so it holds the things that create
+  // something rather than act on what is already there.
+  const createMenu = () => {
     setSheet({
-      title: session?.user.email ?? null,
+      title: null,
       actions: [
-        { label: "Open web dashboard", onPress: () => void Linking.openURL(`${WEB_URL}/app`) },
-        { label: "Sign out", destructive: true, onPress: () => void supabase.auth.signOut() },
+        { label: "New message", onPress: () => setComposeOpen(true) },
+        { label: "Connect an email account", onPress: () => setConnectOpen(true) },
+        { label: "Settings", onPress: () => router.push("/settings") },
       ],
     });
   };
@@ -150,7 +154,8 @@ export default function InboxScreen() {
             </Pressable>
           ) : null}
           <Pressable
-            onPress={accountMenu}
+            onPress={() => router.push("/settings")}
+            hitSlop={6}
             style={({ pressed }) => [
               styles.avatar,
               { backgroundColor: t.chipActiveBg, opacity: pressed ? 0.8 : 1 },
@@ -257,12 +262,30 @@ export default function InboxScreen() {
         />
       )}
 
+      {/* Main navigation. Sits above the list rather than in a bar so it
+          never steals height from the mail itself. */}
+      <Pressable
+        onPress={createMenu}
+        style={({ pressed }) => [
+          styles.fab,
+          {
+            backgroundColor: t.accent,
+            shadowColor: "#000",
+            transform: [{ scale: pressed ? 0.94 : 1 }],
+          },
+        ]}
+      >
+        <Text style={styles.fabIcon}>+</Text>
+      </Pressable>
+
       <ActionSheet
         visible={sheet !== null}
         title={sheet?.title}
         actions={sheet?.actions ?? []}
         onClose={() => setSheet(null)}
       />
+      <ComposeSheet visible={composeOpen} onClose={() => setComposeOpen(false)} />
+      <ConnectAccountSheet visible={connectOpen} onClose={() => setConnectOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -274,11 +297,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 10,
+    // Roomy on purpose. Sitting tight under the status bar with the tab row
+    // right beneath it read as cramped, and a mail app is mostly a wall of
+    // dense text, so the top of the screen is where the air has to come from.
+    paddingTop: 18,
+    paddingBottom: 18,
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
+  title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
   badge: {
     minWidth: 22,
     height: 22,
@@ -298,14 +324,14 @@ const styles = StyleSheet.create({
   },
   readAllText: { fontSize: 12, fontWeight: "600" },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: { fontSize: 14, fontWeight: "700" },
-  chips: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
+  chips: { gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
   emptyTitle: { fontSize: 17, fontWeight: "600", textAlign: "center" },
   emptyBody: { fontSize: 14, lineHeight: 20, textAlign: "center" },
@@ -318,6 +344,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   retryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  listContent: { paddingBottom: 24 },
+  // Enough tail room that the FAB never covers the last conversation.
+  listContent: { paddingBottom: 96 },
   footer: { paddingVertical: 16 },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  fabIcon: { color: "#fff", fontSize: 30, fontWeight: "300", marginTop: -3 },
 });

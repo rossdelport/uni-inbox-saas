@@ -4,7 +4,15 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { BillingState, EmailAccount, InboxPage, ThreadDetail } from "./types";
+import type {
+  AccountInput,
+  BillingState,
+  DiscoverResult,
+  EmailAccount,
+  InboxPage,
+  TestResult,
+  ThreadDetail,
+} from "./types";
 import { api } from "./api";
 import { realtimeHealthy } from "./realtime";
 
@@ -241,6 +249,105 @@ export function useDeleteThread() {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
     },
+  });
+}
+
+// Account management. Deliberately no useCheckout / useAddSeat here: those
+// start a purchase, and Apple's Guideline 3.1.1 forbids selling a digital
+// subscription anywhere but their own IAP. Everything money-shaped points at
+// the website instead.
+
+export function useOauthProviders() {
+  return useQuery({
+    queryKey: ["oauth-providers"],
+    queryFn: () => api<{ google: boolean; microsoft: boolean }>("/api/oauth/providers"),
+    // Deploy-time server config, so it cannot change under a running app.
+    staleTime: Infinity,
+  });
+}
+
+export function useOauthStartUrl() {
+  return useMutation({
+    mutationFn: (provider: "google" | "microsoft") =>
+      api<{ url: string }>(`/api/oauth/${provider}/start`, { method: "POST" }),
+  });
+}
+
+export function useDiscover() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      api<DiscoverResult>("/api/accounts/discover", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+  });
+}
+
+export function useTestConnection() {
+  return useMutation({
+    mutationFn: (input: AccountInput) =>
+      api<TestResult>("/api/accounts/test", { method: "POST", body: JSON.stringify(input) }),
+  });
+}
+
+export function useConnectAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AccountInput) =>
+      api<EmailAccount>("/api/accounts", { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+    },
+  });
+}
+
+export function useUpdateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...patch
+    }: {
+      id: string;
+      label?: string;
+      color?: string;
+      password?: string;
+      status?: "active" | "disabled";
+    }) => api<EmailAccount>(`/api/accounts/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+      // Rows and open threads carry the account colour and label with them.
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["thread"] });
+    },
+  });
+}
+
+export function useRemoveAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/api/accounts/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["accounts"] });
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+    },
+  });
+}
+
+export function useCompose() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string }) =>
+      api<{ thread_id: string }>("/api/messages/send", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["inbox"] }),
   });
 }
 

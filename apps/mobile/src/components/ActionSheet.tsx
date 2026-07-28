@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 
@@ -33,7 +33,12 @@ export function ActionSheet({
     // Close first so the sheet is never left standing over a screen the
     // action navigated away from.
     onClose();
-    a.onPress();
+    // Then let the dismissal land before running the action. Several of
+    // these open another modal (New message, Connect an account), and iOS
+    // silently drops a present that arrives while a dismiss is still in
+    // flight: the menu closes and nothing appears.
+    if (Platform.OS === "ios") setTimeout(a.onPress, 280);
+    else a.onPress();
   };
 
   return (
