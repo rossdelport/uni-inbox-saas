@@ -3,16 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "description": "One clutter-free inbox for all your project emails — built for solo founders and indie hackers",
+  "//": "apps/mobile is deliberately NOT a workspace. It installs separately (cd apps/mobile && npm install) with its own lockfile.",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/api",
+    "apps/web"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev --workspace @uni/api",
     "dev:web": "npm run dev --workspace @uni/web",
+    "mobile": "npm start --prefix apps/mobile",
     "site:build": "npm run build --workspace @uni/web && rm -rf dist && cp -r apps/web/dist dist",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:mobile": "npm run typecheck --prefix apps/mobile"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

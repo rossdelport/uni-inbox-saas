@@ -77,5 +77,22 @@ const schema = z.object({
   CONTACT_FROM_EMAIL: z.string().default("OneInbox contact form <oneinbox@trynoisy.com>"),
 });
 
-export const env = schema.parse(process.env);
+// Blank is the same as absent.
+//
+// Railway, like most hosts, injects a variable that was left empty as an
+// empty string rather than omitting it, and zod's .default() / .optional()
+// only fire on undefined. So NODE_ENV="" failed the enum and killed the
+// process on boot. That is why deploys intermittently lost the healthcheck
+// race: under restartPolicy ALWAYS the container crash-looped, and a deploy
+// passed or failed depending on whether an attempt happened to answer
+// /health before dying again.
+//
+// PORT is the quieter twin of the same bug: "" coerces to 0, which passes
+// validation and makes the server listen on a random free port. Nothing logs
+// an error, the healthcheck simply never connects.
+const provided = Object.fromEntries(
+  Object.entries(process.env).filter(([, v]) => v !== undefined && v !== ""),
+);
+
+export const env = schema.parse(provided);
 export type Env = z.infer<typeof schema>;

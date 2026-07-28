@@ -6,6 +6,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "expo-env.d.ts"],
+  "//": "Keep `include` exactly as the Expo CLI wants it. It rewrites this file on every start, and the resulting local modification silently blocks git pull forever after.",
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
   "exclude": ["node_modules"]
 }
