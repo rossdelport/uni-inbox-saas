@@ -254,36 +254,73 @@ section.framer-jcnslc[data-framer-name="footer"]::after{
    is on the page instead of buried in the privacy policy.
    Copy rule: every claim here must be true of the running system. */
 /* Block, not flex: the shield has to sit against the first word, and a flex
-   row centred the text while leaving the icon stranded at the left edge. */
+   row centred the text while leaving the icon stranded at the left edge.
+   Icon is white, not green: on the hero panel white is the only ink the
+   design system uses, and a green tick there reads as a foreign badge. */
 .uni-trust{display:block;margin:20px auto 0;max-width:620px;font-family:"Inter",sans-serif;
   font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.86);text-align:center;text-wrap:balance}
-.uni-trust svg{display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-right:6px;color:#7cf0b4}
+.uni-trust svg{display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-right:6px;
+  color:rgba(255,255,255,.95)}
 .uni-trust b{color:#fff;font-weight:700}
 @media(max-width:833px){.uni-trust{font-size:12.5px;padding:0 22px}}
 
-.uni-sec{background:#F9F9F9;padding:96px 24px 88px;font-family:"Inter",sans-serif}
-.uni-sec-in{max-width:1080px;margin:0 auto}
-.uni-sec-eyebrow{display:flex;align-items:center;justify-content:center;gap:7px;
-  font-size:12px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:#12a150}
-.uni-sec-eyebrow svg{width:15px;height:15px}
-.uni-sec h2{margin:14px 0 0;text-align:center;font-family:"M PLUS Rounded 1c","Inter",sans-serif;
-  font-weight:800;font-size:clamp(30px,4.4vw,46px);line-height:1.1;letter-spacing:-.02em;color:#0A2540}
-.uni-sec-lead{margin:16px auto 0;max-width:660px;text-align:center;font-size:17px;line-height:1.55;color:rgba(2,20,50,.70)}
-.uni-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:44px}
-@media(max-width:833px){.uni-sec{padding:72px 20px 64px}.uni-grid{grid-template-columns:1fr}}
-.uni-card{background:#fff;border:1px solid rgba(2,20,50,.09);border-radius:20px;padding:24px 24px 26px;
-  box-shadow:0 1px 3px rgba(13,40,80,.05)}
-.uni-card-ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
-  background:rgba(18,161,80,.10);color:#12a150}
-.uni-card-ic svg{width:19px;height:19px}
-.uni-card h3{margin:15px 0 0;font-size:17px;font-weight:800;letter-spacing:-.01em;color:#0A2540}
-.uni-card p{margin:8px 0 0;font-size:14.5px;line-height:1.58;color:rgba(2,20,50,.70)}
-.uni-note{margin:26px auto 0;max-width:860px;background:#fff;border:1px solid rgba(2,20,50,.09);
-  border-radius:18px;padding:22px 24px}
-.uni-note h4{font-size:15px;font-weight:800;color:#0A2540;letter-spacing:-.01em}
-.uni-note p{margin-top:8px;font-size:14.5px;line-height:1.58;color:rgba(2,20,50,.70)}
-.uni-note a{color:#0C7DFF;font-weight:700;text-decoration:none}
+/* Section built from the Maily tokens in docs/context/maily-design-spec.md:
+   the white-to-#E8F0FF section fade, 40px card radii, the signature inset
+   blue glow, and blue as the only accent. The first pass used flat #F9F9F9,
+   20px radii and a green tick, none of which appear anywhere on this site,
+   which is exactly why it read as bolted on. The hero directly above is a
+   blue gradient panel, so this section stays light and lets the blue arrive
+   through the icon tiles rather than competing with another big gradient. */
+/* The Framer root is a centred flex column, so a plain section shrink-wraps
+   to its content and the gradient reads as a floating white rectangle.
+   Stretching it makes the fade a true full-width band. */
+.uni-sec{width:100%;align-self:stretch;
+  background:linear-gradient(180deg,#FFFFFF 0%,#E8F0FF 100%);
+  padding:108px 24px 104px;font-family:"Inter",sans-serif}
+.uni-sec-in{max-width:1120px;margin:0 auto}
+.uni-sec-eyebrow{display:flex;width:fit-content;margin:0 auto;align-items:center;gap:8px;
+  padding:9px 18px 10px;border-radius:999px;background:#fff;
+  box-shadow:inset 0 -1px 1px 0 rgba(10,114,237,.64),0 1px 1px rgba(0,0,0,.10),
+    0 2px 2px rgba(0,0,0,.09),0 4.5px 2.5px rgba(0,0,0,.05);
+  font-family:"M PLUS 1","Inter",sans-serif;font-size:12.5px;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;color:#0A2540}
+.uni-sec-eyebrow svg{width:16px;height:16px;color:#0C7DFF}
+.uni-sec h2{margin:24px 0 0;text-align:center;font-family:"M PLUS Rounded 1c","Inter",sans-serif;
+  font-weight:800;font-size:clamp(32px,4.6vw,46px);line-height:1.08;letter-spacing:-.02em;color:#0A2540}
+.uni-sec h2 span{color:#0C7DFF}
+.uni-sec-lead{margin:18px auto 0;max-width:660px;text-align:center;font-size:17.5px;
+  line-height:1.55;color:rgba(2,20,50,.62)}
+.uni-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:52px}
+/* Translucent white over the blue fade, so the cards frost rather than sit
+   as flat white blocks on a tinted field. */
+.uni-card{background:linear-gradient(180deg,#fff 0%,rgba(255,255,255,.55) 100%);
+  border:1px solid rgba(0,0,0,.05);border-radius:40px;padding:34px 34px 36px;
+  box-shadow:0 1px 1px rgba(0,0,0,.10),0 2px 2px rgba(0,0,0,.09),0 4.5px 2.5px rgba(0,0,0,.05)}
+.uni-card-ic{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#2786FF 0%,#0C7DFF 100%);color:#fff;
+  box-shadow:inset 0 2.4px 4.9px rgba(255,255,255,.55),inset 0 -1.2px 2.9px rgba(0,102,255,.39),
+    0 6px 14px rgba(12,125,255,.26)}
+.uni-card-ic svg{width:24px;height:24px}
+.uni-card h3{margin:20px 0 0;font-family:"M PLUS Rounded 1c","Inter",sans-serif;font-size:22px;
+  font-weight:700;line-height:1.2;letter-spacing:-.01em;color:#0A2540}
+.uni-card p{margin:10px 0 0;font-size:15.5px;line-height:1.6;color:rgba(2,20,50,.66)}
+.uni-card p b{color:#0C7DFF;font-weight:600}
+.uni-note{margin:34px auto 0;max-width:900px;background:#fff;border:1px solid rgba(0,0,0,.05);
+  border-radius:32px;padding:30px 34px 32px;
+  box-shadow:inset 0 -1px 1px 0 rgba(10,114,237,.64),0 1px 1px rgba(0,0,0,.10),
+    0 2px 2px rgba(0,0,0,.09),0 4.5px 2.5px rgba(0,0,0,.05)}
+.uni-note h4{font-family:"M PLUS Rounded 1c","Inter",sans-serif;font-size:21px;font-weight:700;
+  letter-spacing:-.01em;color:#0A2540}
+.uni-note p{margin-top:10px;font-size:15.5px;line-height:1.62;color:rgba(2,20,50,.66)}
+.uni-note a{color:#0C7DFF;font-weight:600;text-decoration:none}
 .uni-note a:hover{text-decoration:underline}
+@media(max-width:833px){
+  .uni-sec{padding:76px 20px 72px}
+  .uni-grid{grid-template-columns:1fr;gap:16px;margin-top:38px}
+  .uni-card{border-radius:32px;padding:26px 24px 28px}
+  .uni-card h3{font-size:20px}
+  .uni-note{border-radius:26px;padding:24px 22px 26px}
+}
 </style>
 </head>
 <body>
@@ -1811,19 +1848,19 @@ var US_NOAI = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 
 var US_CARDS = [
   { ic: US_KEY, h: 'Your password is never stored in readable form',
-    p: 'It is encrypted with AES-256-GCM before it reaches our database. Connect Gmail or Outlook and we never receive a password at all, just a token you can revoke from Google or Microsoft whenever you like.' },
+    p: 'It is encrypted with <b>AES-256-GCM</b> before it reaches our database. Connect Gmail or Outlook and we never receive a password at all, just a token you can revoke from Google or Microsoft whenever you like.' },
   { ic: US_LOCK, h: 'Encrypted in transit and at rest',
-    p: 'Every connection to your mail provider runs over TLS, and everything we keep sits on encrypted-at-rest infrastructure.' },
+    p: 'Every connection to your mail provider runs over <b>TLS</b>, and everything we keep sits on encrypted-at-rest infrastructure.' },
   { ic: US_WALL, h: 'Walled off to your account alone',
-    p: 'Database-level rules scope every single message to its owner. No other OneInbox customer can reach your mail, by accident or otherwise.' },
+    p: 'Database-level rules scope <b>every single message</b> to its owner. No other OneInbox customer can reach your mail, by accident or otherwise.' },
   { ic: US_NOAI, h: 'Never sold. Never used to train AI.',
-    p: 'OneInbox makes money from subscriptions, not from you. We do not sell or share your email, and no AI model of any kind reads it.' }
+    p: 'OneInbox makes money from subscriptions, <b>not from you</b>. We do not sell or share your email, and no AI model of any kind reads it.' }
 ];
 
 function usBuild(){
   return '<div class="uni-sec-in">' +
     '<div class="uni-sec-eyebrow">' + US_SHIELD + 'Security</div>' +
-    '<h2>Your mail stays yours.</h2>' +
+    '<h2>Your mail stays <span>yours</span>.</h2>' +
     '<p class="uni-sec-lead">You are about to connect real mailboxes, so here is exactly what happens to your password and your messages. No vague promises.</p>' +
     '<div class="uni-grid">' +
       US_CARDS.map(function(c){
