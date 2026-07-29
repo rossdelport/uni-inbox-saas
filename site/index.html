@@ -1899,11 +1899,22 @@ function patchSecurity(){
   });
 
   // 2. The full section, immediately after the hero.
+  //
+  // Order matters literally here. The Framer root is a flex column and the
+  // hero carries order:1 at the mobile breakpoint (order:0 on desktop), so
+  // a section left at the default order:0 sorted ABOVE the hero on phones
+  // however it was placed in the DOM. Copying the hero's own computed order
+  // restores a tie, and flex breaks ties by DOM order, which puts us right
+  // after the hero at every width. Read at run time rather than hardcoded
+  // per breakpoint, so this survives Framer changing its own rules.
   q('section[data-framer-name="hero"]').forEach(function(hero){
     var next = hero.nextElementSibling;
-    if (next && next.hasAttribute && next.hasAttribute('data-uni-sec')) return;
-    var sec = elFrom('<section class="uni-sec" data-uni-sec="1">' + usBuild() + '</section>');
-    hero.parentNode.insertBefore(sec, hero.nextSibling);
+    var sec = (next && next.hasAttribute && next.hasAttribute('data-uni-sec')) ? next : null;
+    if (!sec){
+      sec = elFrom('<section class="uni-sec" data-uni-sec="1">' + usBuild() + '</section>');
+      hero.parentNode.insertBefore(sec, hero.nextSibling);
+    }
+    sec.style.order = getComputedStyle(hero).order;
   });
 }
 
@@ -1914,6 +1925,13 @@ function patchAll(){
 }
 var t = null;
 function schedule(){ clearTimeout(t); t = setTimeout(patchAll, 250); }
+// Crossing a breakpoint changes the hero's flex order without mutating the
+// DOM, so the observer below never fires for it. Re-run on resize so the
+// security section re-syncs its order instead of jumping above the hero.
+if (!window.__uniResizeSync){
+  window.__uniResizeSync = 1;
+  window.addEventListener('resize', schedule);
+}
 new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', patchAll);
 else patchAll();
