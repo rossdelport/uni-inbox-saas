@@ -236,16 +236,13 @@ html.uni-js.uni-mails-live [data-framer-name="mails"]{opacity:1;transition:opaci
 /* Centered FAQ (framer section layout + the injected custom accordion) */
 @media(min-width:834px){section[data-framer-name="faq"]{justify-content:center!important}}
 .uni-faq{margin-left:auto!important;margin-right:auto!important}
-/* Giant translucent wordmark closing the blue pricing band; the page ends
-   at the last pixel of the text */
+/* The blue band closes on a single giant translucent wordmark. That mark is
+   the .uni-bigbrand strip patchFooter appends (it self-clips with
+   height:.8em + overflow:hidden, which is what bleeds the letters off the
+   bottom edge). A ::after here used to draw a SECOND one, so the live page
+   ended on two stacked ONEINBOX marks. Only the padding/overflow rule is
+   kept, so the band still ends at the last pixel of the letters. */
 section.framer-jcnslc[data-framer-name="footer"]{padding-bottom:0!important;overflow:hidden!important}
-section.framer-jcnslc[data-framer-name="footer"]::after{
-  content:"ONEINBOX";display:block;width:100%;text-align:center;
-  font-family:"M PLUS Rounded 1c","Inter",sans-serif;font-weight:800;
-  font-size:clamp(72px,15vw,230px);line-height:1;letter-spacing:-.02em;
-  margin-bottom:-0.21em;
-  color:rgba(255,255,255,.3);user-select:none;pointer-events:none;
-}
 </style>
 
 <style id="uni-overrides-security">
