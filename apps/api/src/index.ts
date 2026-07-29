@@ -170,7 +170,31 @@ app.get(["/login", "/login/"], (_req, res) => res.redirect(301, "/app/login"));
 app.get(["/dashboard", "/dashboard/"], (_req, res) => res.redirect(301, "/app"));
 app.get(["/settings", "/settings/"], (_req, res) => res.redirect(301, "/app/settings"));
 
+// Page views, recorded from the response rather than from the browser. Keying
+// off a finished text/html response means assets, redirects and 404s are all
+// excluded for free, and nothing depends on client JS surviving an ad blocker.
+// Bots are dropped so the funnel counts people.
+const BOT_UA =
+  /bot|crawl|spider|slurp|preview|monitor|uptime|curl|wget|headless|lighthouse|pingdom|probe/i;
+
 if (existsSync(marketing)) {
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api") || req.path === "/health") {
+      return next();
+    }
+    const ua = String(req.headers["user-agent"] ?? "");
+    if (ua && !BOT_UA.test(ua)) {
+      res.on("finish", () => {
+        if (res.statusCode >= 400) return;
+        if (!String(res.getHeader("content-type") ?? "").includes("text/html")) return;
+        void import("./routes/metrics.js")
+          .then((m) => m.recordPageView(req))
+          .catch((err) => logger.warn({ err }, "page view record failed"));
+      });
+    }
+    next();
+  });
+
   app.use(express.static(marketing, { extensions: ["html"], setHeaders: staticHeaders }));
   // Unknown non-API pages get the site's own 404.
   app.get("*", (req, res, next) => {

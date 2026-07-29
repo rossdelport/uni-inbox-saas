@@ -31,9 +31,27 @@ export function Login() {
 
   // Attribution: landing-page buttons arrive with ?src=<page:button>. Keep it
   // through the confirm-email round trip so signup can record it.
+  //
+  // The tag only exists when someone clicked a tagged CTA. Anyone who typed the
+  // URL, followed an ad link, or came from a post arrived with nothing, and the
+  // first three real signups all recorded no source at all. Fall back to the
+  // campaign parameters and then the referring host, so a signup is only
+  // unattributed when it genuinely has no origin to record.
   useEffect(() => {
-    const src = new URLSearchParams(window.location.search).get("src");
-    if (src) localStorage.setItem(SRC_KEY, src.slice(0, 80));
+    if (localStorage.getItem(SRC_KEY)) return; // first touch wins
+    const q = new URLSearchParams(window.location.search);
+    const tag =
+      q.get("src") ??
+      q.get("utm_source") ??
+      (() => {
+        try {
+          const host = document.referrer ? new URL(document.referrer).hostname : "";
+          return host && !host.endsWith("tryoneinbox.co") ? `ref:${host}` : null;
+        } catch {
+          return null;
+        }
+      })();
+    if (tag) localStorage.setItem(SRC_KEY, tag.slice(0, 80));
   }, []);
 
   // Remember the plan across the confirm-email round trip, so someone who has

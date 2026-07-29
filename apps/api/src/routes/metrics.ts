@@ -1,22 +1,53 @@
 import { Router, type Request, type Response } from "express";
 import { env } from "../config/env.js";
 import { supabase } from "../lib/supabase.js";
+import { logger } from "../lib/logger.js";
 import { userEmail } from "../lib/auth.js";
 import { allow } from "../lib/rateLimit.js";
 
-// First-party, cookie-less marketing analytics. The site pages fire a
-// sendBeacon to /api/metrics/view with the path in the query string; the
-// summary endpoint is for the owner's eyes only.
+// First-party, cookie-less marketing analytics. Views are recorded server-side
+// as pages are served; the summary endpoint is for the owner's eyes only.
 
-/** Public beacon (mounted before the auth gate). */
-export function recordView(req: Request, res: Response) {
+/**
+ * Server-side page view, recorded once Express has finished serving an HTML
+ * page.
+ *
+ * This replaces a client beacon that recorded nothing whatsoever in
+ * production: page_views sat at zero rows for the life of the project while
+ * real people signed up and left. Two independent reasons, both closed here.
+ * "/api/metrics/view" is precisely the shape ad blockers drop, so the request
+ * frequently never left the browser at all; and the insert was fire-and-forget,
+ * so a failing write and an empty site were indistinguishable. Recording on the
+ * server cannot be blocked, and the error is now actually read.
+ *
+ * Referrer falls back to the campaign tag, because most ad platforms strip the
+ * Referer header and paid traffic would otherwise be unattributable.
+ */
+export async function recordPageView(req: Request): Promise<void> {
+  const path = req.path.slice(0, 200);
+  if (!path.startsWith("/")) return;
+  const ua = String(req.headers["user-agent"] ?? "").slice(0, 200) || null;
+  let referrer = String(req.headers["referer"] ?? "").slice(0, 300) || null;
+  const campaign = String(req.query.utm_source ?? req.query.src ?? "").slice(0, 60);
+  if (!referrer && campaign) referrer = `campaign:${campaign}`;
+
+  const { error } = await supabase.from("page_views").insert({ path, referrer, ua });
+  if (error) logger.warn({ err: error, path }, "page view insert failed");
+}
+
+/**
+ * Public beacon, kept for client-routed dashboard views that have no server
+ * request to hang a record off. Same rule: read the error.
+ */
+export async function recordView(req: Request, res: Response) {
   res.status(204).end();
   if (!allow(`pv:${req.ip}`, 60, 60_000)) return;
   const path = String(req.query.p ?? "").slice(0, 200);
   if (!path.startsWith("/")) return;
   const referrer = String(req.query.r ?? "").slice(0, 300) || null;
   const ua = String(req.headers["user-agent"] ?? "").slice(0, 200) || null;
-  void supabase.from("page_views").insert({ path, referrer, ua });
+  const { error } = await supabase.from("page_views").insert({ path, referrer, ua });
+  if (error) logger.warn({ err: error, path }, "page view beacon insert failed");
 }
 
 export const metricsRouter = Router();
