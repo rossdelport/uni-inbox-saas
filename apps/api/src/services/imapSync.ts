@@ -342,24 +342,45 @@ export class AccountSyncer {
     //     happened, so a throw or a no-UID lookup silently discarded the user's
     //     intent and reconcile then flipped the thread back to unread.
     const staleBefore = new Date(Date.now() - FLAG_OP_CLAIM_TTL_MS).toISOString();
-    const { data: pending } = await supabase
-      .from("flag_ops")
-      .select("id")
-      .eq("account_id", this.account.id)
-      .or(`claimed_at.is.null,claimed_at.lt.${staleBefore}`)
-      .order("created_at", { ascending: true })
-      .limit(FLAG_OP_BATCH);
-    if (!pending || pending.length === 0) return;
+    // Two queries rather than one .or(). PostgREST parses an or= filter by
+    // splitting on ".", and an ISO timestamp carries one in its milliseconds
+    // (…:12.345Z), so `claimed_at.lt.${iso}` is mis-parsed and the whole filter
+    // fails. That failure is silent unless the error is read, which is how the
+    // first version of this reclaim shipped doing nothing at all: the backlog
+    // sat at 2,209 ops through cycle after cycle. Method-arg filters encode
+    // their values properly, so .is()/.lt() are safe.
+    const [fresh, stale] = await Promise.all([
+      supabase
+        .from("flag_ops")
+        .select("id")
+        .eq("account_id", this.account.id)
+        .is("claimed_at", null)
+        .order("created_at", { ascending: true })
+        .limit(FLAG_OP_BATCH),
+      supabase
+        .from("flag_ops")
+        .select("id")
+        .eq("account_id", this.account.id)
+        .lt("claimed_at", staleBefore)
+        .order("created_at", { ascending: true })
+        .limit(FLAG_OP_BATCH),
+    ]);
+    if (fresh.error) logger.warn({ err: fresh.error, accountId: this.account.id }, "flag op claim (fresh) failed");
+    if (stale.error) logger.warn({ err: stale.error, accountId: this.account.id }, "flag op claim (stale) failed");
 
-    const { data: ops } = await supabase
+    const ids = [
+      ...new Set([...(fresh.data ?? []), ...(stale.data ?? [])].map((r) => r.id as string)),
+    ].slice(0, FLAG_OP_BATCH);
+    if (ids.length === 0) return;
+
+    const { data: ops, error: claimErr } = await supabase
       .from("flag_ops")
       .update({ claimed_at: new Date().toISOString() })
-      .in(
-        "id",
-        pending.map((p) => p.id as string),
-      )
+      .in("id", ids)
       .select("id, op, message_id, thread_id, created_at");
+    if (claimErr) logger.warn({ err: claimErr, accountId: this.account.id }, "flag op claim failed");
     if (!ops || ops.length === 0) return;
+    logger.info({ accountId: this.account.id, claimed: ops.length }, "flag ops claimed");
 
     // Read/unread collapse into one IMAP command per batch. Flag changes are
     // set operations, so 500 threads is one messageFlagsAdd over a UID set
