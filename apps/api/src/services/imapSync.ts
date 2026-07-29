@@ -436,7 +436,7 @@ export class AccountSyncer {
               .from("messages")
               .update({ imap_mailbox: "archived", imap_uid: null })
               .eq("account_id", this.account.id)
-              .in("id", await this.messageIds(op.message_id, op.thread_id));
+              .in("id", await this.messageIds(op.message_id, op.thread_id, op.created_at as string));
           } else if (attemptedMove) {
             // Refused without throwing. Leave the UIDs intact and retry.
             ok = false;
@@ -523,14 +523,27 @@ export class AccountSyncer {
     }
   }
 
-  private async messageIds(messageId: string | null, threadId: string | null): Promise<string[]> {
+  /**
+   * Rows an op covers. `notAfter` must mirror uidsFor: the archive path moves
+   * the UIDs uidsFor returned and then forgets the UIDs these ids name, so an
+   * unscoped lookup here nulls imap_uid on messages that arrived after the op
+   * was queued and were never moved, stranding them exactly as a failed move
+   * would.
+   */
+  private async messageIds(
+    messageId: string | null,
+    threadId: string | null,
+    notAfter?: string | null,
+  ): Promise<string[]> {
     if (messageId) return [messageId];
     if (!threadId) return [];
-    const { data } = await supabase
+    let query = supabase
       .from("messages")
       .select("id")
       .eq("thread_id", threadId)
       .eq("account_id", this.account.id);
+    if (notAfter) query = query.lte("created_at", notAfter);
+    const { data } = await query;
     return (data ?? []).map((r) => r.id as string);
   }
 
