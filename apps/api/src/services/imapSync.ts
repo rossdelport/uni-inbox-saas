@@ -38,6 +38,13 @@ const SANITIZE_OPTS: sanitizeHtml.IOptions = {
   allowedSchemes: ["http", "https", "mailto", "data", "cid"],
 };
 
+// Flag-op pump. The batch is bounded so one cycle always finishes inside the
+// 120s deadline in run(); leftovers ride the next cycle 45s later. The TTL is
+// how long a claim is trusted before another pass may re-claim it, which is
+// what makes a worker dying mid-apply a delay rather than lost data.
+const FLAG_OP_BATCH = 500;
+const FLAG_OP_CLAIM_TTL_MS = 5 * 60_000;
+
 function toSnippet(text: string | null): string | null {
   if (!text) return null;
   // HTML-only mail (no text part) would otherwise preview as "<!DOCTYPE...".
@@ -252,8 +259,13 @@ export class AccountSyncer {
         .eq("account_id", this.account.id);
     }
 
-    await this.reconcileFlags(client);
+    // Local intent BEFORE remote truth. Reconcile mirrors the server's \Seen
+    // flags onto our rows, so running it first reads back the state we have
+    // not pushed yet and faithfully reverts the user's own click. "Mark all
+    // read" made this obvious: it calls wakeAccount(), so it triggered the
+    // very cycle that undid it, seconds later.
     await this.applyFlagOps(client);
+    await this.reconcileFlags(client);
   }
 
   /** Parse + store one message, threading it as it lands. */
@@ -270,6 +282,18 @@ export class AccountSyncer {
       .not("imap_uid", "is", null);
     if (!local || local.length === 0) return;
 
+    // Anything still queued is intent we have not pushed yet, so the server's
+    // flag for it is stale by definition. applyFlagOps runs first and normally
+    // drains the queue, but a batch larger than FLAG_OP_BATCH, a failed op, or
+    // a click that lands mid-cycle all leave rows behind: mirroring the server
+    // over those is precisely the revert the user sees.
+    const { data: queued } = await supabase
+      .from("flag_ops")
+      .select("thread_id, message_id")
+      .eq("account_id", this.account.id);
+    const heldThreads = new Set((queued ?? []).map((q) => q.thread_id as string).filter(Boolean));
+    const heldMessages = new Set((queued ?? []).map((q) => q.message_id as string).filter(Boolean));
+
     const remote = new Map<number, boolean>(); // uid -> seen
     for await (const msg of client.fetch("1:*", { uid: true, flags: true })) {
       remote.set(msg.uid, Boolean(msg.flags?.has("\\Seen")));
@@ -277,6 +301,7 @@ export class AccountSyncer {
 
     const touched = new Set<string>();
     for (const row of local) {
+      if (heldThreads.has(row.thread_id as string) || heldMessages.has(row.id as string)) continue;
       const uid = Number(row.imap_uid);
       if (!remote.has(uid)) {
         // Gone from INBOX: archived/moved/deleted on the server. Mirror as
@@ -302,26 +327,60 @@ export class AccountSyncer {
 
   /** Local -> remote: replay queued read/archive ops onto the IMAP server. */
   private async applyFlagOps(client: ImapFlow): Promise<void> {
-    // Claim-then-act: flips claimed_at so a second worker never replays the
-    // same op, even if this process dies mid-apply.
+    // Claim-then-act, with three properties the first version lacked and which
+    // together lost 2,744 real ops in production:
+    //
+    //  1. BOUNDED. The old claim was a single unbounded UPDATE: one "mark all
+    //     read" over 2,000 threads claimed all 2,000 at once, then walked them
+    //     one IMAP round trip at a time. cycle() runs under a 120s deadline
+    //     (see run()), so the walk was killed a few dozen ops in, every time.
+    //  2. RECLAIMABLE. Because the claim filter was `claimed_at IS NULL`, every
+    //     op the killed walk had already claimed became permanently invisible.
+    //     A stale claim is now re-claimable, so a worker dying mid-apply costs
+    //     a delay rather than the operation.
+    //  3. DELETED ONLY ON SUCCESS. The old `finally` deleted the op whatever
+    //     happened, so a throw or a no-UID lookup silently discarded the user's
+    //     intent and reconcile then flipped the thread back to unread.
+    const staleBefore = new Date(Date.now() - FLAG_OP_CLAIM_TTL_MS).toISOString();
+    const { data: pending } = await supabase
+      .from("flag_ops")
+      .select("id")
+      .eq("account_id", this.account.id)
+      .or(`claimed_at.is.null,claimed_at.lt.${staleBefore}`)
+      .order("created_at", { ascending: true })
+      .limit(FLAG_OP_BATCH);
+    if (!pending || pending.length === 0) return;
+
     const { data: ops } = await supabase
       .from("flag_ops")
       .update({ claimed_at: new Date().toISOString() })
-      .eq("account_id", this.account.id)
-      .is("claimed_at", null)
-      .select("id, op, message_id, thread_id");
+      .in(
+        "id",
+        pending.map((p) => p.id as string),
+      )
+      .select("id, op, message_id, thread_id, created_at");
     if (!ops || ops.length === 0) return;
 
-    for (const op of ops) {
+    // Read/unread collapse into one IMAP command per batch. Flag changes are
+    // set operations, so 500 threads is one messageFlagsAdd over a UID set
+    // rather than 500 round trips: the difference between finishing inside the
+    // cycle deadline and never finishing at all.
+    const bulk = ops.filter((o) => o.op === "read" || o.op === "unread");
+    if (bulk.length > 0) await this.applyBulkSeen(client, bulk);
+
+    for (const op of ops.filter((o) => o.op !== "read" && o.op !== "unread")) {
+      let ok = true;
       try {
-        const uids = await this.uidsFor(op.message_id, op.thread_id);
-        if (uids.length === 0) continue;
+        const uids = await this.uidsFor(op.message_id, op.thread_id, op.created_at as string);
+        if (uids.length === 0) {
+          // Nothing addressable on the server (never ingested, or already moved
+          // out of INBOX). Local state stands; drop the op rather than retry it
+          // forever.
+          await supabase.from("flag_ops").delete().eq("id", op.id);
+          continue;
+        }
         const range = uids.join(",");
-        if (op.op === "read") {
-          await client.messageFlagsAdd({ uid: range }, ["\\Seen"], { uid: true });
-        } else if (op.op === "unread") {
-          await client.messageFlagsRemove({ uid: range }, ["\\Seen"], { uid: true });
-        } else if (op.op === "archive") {
+        if (op.op === "archive") {
           if (this.account.provider_preset === "gmail") {
             // Gmail: removing from INBOX = archiving (message stays in All Mail).
             await client.messageMove({ uid: range }, "[Gmail]/All Mail", { uid: true });
@@ -346,9 +405,61 @@ export class AccountSyncer {
         // unarchive: local-only (pulling mail back into INBOX across servers
         // is unreliable; the thread simply reappears in the unified list).
       } catch (err) {
+        ok = false;
         logger.warn({ err, opId: op.id, accountId: this.account.id }, "flag op failed");
-      } finally {
+      }
+      if (ok) {
         await supabase.from("flag_ops").delete().eq("id", op.id);
+      } else {
+        // Release the claim so the next cycle retries instead of the op being
+        // silently swallowed.
+        await supabase.from("flag_ops").update({ claimed_at: null }).eq("id", op.id);
+      }
+    }
+  }
+
+  /**
+   * Push \Seen for a whole batch of read/unread ops in one command per
+   * direction. UIDs are resolved as of each op's created_at so replaying a
+   * backlog cannot mark mail read that arrived after the user clicked.
+   */
+  private async applyBulkSeen(
+    client: ImapFlow,
+    ops: Array<{ id: string; op: string; message_id: string | null; thread_id: string | null; created_at: string }>,
+  ): Promise<void> {
+    for (const direction of ["read", "unread"] as const) {
+      const group = ops.filter((o) => o.op === direction);
+      if (group.length === 0) continue;
+
+      const uids = new Set<number>();
+      const applied: string[] = [];
+      for (const op of group) {
+        const found = await this.uidsFor(op.message_id, op.thread_id, op.created_at);
+        for (const uid of found) uids.add(uid);
+        applied.push(op.id);
+      }
+      if (uids.size === 0) {
+        // Nothing to push, but the intent is recorded locally: clear the ops so
+        // they do not spin forever.
+        await supabase.from("flag_ops").delete().in("id", applied);
+        continue;
+      }
+
+      const range = [...uids].sort((a, b) => a - b).join(",");
+      try {
+        if (direction === "read") {
+          await client.messageFlagsAdd({ uid: range }, ["\\Seen"], { uid: true });
+        } else {
+          await client.messageFlagsRemove({ uid: range }, ["\\Seen"], { uid: true });
+        }
+        await supabase.from("flag_ops").delete().in("id", applied);
+        logger.info(
+          { accountId: this.account.id, op: direction, ops: applied.length, uids: uids.size },
+          "flag ops applied",
+        );
+      } catch (err) {
+        logger.warn({ err, accountId: this.account.id, op: direction }, "bulk flag op failed");
+        await supabase.from("flag_ops").update({ claimed_at: null }).in("id", applied);
       }
     }
   }
@@ -364,7 +475,17 @@ export class AccountSyncer {
     return (data ?? []).map((r) => r.id as string);
   }
 
-  private async uidsFor(messageId: string | null, threadId: string | null): Promise<number[]> {
+  /**
+   * UIDs an op should touch. `notAfter` scopes a thread-level op to the
+   * messages that existed when the user acted: without it, an op sitting in the
+   * queue widens as new mail lands, so replaying a backlog would mark unread
+   * mail read that arrived after the click.
+   */
+  private async uidsFor(
+    messageId: string | null,
+    threadId: string | null,
+    notAfter?: string | null,
+  ): Promise<number[]> {
     let query = supabase
       .from("messages")
       .select("imap_uid")
@@ -374,6 +495,7 @@ export class AccountSyncer {
     if (messageId) query = query.eq("id", messageId);
     else if (threadId) query = query.eq("thread_id", threadId);
     else return [];
+    if (notAfter) query = query.lte("created_at", notAfter);
     const { data } = await query;
     return (data ?? []).map((r) => Number(r.imap_uid)).filter((n) => n > 0);
   }
