@@ -381,26 +381,49 @@ export class AccountSyncer {
         }
         const range = uids.join(",");
         if (op.op === "archive") {
+          // imapflow's messageMove RESOLVES FALSE rather than throwing: see
+          // node_modules/imapflow/lib/commands/move.js, which returns undefined
+          // when the mailbox is not SELECTED and false on a tagged NO/BAD. A
+          // bare `await` therefore cannot tell a completed move from a refused
+          // one, and the old code nulled the UIDs either way.
+          //
+          // That is unrecoverable, not merely wrong: uidsFor and reconcileFlags
+          // both require imap_mailbox='INBOX' with a non-null uid, the ingest
+          // upsert keys on (account, mailbox, uid), and backfill only walks
+          // below the oldest known uid. A row nulled by a move that never
+          // happened can never be re-observed or re-addressed again.
+          let moved = false; // a MOVE actually completed
+          let attemptedMove = true;
           if (this.account.provider_preset === "gmail") {
             // Gmail: removing from INBOX = archiving (message stays in All Mail).
-            await client.messageMove({ uid: range }, "[Gmail]/All Mail", { uid: true });
+            moved = Boolean(await client.messageMove({ uid: range }, "[Gmail]/All Mail", { uid: true }));
           } else {
             const archive = await findSpecialUse(client, "\\Archive");
             if (archive) {
-              await client.messageMove({ uid: range }, archive, { uid: true });
+              moved = Boolean(await client.messageMove({ uid: range }, archive, { uid: true }));
             } else {
-              // No archive folder: best effort is mark-read; the thread stays
-              // archived in OneInbox regardless.
+              // No archive folder: best effort is mark-read. The mail stays in
+              // INBOX, so its UIDs stay valid and must NOT be forgotten. The
+              // thread stays archived in OneInbox regardless.
               await client.messageFlagsAdd({ uid: range }, ["\\Seen"], { uid: true });
+              attemptedMove = false;
             }
           }
-          // Moved messages leave INBOX: forget their UIDs so reconcile doesn't
-          // re-mark the thread.
-          await supabase
-            .from("messages")
-            .update({ imap_mailbox: "archived", imap_uid: null })
-            .eq("account_id", this.account.id)
-            .in("id", await this.messageIds(op.message_id, op.thread_id));
+          if (moved) {
+            // Left INBOX: forget the UIDs so reconcile doesn't re-mark the thread.
+            await supabase
+              .from("messages")
+              .update({ imap_mailbox: "archived", imap_uid: null })
+              .eq("account_id", this.account.id)
+              .in("id", await this.messageIds(op.message_id, op.thread_id));
+          } else if (attemptedMove) {
+            // Refused without throwing. Leave the UIDs intact and retry.
+            ok = false;
+            logger.warn(
+              { opId: op.id, accountId: this.account.id, uids: uids.length },
+              "archive move refused by server; keeping uids for retry",
+            );
+          }
         }
         // unarchive: local-only (pulling mail back into INBOX across servers
         // is unreliable; the thread simply reappears in the unified list).
@@ -431,19 +454,34 @@ export class AccountSyncer {
       const group = ops.filter((o) => o.op === direction);
       if (group.length === 0) continue;
 
+      // Track deliverable and undeliverable ops apart. Lumping them together
+      // makes the success log count ops whose flag never left the building,
+      // which is exactly the kind of false green that hid the original bug.
       const uids = new Set<number>();
-      const applied: string[] = [];
+      const deliverable: string[] = [];
+      const undeliverable: string[] = [];
       for (const op of group) {
         const found = await this.uidsFor(op.message_id, op.thread_id, op.created_at);
+        if (found.length === 0) {
+          undeliverable.push(op.id);
+          continue;
+        }
         for (const uid of found) uids.add(uid);
-        applied.push(op.id);
+        deliverable.push(op.id);
       }
-      if (uids.size === 0) {
-        // Nothing to push, but the intent is recorded locally: clear the ops so
-        // they do not spin forever.
-        await supabase.from("flag_ops").delete().in("id", applied);
-        continue;
+      if (undeliverable.length > 0) {
+        // Not addressable on the server: never ingested, or the thread was
+        // archived (which nulls imap_uid) and unarchive is local-only, so the
+        // rows can never resolve a UID again. Local state stands; drop them
+        // rather than retry forever, but say so.
+        logger.info(
+          { accountId: this.account.id, op: direction, dropped: undeliverable.length },
+          "flag ops undeliverable (no INBOX uid); dropping",
+        );
+        await supabase.from("flag_ops").delete().in("id", undeliverable);
       }
+      if (uids.size === 0) continue;
+      const applied = deliverable;
 
       const range = [...uids].sort((a, b) => a - b).join(",");
       try {
