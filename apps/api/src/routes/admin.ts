@@ -78,6 +78,12 @@ adminRouter.get("/users", async (_req, res) => {
       const accountCount = Number(s.accounts ?? 0);
       const paying = plan === "monthly" || plan === "lifetime";
       const lastSignIn = u.last_sign_in_at ?? null;
+      // Asked to leave but still inside the paid period. Status alone still
+      // reads "trialing"/"active" here, so without this they look healthy
+      // right up until they disappear.
+      const cancelling =
+        (p as { cancel_at_period_end?: boolean | null }).cancel_at_period_end === true;
+      const periodEnd = (p as { current_period_end?: string | null }).current_period_end ?? null;
       return {
         id: u.id,
         email: u.email ?? "(no email)",
@@ -100,6 +106,10 @@ adminRouter.get("/users", async (_req, res) => {
         trial_days_left:
           plan === "trial" && trialEnds ? Math.ceil((new Date(trialEnds).getTime() - now) / DAY_MS) : null,
         subscription_status: (p as { subscription_status?: string | null }).subscription_status ?? null,
+        cancelling,
+        cancels_at: cancelling ? periodEnd : null,
+        period_end: periodEnd,
+        billing_synced_at: (p as { billing_synced_at?: string | null }).billing_synced_at ?? null,
         signup_source: (u.user_metadata?.signup_source as string | undefined) ?? null,
         accounts: accountCount,
         accounts_broken: Number(s.accounts_broken ?? 0),
@@ -208,6 +218,19 @@ adminRouter.get("/users", async (_req, res) => {
         (u) => u.trial_days_left !== null && u.trial_days_left >= 0 && u.trial_days_left <= 2,
       ).length,
       mrr_usd: users.reduce((n, u) => n + u.mrr_usd, 0),
+      // Churn already committed but not yet taken effect. Counted apart from
+      // MRR rather than deducted from it, because the money is still arriving
+      // this period and netting it off would hide both numbers.
+      cancelling: users.filter((u) => u.cancelling).length,
+      mrr_at_risk_usd: users.reduce((n, u) => n + (u.cancelling ? u.mrr_usd : 0), 0),
+      // Oldest reconcile across all tracked subscriptions. If this goes stale
+      // the billing numbers on this page are guesses, and the page should say
+      // so rather than presenting them with unearned confidence.
+      billing_synced_at:
+        users
+          .map((u) => u.billing_synced_at)
+          .filter((d): d is string => Boolean(d))
+          .sort()[0] ?? null,
       cash_collected_usd: cash?.collected_usd ?? null,
       refunded_usd: cash?.refunded_usd ?? null,
       accounts_total: users.reduce((n, u) => n + u.accounts, 0),

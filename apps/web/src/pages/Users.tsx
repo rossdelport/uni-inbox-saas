@@ -27,6 +27,11 @@ interface AdminUser {
   trial_ends_at: string | null;
   trial_days_left: number | null;
   subscription_status: string | null;
+  /** Asked to leave. Still has access until cancels_at, so status alone looks healthy. */
+  cancelling: boolean;
+  cancels_at: string | null;
+  period_end: string | null;
+  billing_synced_at: string | null;
   signup_source: string | null;
   accounts: number;
   accounts_broken: number;
@@ -48,6 +53,9 @@ interface AdminData {
     trials_active: number;
     trials_expiring_soon: number;
     mrr_usd: number;
+    cancelling: number;
+    mrr_at_risk_usd: number;
+    billing_synced_at: string | null;
     cash_collected_usd: number | null;
     refunded_usd: number | null;
     accounts_total: number;
@@ -151,6 +159,14 @@ export function Users() {
   const pct = (n: number, of: number) => (of > 0 ? `${Math.round((n / of) * 100)}%` : "·");
 
   const funnelMax = Math.max(1, ...(d?.funnel ?? []).map((f) => f.n));
+
+  // The reconcile is daily, so anything past ~2 days means the job is not
+  // running, not that it is merely between passes.
+  const syncedAt = d?.totals.billing_synced_at ?? null;
+  const billingAgeDays = syncedAt
+    ? Math.floor((Date.now() - new Date(syncedAt).getTime()) / 86_400_000)
+    : null;
+  const billingStale = billingAgeDays !== null && billingAgeDays >= 2;
   const sparkMax = Math.max(1, ...(d?.traffic.by_day ?? []).map((p) => p.views));
 
   async function copyStalled() {
@@ -172,6 +188,20 @@ export function Users() {
             ? `${d.totals.users} signups, ${d.totals.activated} activated, ${d.totals.paying} paying. Refreshes every minute.`
             : "Loading…"}
         </p>
+        {/* Engagement numbers come straight from our own tables and are always
+            current. Billing is a mirror of Stripe, kept fresh by webhooks and
+            re-checked against the Stripe API once a day. When that reconcile
+            goes stale the billing figures here are guesses, and a page that
+            does not say so is worse than one with no figures at all. */}
+        {d && (
+          <p className={`adm-sync${billingStale ? " stale" : ""}`}>
+            {d.totals.billing_synced_at
+              ? billingStale
+                ? `Billing last confirmed with Stripe ${ago(billingAgeDays)}. That is overdue, so treat MRR and plans as stale until the daily reconcile runs.`
+                : `Billing confirmed against Stripe ${ago(billingAgeDays)}, re-checked daily.`
+              : "Billing has not been reconciled with Stripe yet. The first pass runs a couple of minutes after the API boots."}
+          </p>
+        )}
 
         {query.error && !/password/i.test((query.error as Error).message) && (
           <p className="err">{(query.error as Error).message}</p>
@@ -181,9 +211,28 @@ export function Users() {
           <>
             <div className="adm-tiles">
               <div className="adm-tile">
-                <div className="t-num">{money(d.totals.mrr_usd)}</div>
+                <div className="t-num">
+                  {money(d.totals.mrr_usd)}
+                  {/* Not deducted from MRR: that money still arrives this
+                      period. Shown beside it so the loss is impossible to
+                      miss without making the headline number wrong. */}
+                  {d.totals.mrr_at_risk_usd > 0 && (
+                    <span style={{ fontSize: 13, color: "#b06000" }}>
+                      {" "}
+                      (−{money(d.totals.mrr_at_risk_usd)} leaving)
+                    </span>
+                  )}
+                </div>
                 <div className="t-lab">MRR</div>
               </div>
+              {/* Only rendered once someone is actually cancelling. A permanent
+                  zero here would be decoration, not information. */}
+              {d.totals.cancelling > 0 && (
+                <div className="adm-tile">
+                  <div className="t-num" style={{ color: "#b06000" }}>{d.totals.cancelling}</div>
+                  <div className="t-lab">Cancelling (access until period end)</div>
+                </div>
+              )}
               <div className="adm-tile">
                 <div className="t-num">{money(d.totals.cash_collected_usd)}</div>
                 <div className="t-lab">
@@ -390,6 +439,14 @@ export function Users() {
                         </td>
                         <td>
                           <span className={`adm-stage ${u.stage}`}>{STAGE_LABEL[u.stage]}</span>
+                          {/* Sits beside the stage rather than replacing it: they
+                              are still paying and still activated today, and the
+                              stage should keep saying so. */}
+                          {u.cancelling && (
+                            <div className="adm-leaving">
+                              Cancelling{u.cancels_at ? `, ends ${when(u.cancels_at)}` : ""}
+                            </div>
+                          )}
                         </td>
                         <td className="adm-num">
                           {u.accounts === 0 ? (

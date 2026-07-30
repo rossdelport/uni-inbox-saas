@@ -157,6 +157,10 @@ export function ConnectForm({
   // Submitting covers both round trips: test the servers, then save. The user
   // clicked one button, so it reads as one wait.
   const busy = testMutation.isPending || connect.isPending;
+  // Proton, Tuta and HEY block IMAP by design. Letting someone type a password
+  // and wait for two handshakes that cannot succeed wastes their time and
+  // reads as our bug rather than the provider's policy.
+  const blocked = sel === "custom" && discovery?.unsupported === true;
 
   function pick(k: ProviderKey) {
     setSel(k);
@@ -235,6 +239,9 @@ export function ConnectForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    // Belt and braces with the disabled button: pressing Enter in a field can
+    // still submit a form in some browsers, and there is nothing to test here.
+    if (blocked) return;
     // A cached PASS is safe to reuse: `set` clears it on any edit, so nothing
     // has changed since we checked. A cached FAILURE must never be reused. The
     // fix for a failed connection usually happens OUTSIDE this form (enabling
@@ -380,9 +387,16 @@ export function ConnectForm({
                 )}
 
               {sel === "custom" && (discover.isPending || discovery) && (
-                <div className="m-note" style={{ marginTop: 10 }}>
+                <div
+                  className={blocked ? "m-note m-note-stop" : "m-note"}
+                  style={{ marginTop: 10 }}
+                >
                   {discover.isPending ? (
                     "Looking up where this domain's mail lives…"
+                  ) : blocked ? (
+                    <>
+                      <b>{discovery!.detected} cannot be connected.</b> {discovery!.note}
+                    </>
                   ) : discovery?.detected ? (
                     <>
                       <b>{discovery.detected}</b> detected. Server settings are filled in, just add the
@@ -391,7 +405,7 @@ export function ConnectForm({
                   ) : (
                     (discovery?.note ?? "")
                   )}
-                  {discovery?.detected && discovery.note && <> {discovery.note}</>}
+                  {!blocked && discovery?.detected && discovery.note && <> {discovery.note}</>}
                 </div>
               )}
 
@@ -493,7 +507,7 @@ export function ConnectForm({
                 type="submit"
                 className="btn-black"
                 style={{ marginTop: 16 }}
-                disabled={busy}
+                disabled={busy || blocked}
                 aria-busy={busy}
               >
                 {/* One label for both phases. Testing then saving is our
@@ -505,6 +519,8 @@ export function ConnectForm({
                     <span className="spin" aria-hidden="true" />
                     Adding your email…
                   </>
+                ) : blocked ? (
+                  "This provider cannot be connected"
                 ) : failed ? (
                   "Retry connection"
                 ) : (

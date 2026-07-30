@@ -304,6 +304,18 @@ export async function applySubscription(uid: string, sub: Stripe.Subscription): 
   }
 
   const planId: PlanId = isActive ? "monthly" : "trial";
+  // A subscription set to cancel keeps status "trialing"/"active" until the
+  // period actually ends, so status alone cannot tell a happy user from one
+  // already on the way out. Stored separately so churn is visible the day it
+  // is requested, not the day it takes effect.
+  //
+  // current_period_end lives on the subscription ITEM in current Stripe API
+  // versions (it was removed from the subscription object), which is why this
+  // reads item first. cancel_at is the authoritative date when one is set.
+  // Always stored, cancelling or not: for a live subscription it is the renewal
+  // date, for a cancelling one it is the day access stops. cancel_at wins when
+  // Stripe has scheduled a specific end that is not the period boundary.
+  const periodEnd = sub.cancel_at ?? item?.current_period_end ?? null;
   await supabase
     .from("profiles")
     .update({
@@ -312,6 +324,9 @@ export async function applySubscription(uid: string, sub: Stripe.Subscription): 
       stripe_price_id: priceId,
       subscription_status: sub.status,
       monthly_quantity: isActive ? quantity : 0,
+      cancel_at_period_end: sub.cancel_at_period_end === true,
+      current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      billing_synced_at: new Date().toISOString(),
     })
     .eq("user_id", uid);
 
@@ -418,4 +433,72 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     default:
       return; // unhandled event types are fine — we only subscribe to these
   }
+}
+
+/**
+ * Re-read every tracked subscription from Stripe and re-apply it.
+ *
+ * Webhooks are the fast path, not the source of truth. A misconfigured
+ * endpoint URL silently 404'd every billing event for three days: checkout
+ * still worked (the /confirm redirect covers that), but every renewal,
+ * cancellation and payment failure in that window was invisible, and nothing
+ * in the system would ever have noticed. This pass closes that hole by asking
+ * Stripe directly on a schedule.
+ *
+ * Reads Stripe, writes only through applySubscription, so all the existing
+ * guards (lifetime never downgraded, untracked-subscription events ignored)
+ * apply unchanged. Safe to run repeatedly.
+ */
+export async function reconcileBilling(): Promise<{ checked: number; changed: number; failed: number }> {
+  if (!env.STRIPE_SECRET_KEY) {
+    logger.info("billing reconcile skipped: STRIPE_SECRET_KEY unset");
+    return { checked: 0, changed: 0, failed: 0 };
+  }
+
+  // Lifetime profiles are excluded: they have no subscription to re-read, and
+  // applySubscription would refuse to touch them anyway.
+  const { data: rows, error } = await supabase
+    .from("profiles")
+    .select("user_id, stripe_subscription_id, subscription_status, cancel_at_period_end")
+    .not("stripe_subscription_id", "is", null)
+    .neq("plan", "lifetime");
+  if (error) {
+    logger.error({ err: error }, "billing reconcile: profile query failed");
+    return { checked: 0, changed: 0, failed: 0 };
+  }
+
+  let changed = 0;
+  let failed = 0;
+  for (const row of rows ?? []) {
+    const subId = row.stripe_subscription_id as string;
+    const uid = row.user_id as string;
+    try {
+      const sub = await stripe().subscriptions.retrieve(subId);
+      await applySubscription(uid, sub);
+      const drifted =
+        sub.status !== row.subscription_status ||
+        sub.cancel_at_period_end !== (row.cancel_at_period_end === true);
+      if (drifted) {
+        changed += 1;
+        logger.warn(
+          {
+            uid,
+            subId,
+            was: row.subscription_status,
+            now: sub.status,
+            cancelling: sub.cancel_at_period_end,
+          },
+          "billing reconcile: drift corrected (a webhook was missed)",
+        );
+      }
+    } catch (err) {
+      // A deleted subscription 404s here. Leave the profile alone rather than
+      // guessing: a wrong downgrade locks out someone who is actually paying.
+      failed += 1;
+      logger.error({ err, uid, subId }, "billing reconcile: subscription refresh failed");
+    }
+  }
+
+  logger.info({ checked: (rows ?? []).length, changed, failed }, "billing reconcile complete");
+  return { checked: (rows ?? []).length, changed, failed };
 }

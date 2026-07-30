@@ -128,5 +128,7 @@ export interface DiscoverResult {
   smtp_port: number;
   smtp_security: "tls" | "starttls";
   use_oauth: "google" | "microsoft" | null;
+  /** Provider blocks IMAP by design (Proton, Tuta, HEY). Nothing to try. */
+  unsupported: boolean;
   note: string | null;
 }

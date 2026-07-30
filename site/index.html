@@ -318,6 +318,41 @@ section.framer-jcnslc[data-framer-name="footer"]{padding-bottom:0!important;over
   .uni-card h3{font-size:20px}
   .uni-note{border-radius:26px;padding:24px 22px 26px}
 }
+
+/* Compatibility band. A paying trial user reached the connect screen, found
+   no way to add Proton or Tuta, and churned: both block IMAP by design, so
+   nothing could ever have been built for them. The honest list belongs before
+   the card, not after it. Losing a few unqualified signups is cheaper than
+   refunding them.
+   Same white-to-#E8F0FF fade and direction as the security section above.
+   The Framer root leaves a grey gutter between its children, so the two are
+   visibly separate bands rather than one continuous sweep, and matching the
+   fade direction is what makes them read as a pair. */
+.uni-compat{width:100%;align-self:stretch;
+  background:linear-gradient(180deg,#FFFFFF 0%,#E8F0FF 100%);
+  padding:72px 24px 76px;font-family:"Inter",sans-serif}
+.uni-compat-in{max-width:900px;margin:0 auto;text-align:center}
+.uni-compat h2{margin:0;font-family:"M PLUS Rounded 1c","Inter",sans-serif;font-weight:800;
+  font-size:clamp(26px,3.2vw,34px);line-height:1.12;letter-spacing:-.02em;color:#0A2540}
+.uni-compat h2 span{color:#0C7DFF}
+.uni-compat-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-top:26px}
+.uni-chip{padding:8px 15px 9px;border-radius:999px;background:#fff;
+  box-shadow:inset 0 -1px 1px 0 rgba(10,114,237,.64),0 1px 1px rgba(0,0,0,.10),
+    0 2px 2px rgba(0,0,0,.09),0 4.5px 2.5px rgba(0,0,0,.05);
+  font-size:13.5px;font-weight:600;color:#0A2540}
+.uni-chip-any{color:#0C7DFF}
+/* Amber, not red. Nothing is broken and the reader has done nothing wrong,
+   so this is a heads-up rather than an error. */
+.uni-compat-stop{max-width:660px;margin:30px auto 0;padding:16px 20px 17px;
+  border-radius:20px;background:#FFF8EC;border:1px solid #F0D9AB;
+  font-size:14px;line-height:1.6;color:#7A5310;text-wrap:balance}
+.uni-compat-stop b{color:#5E3F0C;font-weight:700}
+@media(max-width:833px){
+  .uni-compat{padding:56px 20px 58px}
+  .uni-compat-chips{gap:7px;margin-top:22px}
+  .uni-chip{font-size:12.5px;padding:7px 13px 8px}
+  .uni-compat-stop{font-size:13px;border-radius:18px;padding:14px 16px 15px}
+}
 </style>
 </head>
 <body>
@@ -1873,6 +1908,44 @@ function usBuild(){
   '</div>';
 }
 
+// Providers we actually connect. Names only, no logos: trademark hassle for
+// no gain, and a plain list scans faster than a wall of favicons.
+var UC_WORKS = ['Gmail','Outlook','iCloud','Zoho','Fastmail','Migadu','Porkbun',
+  'Namecheap','Titan','IONOS','Hostinger','mailbox.org'];
+
+function ucBuild(){
+  return '<div class="uni-compat-in">' +
+    '<h2>Works with the mailboxes you <span>already have</span>.</h2>' +
+    '<div class="uni-compat-chips">' +
+      UC_WORKS.map(function(n){ return '<span class="uni-chip">' + n + '</span>'; }).join('') +
+      '<span class="uni-chip uni-chip-any">and any IMAP host</span>' +
+    '</div>' +
+    '<p class="uni-compat-stop"><b>Proton, Tuta and HEY cannot be connected.</b> ' +
+    'All three block IMAP access on purpose, so no outside app can reach them. ' +
+    'Proton offers this through a Bridge app that runs on your own computer, which a ' +
+    'hosted service cannot reach. If those are your only mailboxes, OneInbox is not for you, ' +
+    'and we would rather say so now than after you have paid.</p>' +
+  '</div>';
+}
+
+function patchCompat(){
+  // Sits directly after the security section, which itself sits after the
+  // hero. Same flex-order trick: the Framer root re-sorts its children by
+  // computed order at each breakpoint, so inherit the hero's order and let
+  // DOM position break the tie.
+  q('section[data-framer-name="hero"]').forEach(function(hero){
+    var sec = hero.nextElementSibling;                       // security section
+    if (!sec || !sec.hasAttribute || !sec.hasAttribute('data-uni-sec')) return;
+    var next = sec.nextElementSibling;
+    var band = (next && next.hasAttribute && next.hasAttribute('data-uni-compat')) ? next : null;
+    if (!band){
+      band = elFrom('<section class="uni-compat" data-uni-compat="1">' + ucBuild() + '</section>');
+      sec.parentNode.insertBefore(band, sec.nextSibling);
+    }
+    band.style.order = getComputedStyle(hero).order;
+  });
+}
+
 function patchSecurity(){
   // 1. One line under the hero call to action.
   q('[data-framer-name="btns"]').forEach(function(btns){
@@ -1916,7 +1989,7 @@ function patchSecurity(){
 }
 
 function patchAll(){
-  [killBadge, patchLogo, patchIcons, patchPills, patchTabs, patchSearch, patchFaq, patchPricing, patchFooter, patchLinks, initTypers, patchHero, patchFlow, patchNotif, patchSecurity].forEach(function(fn){
+  [killBadge, patchLogo, patchIcons, patchPills, patchTabs, patchSearch, patchFaq, patchPricing, patchFooter, patchLinks, initTypers, patchHero, patchFlow, patchNotif, patchSecurity, patchCompat].forEach(function(fn){
     try { fn(); } catch (e) {}
   });
 }

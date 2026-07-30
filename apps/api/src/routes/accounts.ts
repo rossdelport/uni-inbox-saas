@@ -153,6 +153,12 @@ const MX_MAP: Array<{
   smtp_security: "tls" | "starttls";
   note?: string;
   use_oauth?: "google" | "microsoft";
+  // Providers that block IMAP as a design decision, not a setting. No plan,
+  // price or support ticket opens these, so the UI stops the connect flow
+  // instead of letting someone type a password we can never use. Discovered
+  // the hard way: a trial user signed up, reached this screen, found no way
+  // to add Proton or Tuta, and churned. Say it before the card, not after.
+  unsupported?: true;
   // Some providers run per-region data centers whose hostnames all follow one
   // shape. Deriving the servers from the matched MX beats a hardcoded list
   // that goes stale every time the provider opens another region.
@@ -176,7 +182,13 @@ const MX_MAP: Array<{
   { match: /hostinger\.com$|titan\.hostinger/i, provider: "Hostinger", imap_host: "imap.hostinger.com", imap_port: 993, smtp_host: "smtp.hostinger.com", smtp_port: 465, smtp_security: "tls" },
   { match: /mailbox\.org$/i, provider: "mailbox.org", imap_host: "imap.mailbox.org", imap_port: 993, smtp_host: "smtp.mailbox.org", smtp_port: 465, smtp_security: "tls" },
   { match: /migadu\.com$/i, provider: "Migadu", imap_host: "imap.migadu.com", imap_port: 993, smtp_host: "smtp.migadu.com", smtp_port: 465, smtp_security: "tls" },
-  { match: /protonmail\.ch$|proton\.me$/i, provider: "Proton Mail", imap_host: "127.0.0.1", imap_port: 1143, smtp_host: "127.0.0.1", smtp_port: 1025, smtp_security: "starttls", note: "Proton Mail only allows IMAP through their desktop Bridge app, so it cannot connect to a cloud inbox directly." },
+  { match: /icloud\.com$|me\.com$|apple\.com$/i, provider: "iCloud Mail", imap_host: "imap.mail.me.com", imap_port: 993, smtp_host: "smtp.mail.me.com", smtp_port: 587, smtp_security: "starttls", note: "iCloud needs an app-specific password from appleid.apple.com, not your Apple ID password. The iCloud button above sets this up with fewer steps." },
+  // The three below can never connect. Ports and hosts are left blank on
+  // purpose: there is nothing to fall back to, and inventing a hostname only
+  // produces a confusing auth failure a minute later.
+  { match: /protonmail\.ch$|proton\.me$/i, provider: "Proton Mail", imap_host: "", imap_port: 993, smtp_host: "", smtp_port: 465, smtp_security: "tls", unsupported: true, note: "Proton allows IMAP only through their Bridge app, which runs on your own computer, so no cloud service can reach it. On a paid Proton plan you can auto-forward Proton mail to a mailbox you connect here, though replies would go out from that address instead of your Proton one." },
+  { match: /tutanota\.de$|tuta(nota)?\.com$|tuta\.io$/i, provider: "Tuta", imap_host: "", imap_port: 993, smtp_host: "", smtp_port: 465, smtp_security: "tls", unsupported: true, note: "Tuta blocks IMAP, POP and SMTP entirely, by design, and has no bridge app. There is no way to connect it to any third-party client." },
+  { match: /hey\.com$/i, provider: "HEY", imap_host: "", imap_port: 993, smtp_host: "", smtp_port: 465, smtp_security: "tls", unsupported: true, note: "HEY does not offer IMAP, POP or SMTP, so it only works inside HEY's own apps. You can forward HEY mail to a mailbox you connect here, but replies would not come from your HEY address." },
 ];
 
 accountsRouter.post("/discover", async (req, res) => {
@@ -206,6 +218,7 @@ accountsRouter.post("/discover", async (req, res) => {
         smtp_port: hit.smtp_port,
         smtp_security: hit.smtp_security,
         use_oauth: hit.use_oauth ?? null,
+        unsupported: hit.unsupported ?? false,
         note: hit.note ?? null,
       });
     }
@@ -219,6 +232,7 @@ accountsRouter.post("/discover", async (req, res) => {
       smtp_port: 465,
       smtp_security: "tls",
       use_oauth: null,
+      unsupported: false,
       note: target
         ? "We could not identify this mail host, so the servers below are a guess. Your email provider's help pages list the exact IMAP and SMTP hosts."
         : null,
@@ -233,6 +247,7 @@ accountsRouter.post("/discover", async (req, res) => {
       smtp_port: 465,
       smtp_security: "tls",
       use_oauth: null,
+      unsupported: false,
       note: "This domain has no mail records that we can see. Check the spelling, or enter the servers manually.",
     });
   }

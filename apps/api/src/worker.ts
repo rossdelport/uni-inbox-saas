@@ -3,6 +3,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { superviseTick } from "./services/imapSync.js";
 import { retentionSweep } from "./services/retention.js";
+import { reconcileBilling } from "./services/stripeBilling.js";
 import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
 // IMAP sync supervisor. Every 30s: start syncers for due accounts, tear down
@@ -58,6 +59,17 @@ setTimeout(() => {
   void run();
   setInterval(run, 24 * 3600 * 1000);
 }, 5 * 60_000);
+
+// Billing reconcile: daily, offset from the retention sweep so the two never
+// contend. Runs 2 minutes after boot rather than waiting a full day, because
+// the case it exists for (webhooks silently failing) is also the case where
+// you have just redeployed to fix them and want to know immediately.
+setTimeout(() => {
+  const run = () =>
+    reconcileBilling().catch((err) => logger.error({ err }, "billing reconcile failed"));
+  void run();
+  setInterval(run, 24 * 3600 * 1000);
+}, 2 * 60_000);
 
 logger.info(
   {
