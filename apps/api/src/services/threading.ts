@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase.js";
+import { logger } from "../lib/logger.js";
 
 // Conversation threading. RFC headers first (References / In-Reply-To against
 // message ids we already hold for the account), then a fallback for clients
@@ -26,6 +27,9 @@ export interface IncomingMeta {
   date: Date;
   snippet: string | null;
   seen: boolean;
+  /** Which way this message travelled. Decides whether a thread created for it
+   *  belongs in the Inbox (mail arrived) or only in Sent (we started it). */
+  direction: "inbound" | "outbound";
 }
 
 /** Find the thread this message belongs to, or create one. Returns thread id. */
@@ -82,6 +86,10 @@ export async function resolveThread(meta: IncomingMeta): Promise<string> {
       // Set explicitly, not left to the column default: this row is inserted
       // before touchThread() fills in the rollups, and the inbox sorts on it.
       last_inbound_at: meta.date.toISOString(),
+      // A thread born from a message we SENT has received nothing, so it lives
+      // in Sent until someone replies. touchThread flips this to true the
+      // moment an inbound message lands, and never flips it back.
+      has_inbound: meta.direction === "inbound",
       message_count: 0, // bumped by touchThread below
       unread: !meta.seen,
       snippet: meta.snippet,
@@ -133,18 +141,30 @@ export async function touchThread(threadId: string, inboundMail = false): Promis
     );
   }
 
-  await supabase
+  const { error: rollupErr } = await supabase
     .from("threads")
     .update({
       last_message_at: newest.date,
+      // Kept as a fallback so this stays NOT NULL and remains a safe ORDER BY
+      // key. It is no longer what decides Inbox membership; has_inbound is.
       last_inbound_at: newestInbound?.date ?? newest.date,
       message_count: msgs.length,
       snippet: newest.snippet,
       unread,
+      // Written only when there IS inbound mail, never written false. That
+      // makes it sticky on purpose: the retention sweep deletes message rows
+      // without recomputing rollups, so a thread whose inbound half has aged
+      // out would otherwise re-derive as "never received anything" and drop
+      // out of the Inbox for good.
+      ...(newestInbound ? { has_inbound: true } : {}),
       // Unarchiving is likewise reserved for real arriving mail, so a flag
       // sweep cannot drag an archived-but-unread thread back to the inbox.
       ...(unread && inboundMail ? { archived: false } : {}),
       ...(undelete ? { deleted_at: null } : {}),
     })
     .eq("id", threadId);
+  // One statement carries every rollup on the thread. Discarding its error let
+  // a schema mismatch freeze last_message_at, unread and message_count for
+  // every thread at once, silently.
+  if (rollupErr) logger.error({ err: rollupErr, threadId }, "thread rollup update failed");
 }

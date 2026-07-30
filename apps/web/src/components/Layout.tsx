@@ -6,7 +6,6 @@ import { supabase } from "../lib/supabase.js";
 import {
   useAccounts,
   useBillingState,
-  useInbox,
   useOauthProviders,
   useUnreadCounts,
   useUpdateAccount,
@@ -34,7 +33,6 @@ export function Layout() {
   useOauthProviders();
   const counts = useUnreadCounts();
   const { data: billing } = useBillingState();
-  const inbox = useInbox({});
   const [params, setParams] = useSearchParams();
   const qc = useQueryClient();
   const activeAccount = params.get("account");
@@ -112,8 +110,6 @@ export function Layout() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [colorFor]);
-
-  const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
 
   // Counted by the server, and only mail that arrived after each account was
   // connected. Counting the loaded threads here was wrong twice over: it saw

@@ -315,6 +315,10 @@ sendRouter.post("/messages/send", async (req, res) => {
       date: new Date(),
       snippet: parsed.data.body_text.replace(/\s+/g, " ").trim().slice(0, 140) || null,
       seen: true,
+      // Compose is the only path that creates a thread from a message we sent,
+      // and the one that produced the phantom Inbox rows. Reply and forward
+      // reuse an existing thread through recordOutbound.
+      direction: "outbound",
     });
     await recordOutbound(account as SendAccount, threadId, input, sent.messageId);
     void appendToSent(account as SendAccount, sent.raw);

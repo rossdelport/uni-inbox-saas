@@ -104,6 +104,14 @@ inboxRouter.get("/", async (req, res) => {
     if (account) query = query.eq("account_id", account);
     if (starred) query = query.eq("starred", true);
     if (later) query = query.eq("read_later", true);
+    // The plain Inbox shows mail that ARRIVED. A thread you started and nobody
+    // has answered lives in Sent until a reply lands, at which point
+    // touchThread sets has_inbound and it appears here.
+    //
+    // Scoped to the plain Inbox on purpose: Starred, Read later, Archived and
+    // Deleted are things the user explicitly filed, so a sent-only thread they
+    // starred must still be findable under Starred.
+    if (!deleted && !archived && !starred && !later) query = query.eq("has_inbound", true);
   }
   if (cursor && !q) {
     // Keyset: strictly older than the cursor row (ties broken by id).
@@ -119,23 +127,33 @@ inboxRouter.get("/", async (req, res) => {
   const rows = data ?? [];
   const page = rows.slice(0, PAGE_SIZE);
 
-  // Newest inbound message meta per thread for the list row's "from".
+  // Who to show on each list row. Everywhere except Sent that is the newest
+  // message's sender. In Sent every message is from the user, so naming the
+  // sender would print their own name down the whole list; the useful identity
+  // there is who it went TO.
   const threadIds = page.map((t) => t.id as string);
   const latestFrom = new Map<string, { name: string | null; address: string | null; subject: string | null }>();
   if (threadIds.length > 0) {
     const { data: msgs } = await supabase
       .from("messages")
-      .select("thread_id, from_name, from_address, subject, date")
+      .select("thread_id, from_name, from_address, to_addresses, subject, date, direction")
       .in("thread_id", threadIds)
       .order("date", { ascending: false });
     for (const m of msgs ?? []) {
-      if (!latestFrom.has(m.thread_id as string)) {
-        latestFrom.set(m.thread_id as string, {
-          name: (m.from_name as string | null) ?? null,
-          address: (m.from_address as string | null) ?? null,
-          subject: (m.subject as string | null) ?? null,
-        });
-      }
+      const tid = m.thread_id as string;
+      if (latestFrom.has(tid)) continue;
+      // In Sent, wait for the newest OUTBOUND message: a thread that has since
+      // been replied to would otherwise take its recipient from an inbound row
+      // that has the user in `to`.
+      if (sent && m.direction !== "outbound") continue;
+      const recipients = (m.to_addresses as string[] | null) ?? [];
+      const to = recipients[0] ?? null;
+      const extra = recipients.length > 1 ? ` +${recipients.length - 1}` : "";
+      latestFrom.set(tid, {
+        name: sent ? (to ? `To ${to}${extra}` : null) : ((m.from_name as string | null) ?? null),
+        address: sent ? to : ((m.from_address as string | null) ?? null),
+        subject: (m.subject as string | null) ?? null,
+      });
     }
   }
 
@@ -260,6 +278,10 @@ inboxRouter.get("/counts", async (_req, res) => {
       .eq("unread", true)
       .eq("archived", false)
       .is("deleted_at", null)
+      // Same predicate as the Inbox list, so the sidebar badge can never count
+      // a thread the Inbox does not show. Marking a sent-only thread unread
+      // from the Sent tab would otherwise leave a badge with nothing behind it.
+      .eq("has_inbound", true)
       .gte("last_inbound_at", a.created_at as string);
     byAccount[a.id as string] = count ?? 0;
     total += count ?? 0;
@@ -297,6 +319,11 @@ inboxRouter.post("/read-all", async (req, res) => {
   if (account) q = q.eq("account_id", account);
   if (starred) q = q.eq("starred", true);
   if (later) q = q.eq("read_later", true);
+  // Same predicate as the list, so "Read all" acts on exactly what the Inbox
+  // shows. A sent-only thread can still carry unread=true (the Sent tab offers
+  // a mark-unread action), and without this it would be swept up invisibly and
+  // queue a flag op for a thread that has no INBOX uid to apply it to.
+  if (!archived && !starred && !later) q = q.eq("has_inbound", true);
 
   const { data: rows, error } = await q;
   if (error) {

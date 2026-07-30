@@ -740,6 +740,8 @@ export async function ingestMessage(
       date,
       snippet,
       seen,
+      // The syncer only ever opens INBOX, so anything it ingests arrived here.
+      direction: "inbound",
     });
 
     const { error } = await supabase.from("messages").upsert(

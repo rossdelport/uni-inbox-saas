@@ -235,10 +235,22 @@ export function ConnectForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const result = test ?? (await runTest());
+    // A cached PASS is safe to reuse: `set` clears it on any edit, so nothing
+    // has changed since we checked. A cached FAILURE must never be reused. The
+    // fix for a failed connection usually happens OUTSIDE this form (enabling
+    // IMAP at the host, upgrading a plan, generating an app password), so the
+    // form is untouched and `test` still holds the old failure. Reusing it
+    // returned early and the button did nothing at all, which left closing and
+    // reopening the modal as the only way to try again.
+    const passed = test && test.imap_ok && test.smtp_ok ? test : null;
+    const result = passed ?? (await runTest());
     if (!result.imap_ok || !result.smtp_ok) return;
     doConnect();
   }
+
+  // A finished test that did not fully pass. Drives the retry label, and stays
+  // false while a test is in flight so the button never flips mid-request.
+  const failed = test !== null && !(test.imap_ok && test.smtp_ok);
 
   // `oauth` is undefined until the providers query resolves. Reading that as
   // "OAuth unavailable" made the modal paint the whole Gmail password form and
@@ -493,6 +505,8 @@ export function ConnectForm({
                     <span className="spin" aria-hidden="true" />
                     Adding your email…
                   </>
+                ) : failed ? (
+                  "Retry connection"
                 ) : (
                   "Connect account"
                 )}

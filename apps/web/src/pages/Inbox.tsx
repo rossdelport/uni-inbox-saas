@@ -197,8 +197,12 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           <div className="list-head-top">
             <h2>{title}</h2>
             {/* Only when there is something to clear, and never over search
-                results, where "all" would mean more than what is listed. */}
-            {unreadN > 0 && !searching && (
+                results, where "all" would mean more than what is listed.
+                Hidden on Sent and Deleted as well: the request carries no scope
+                for either view, so it degrades to the plain Inbox scope and
+                would mark the whole inbox read from a tab that is not showing
+                it. Mobile already guards this; web did not. */}
+            {unreadN > 0 && !searching && view !== "sent" && view !== "deleted" && (
               <button
                 className="btn-mini"
                 disabled={readAll.isPending}
