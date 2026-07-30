@@ -21,37 +21,71 @@ adminRouter.use((req, res, next) => {
   next();
 });
 
+const DAY_MS = 24 * 3600 * 1000;
+/** Traffic rows scanned per refresh. Bounds the payload on a busy month. */
+const VIEW_SCAN_LIMIT = 20_000;
+
 function monthlyMrr(quantity: number | null | undefined): number {
   const qty = Math.max(PRICING.monthlyIncluded, quantity ?? PRICING.monthlyIncluded);
   return PRICING.monthlyBaseUsd + Math.max(0, qty - PRICING.monthlyIncluded) * PRICING.monthlyPerExtraUsd;
 }
 
 adminRouter.get("/users", async (_req, res) => {
-  // Emails + signup attribution live in auth; billing state lives on profiles.
-  const [{ data: authList, error: authErr }, { data: profiles }] = await Promise.all([
+  // Emails + signup attribution live in auth; billing on profiles; per-user
+  // engagement in the admin_user_stats view (aggregated in Postgres, so this
+  // does not scale with message count); traffic in page_views.
+  const [
+    { data: authList, error: authErr },
+    { data: profiles },
+    { data: stats, error: statsErr },
+    { data: accounts },
+    { data: views },
+  ] = await Promise.all([
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     supabase.from("profiles").select("*"),
+    supabase.from("admin_user_stats").select("*"),
+    supabase
+      .from("email_accounts")
+      .select("owner_id, email_address, provider_preset, status, consecutive_failures, last_error"),
+    supabase
+      .from("page_views")
+      .select("path, referrer, created_at")
+      .gte("created_at", new Date(Date.now() - 30 * DAY_MS).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(VIEW_SCAN_LIMIT),
   ]);
   if (authErr) {
     logger.error({ authErr }, "admin listUsers failed");
     return res.status(500).json({ error: "could not list users" });
   }
+  // Not fatal: the page still renders billing and funnel without engagement
+  // columns. Logged rather than swallowed so a missing view is visible.
+  if (statsErr) logger.warn({ err: statsErr }, "admin_user_stats unavailable");
 
   const profByUser = new Map((profiles ?? []).map((p) => [p.user_id as string, p]));
+  const statByUser = new Map((stats ?? []).map((s) => [s.user_id as string, s as Record<string, unknown>]));
   const now = Date.now();
 
   const users = (authList?.users ?? [])
     .map((u) => {
       const p = profByUser.get(u.id) ?? {};
+      const s = statByUser.get(u.id) ?? {};
       const rawPlan = (p as { plan?: string }).plan ?? "trial";
       const plan: PlanId = rawPlan === "monthly" || rawPlan === "lifetime" ? rawPlan : "trial";
       const qty = (p as { monthly_quantity?: number | null }).monthly_quantity;
       const trialEnds = (p as { trial_ends_at?: string | null }).trial_ends_at ?? null;
       const mrr = plan === "monthly" ? monthlyMrr(qty) : 0;
+      const accountCount = Number(s.accounts ?? 0);
+      const paying = plan === "monthly" || plan === "lifetime";
+      const lastSignIn = u.last_sign_in_at ?? null;
       return {
         id: u.id,
         email: u.email ?? "(no email)",
+        name: (u.user_metadata?.full_name as string | undefined) ?? null,
         joined_at: u.created_at,
+        confirmed: Boolean(u.email_confirmed_at),
+        last_sign_in_at: lastSignIn,
+        days_idle: lastSignIn ? Math.floor((now - new Date(lastSignIn).getTime()) / DAY_MS) : null,
         plan,
         plan_label:
           plan === "lifetime"
@@ -63,11 +97,73 @@ adminRouter.get("/users", async (_req, res) => {
                 : "Free trial",
         mrr_usd: mrr,
         trial_ends_at: plan === "trial" ? trialEnds : null,
+        trial_days_left:
+          plan === "trial" && trialEnds ? Math.ceil((new Date(trialEnds).getTime() - now) / DAY_MS) : null,
         subscription_status: (p as { subscription_status?: string | null }).subscription_status ?? null,
         signup_source: (u.user_metadata?.signup_source as string | undefined) ?? null,
+        accounts: accountCount,
+        accounts_broken: Number(s.accounts_broken ?? 0),
+        providers: (s.providers as string[] | null) ?? [],
+        threads: Number(s.threads ?? 0),
+        unread: Number(s.unread ?? 0),
+        messages: Number(s.messages ?? 0),
+        last_mail_at: (s.last_mail_at as string | null) ?? null,
+        // The field that matters most right now: where they stalled.
+        stage: paying ? "paying" : accountCount > 0 ? "activated" : "signed_up",
       };
     })
     .sort((a, b) => (b.joined_at > a.joined_at ? 1 : -1));
+
+  const emailById = new Map(users.map((u) => [u.id, u.email]));
+
+  // Mailboxes that need a human. A broken account is silent churn: the
+  // customer just sees an inbox that quietly stopped updating.
+  const attention = (accounts ?? [])
+    .filter((a) => a.status !== "active" || Number(a.consecutive_failures ?? 0) > 0)
+    .map((a) => ({
+      user_email: emailById.get(a.owner_id as string) ?? "(unknown)",
+      account_email: a.email_address as string,
+      provider: (a.provider_preset as string) ?? "custom",
+      status: (a.status as string) ?? "unknown",
+      consecutive_failures: Number(a.consecutive_failures ?? 0),
+      last_error: (a.last_error as string | null) ?? null,
+    }))
+    .sort((x, y) => y.consecutive_failures - x.consecutive_failures);
+
+  // Traffic. Grouped here rather than in SQL: the rows are already bounded to
+  // 30 days and VIEW_SCAN_LIMIT.
+  const since7 = now - 7 * DAY_MS;
+  const byDay = new Map<string, number>();
+  const byPath = new Map<string, number>();
+  const byRef = new Map<string, number>();
+  let views7 = 0;
+  for (const v of views ?? []) {
+    const created = String(v.created_at);
+    const day = created.slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + 1);
+    byPath.set(String(v.path), (byPath.get(String(v.path)) ?? 0) + 1);
+    if (new Date(created).getTime() >= since7) views7++;
+    const ref = v.referrer as string | null;
+    if (ref) {
+      let key = ref;
+      if (!ref.startsWith("campaign:")) {
+        try {
+          key = new URL(ref).hostname;
+        } catch {
+          key = ref.slice(0, 60);
+        }
+      }
+      if (!key.includes("tryoneinbox")) byRef.set(key, (byRef.get(key) ?? 0) + 1);
+    }
+  }
+  const topOf = (m: Map<string, number>, n = 8) =>
+    [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([key, views]) => ({ key, views }));
+  // 30 contiguous days so a quiet day reads as zero rather than vanishing.
+  const byDaySeries: Array<{ day: string; views: number }> = [];
+  for (let i = 29; i >= 0; i--) {
+    const day = new Date(now - i * DAY_MS).toISOString().slice(0, 10);
+    byDaySeries.push({ day, views: byDay.get(day) ?? 0 });
+  }
 
   // Cash collected: sum of paid Stripe charges (gross) minus refunds.
   let cash: { collected_usd: number; refunded_usd: number } | null = null;
@@ -94,17 +190,47 @@ adminRouter.get("/users", async (_req, res) => {
   const trialsActive = users.filter(
     (u) => u.plan === "trial" && u.trial_ends_at && new Date(u.trial_ends_at).getTime() >= now,
   ).length;
+  const activated = users.filter((u) => u.accounts > 0).length;
+  const paying = users.filter((u) => u.stage === "paying").length;
+  const signups30 = users.filter((u) => new Date(u.joined_at).getTime() >= now - 30 * DAY_MS).length;
 
   res.json({
     totals: {
       users: users.length,
+      activated,
+      paying,
       paying_monthly: users.filter((u) => u.plan === "monthly").length,
       lifetime: users.filter((u) => u.plan === "lifetime").length,
       trials_active: trialsActive,
+      // The nudge list: a trial about to lapse is the cheapest conversion
+      // there is, and the only one with a deadline.
+      trials_expiring_soon: users.filter(
+        (u) => u.trial_days_left !== null && u.trial_days_left >= 0 && u.trial_days_left <= 2,
+      ).length,
       mrr_usd: users.reduce((n, u) => n + u.mrr_usd, 0),
       cash_collected_usd: cash?.collected_usd ?? null,
       refunded_usd: cash?.refunded_usd ?? null,
+      accounts_total: users.reduce((n, u) => n + u.accounts, 0),
+      accounts_broken: attention.length,
+      messages_total: users.reduce((n, u) => n + u.messages, 0),
     },
+    // Ordered widest to narrowest so the drop-off is the shape of the chart.
+    funnel: [
+      { stage: "Visitors (30d)", n: (views ?? []).length },
+      { stage: "Signed up (30d)", n: signups30 },
+      { stage: "Connected a mailbox", n: activated },
+      { stage: "Paying", n: paying },
+    ],
+    traffic: {
+      views_7d: views7,
+      views_30d: (views ?? []).length,
+      by_day: byDaySeries,
+      top_paths: topOf(byPath),
+      top_referrers: topOf(byRef),
+      // Signals the scan cap was hit, so the numbers read as "at least".
+      truncated: (views ?? []).length >= VIEW_SCAN_LIMIT,
+    },
+    attention,
     users,
   });
 });

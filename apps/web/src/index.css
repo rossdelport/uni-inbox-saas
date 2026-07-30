@@ -646,6 +646,50 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .adm-plan.lifetime{background:#efe6fa;color:#6001D2}
 .adm-src{font-size:11px;color:var(--ink3);max-width:220px;overflow:hidden;text-overflow:ellipsis}
 
+/* ── founder analytics ───────────────────────────────────────────────── */
+.adm-sec{margin-top:26px}
+.adm-sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.adm-sec-head h2{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.adm-sec-head span{font-size:11.5px;color:var(--ink3);font-weight:600}
+.adm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.adm-grid2{grid-template-columns:1fr}}
+
+/* Funnel: bar width is share of the widest stage, so the drop-off IS the shape */
+.adm-funnel{display:flex;flex-direction:column;gap:9px}
+.adm-fun-row{display:grid;grid-template-columns:150px 1fr 92px;align-items:center;gap:10px}
+.adm-fun-lab{font-size:12px;font-weight:600;color:var(--ink2)}
+.adm-fun-track{height:26px;border-radius:8px;background:rgba(2,20,50,.05);overflow:hidden}
+.adm-fun-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#2786FF,#0C7DFF);min-width:2px}
+.adm-fun-num{font-size:12.5px;font-weight:700;color:var(--ink);text-align:right}
+.adm-fun-num i{font-style:normal;font-weight:600;color:var(--ink3);margin-left:5px;font-size:11px}
+
+/* 30-day sparkline. Bars, not a line: a zero day should read as a gap. */
+.adm-spark{display:flex;align-items:flex-end;gap:2px;height:56px;margin-top:2px}
+.adm-spark i{flex:1;background:rgba(var(--b1-rgb),.28);border-radius:2px 2px 0 0;min-height:2px}
+.adm-spark i.hot{background:var(--b1)}
+
+.adm-rank{display:flex;flex-direction:column;gap:7px}
+.adm-rank-row{display:grid;grid-template-columns:1fr auto;gap:10px;font-size:12px;align-items:center}
+.adm-rank-row b{font-weight:600;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-rank-row span{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.adm-empty{font-size:12px;color:var(--ink3);padding:6px 0}
+
+/* Stage pill: the single most useful column on the table */
+.adm-stage{display:inline-block;padding:2.5px 9px;border-radius:999px;font-size:10.8px;font-weight:700}
+.adm-stage.signed_up{background:#fdeaea;color:#c5221f}
+.adm-stage.activated{background:#fff4e0;color:#b06000}
+.adm-stage.paying{background:#e3f0e6;color:#1e8e3e}
+
+.adm-warn{background:#fff8e6;border:1px solid #f0d9a0;border-radius:14px;padding:14px 16px;margin-top:14px}
+.adm-warn h3{font-size:13px;font-weight:800;color:#7a4f00}
+.adm-warn ul{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.adm-warn li{font-size:12px;color:#6b4a12;line-height:1.45}
+.adm-warn code{background:rgba(0,0,0,.05);padding:1px 5px;border-radius:4px;font-size:11px}
+
+.adm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.adm-num{font-variant-numeric:tabular-nums}
+.adm-dim{color:var(--ink3)}
+
 /* Colour picker dots */
 .cdots{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 2px}
 .cdot{width:24px;height:24px;border-radius:50%;border:none;padding:0;cursor:pointer;transition:transform .12s ease}
