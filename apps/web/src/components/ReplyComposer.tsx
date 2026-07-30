@@ -25,6 +25,13 @@ export function ReplyComposer({
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
 
+  // Synchronous send latch. `reply.isPending` only flips once mutate() is
+  // called, and send() awaits fileToBase64 for every attachment first, so for
+  // the whole file-reading window isPending is false and canSend stayed true.
+  // Double-clicking Send on a reply with attachments sent the email twice, and
+  // a sent email cannot be recalled. A ref, not state: it has to be set and
+  // read in the same tick, before React ever re-renders.
+  const sendingRef = useRef(false);
   const canSend = (!empty || files.length > 0) && !reply.isPending;
 
   function syncEmpty() {
@@ -68,17 +75,27 @@ export function ReplyComposer({
 
   async function send() {
     const el = editRef.current;
-    if (!el || !canSend) return;
+    if (!el || !canSend || sendingRef.current) return;
+    sendingRef.current = true;
     const ccList = splitAddrs(cc);
     const bccList = splitAddrs(bcc);
     const body_text = el.innerText.replace(/ /g, " ").trim();
-    const attachments: OutgoingAttachment[] = await Promise.all(
-      files.map(async (f) => ({
-        filename: f.name,
-        content_type: f.type || undefined,
-        data_base64: await fileToBase64(f),
-      })),
-    );
+    let attachments: OutgoingAttachment[];
+    try {
+      attachments = await Promise.all(
+        files.map(async (f) => ({
+          filename: f.name,
+          content_type: f.type || undefined,
+          data_base64: await fileToBase64(f),
+        })),
+      );
+    } catch {
+      // Nothing was sent, so the latch has to come off or the composer stays
+      // dead until it remounts.
+      sendingRef.current = false;
+      toast("Could not read one of the attachments. Remove it and try again.", "warn");
+      return;
+    }
     reply.mutate(
       {
         threadId,
@@ -97,6 +114,9 @@ export function ReplyComposer({
           setBcc("");
           setShowCc(false);
           toast(`Reply sent from ${accountEmail}`, "success");
+        },
+        onSettled: () => {
+          sendingRef.current = false;
         },
       },
     );
