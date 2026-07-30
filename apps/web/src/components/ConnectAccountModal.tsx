@@ -154,6 +154,9 @@ export function ConnectForm({
   const [test, setTest] = useState<TestResult | null>(null);
   const testMutation = useTestConnection();
   const connect = useConnectAccount();
+  // Submitting covers both round trips: test the servers, then save. The user
+  // clicked one button, so it reads as one wait.
+  const busy = testMutation.isPending || connect.isPending;
 
   function pick(k: ProviderKey) {
     setSel(k);
@@ -455,9 +458,17 @@ export function ConnectForm({
                     className="btn-ghost"
                     style={{ width: "100%" }}
                     disabled={connect.isPending}
+                    aria-busy={connect.isPending}
                     onClick={doConnect}
                   >
-                    {connect.isPending ? "Connecting…" : "Connect anyway, receive only for now"}
+                    {connect.isPending ? (
+                      <>
+                        <span className="spin" aria-hidden="true" />
+                        Adding your email…
+                      </>
+                    ) : (
+                      "Connect anyway, receive only for now"
+                    )}
                   </button>
                   <p style={{ marginTop: 6, fontSize: 12, color: "var(--ink3)", textAlign: "center" }}>
                     Mail syncs and reads normally. Sending turns on once the outgoing server is reachable.
@@ -470,9 +481,21 @@ export function ConnectForm({
                 type="submit"
                 className="btn-black"
                 style={{ marginTop: 16 }}
-                disabled={connect.isPending || testMutation.isPending}
+                disabled={busy}
+                aria-busy={busy}
               >
-                {testMutation.isPending ? "Testing connection…" : connect.isPending ? "Connecting…" : "Connect account"}
+                {/* One label for both phases. Testing then saving is our
+                    plumbing, not something the user asked to watch, and the
+                    test is the slow part (two live server handshakes), so a
+                    label swap partway through just reads as a stall. */}
+                {busy ? (
+                  <>
+                    <span className="spin" aria-hidden="true" />
+                    Adding your email…
+                  </>
+                ) : (
+                  "Connect account"
+                )}
               </button>
             </form>
           )}

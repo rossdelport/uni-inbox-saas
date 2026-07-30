@@ -89,6 +89,17 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
   background:#111;color:#fff;font-size:var(--btn-fs);font-weight:700;letter-spacing:-.01em;
   box-shadow:0 10px 24px rgba(0,0,0,.22);transition:transform .15s ease, box-shadow .15s ease}
 .btn-black:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(0,0,0,.26);text-decoration:none}
+/* Inline "working" spinner for buttons. Sized in em so it tracks the label's
+   font-size, and currentColor so it inherits whatever the button's text is
+   (white on .btn-black, ink on .btn-ghost) without a second rule per button. */
+.spin{display:inline-block;width:1em;height:1em;flex:0 0 auto;margin-right:.55em;
+  border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+  animation:spin .7s linear infinite;vertical-align:-.15em}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Respect a stated preference for less motion: keep the ring visible as a
+   static state marker rather than swapping in a different affordance. */
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+
 /* Buttons that hug their label instead of filling the row. Replaces the
    width:auto + hand-picked padding that used to be set inline per button.
    inline-flex, not width:auto: .btn-black is display:flex, so a block-level
