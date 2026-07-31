@@ -44,6 +44,11 @@ inboxRouter.get("/", async (req, res) => {
   const sent = String(req.query.sent ?? "0") === "1";
   const account = typeof req.query.account === "string" ? req.query.account : null;
   const cursor = typeof req.query.cursor === "string" ? decodeCursor(req.query.cursor) : null;
+  // Split chip. Anything unrecognised degrades to "all" rather than erroring:
+  // the installed iOS build ships independently and cannot be rolled back
+  // alongside the API, so an unknown value must never break the list.
+  const rawSplit = typeof req.query.split === "string" ? req.query.split : "all";
+  const split = (["important", "newsletter", "other"] as const).find((s) => s === rawSplit) ?? null;
   // PostgREST or() syntax breaks on commas/parens; spaces search fine.
   const q =
     typeof req.query.q === "string"
@@ -111,7 +116,14 @@ inboxRouter.get("/", async (req, res) => {
     // Scoped to the plain Inbox on purpose: Starred, Read later, Archived and
     // Deleted are things the user explicitly filed, so a sent-only thread they
     // starred must still be findable under Starred.
-    if (!deleted && !archived && !starred && !later) query = query.eq("has_inbound", true);
+    if (!deleted && !archived && !starred && !later) {
+      query = query.eq("has_inbound", true);
+      // Splits partition the plain Inbox only, matching where the guard above
+      // already draws the Inbox-only line: Starred, Later, Archived and
+      // Deleted are things the user explicitly filed, and a filed thread must
+      // stay findable whatever pile it started in.
+      if (split) query = query.eq("split_class", split);
+    }
   }
   if (cursor && !q) {
     // Keyset: strictly older than the cursor row (ties broken by id).
@@ -276,29 +288,37 @@ inboxRouter.get("/counts", async (_req, res) => {
     return res.status(502).json({ error: "Could not load counts." });
   }
 
-  // One HEAD count per account rather than pulling rows and tallying here:
-  // an account can hold thousands of unread threads and none of them need to
-  // cross the wire to be counted. Bounded by the plan's account cap.
-  const byAccount: Record<string, number> = {};
-  let total = 0;
-  for (const a of accounts ?? []) {
-    const { count } = await supabase
-      .from("threads")
-      .select("id", { count: "exact", head: true })
-      .eq("owner_id", uid)
-      .eq("account_id", a.id as string)
-      .eq("unread", true)
-      .eq("archived", false)
-      .is("deleted_at", null)
-      // Same predicate as the Inbox list, so the sidebar badge can never count
-      // a thread the Inbox does not show. Marking a sent-only thread unread
-      // from the Sent tab would otherwise leave a badge with nothing behind it.
-      .eq("has_inbound", true)
-      .gte("last_inbound_at", a.created_at as string);
-    byAccount[a.id as string] = count ?? 0;
-    total += count ?? 0;
+  // One grouped RPC instead of a HEAD count per account: the dashboard polls
+  // this endpoint from every open tab, and the split strip needs a per-split
+  // breakdown that would otherwise make the loop 4N queries. The function's
+  // predicate is the Inbox list's, verbatim, so the badge can never count a
+  // thread the Inbox does not show.
+  const { data: rows, error: countErr } = await supabase.rpc("inbox_counts", { p_owner: uid });
+  if (countErr) {
+    logger.error({ err: countErr, uid }, "inbox_counts rpc failed");
+    return res.status(502).json({ error: "Could not load counts." });
   }
-  res.json({ total, by_account: byAccount });
+
+  // Accounts with zero unread get an explicit 0 rather than a missing key
+  // (GROUP BY omits empty groups), so clients never distinguish "no unread"
+  // from "unknown account".
+  const byAccount: Record<string, number> = {};
+  const byAccountSplit: Record<string, Record<string, number>> = {};
+  for (const a of accounts ?? []) {
+    byAccount[a.id as string] = 0;
+    byAccountSplit[a.id as string] = { important: 0, newsletter: 0, other: 0 };
+  }
+  let total = 0;
+  for (const r of (rows ?? []) as Array<{ account_id: string; split_class: string; unread: number }>) {
+    const n = Number(r.unread) || 0;
+    byAccount[r.account_id] = (byAccount[r.account_id] ?? 0) + n;
+    (byAccountSplit[r.account_id] ??= { important: 0, newsletter: 0, other: 0 })[r.split_class] = n;
+    total += n;
+  }
+  // Invariants: by_account[id] equals the sum of by_account_split[id], and
+  // total equals the sum of by_account. The first two keys are unchanged, so
+  // the installed iOS build keeps working untouched.
+  res.json({ total, by_account: byAccount, by_account_split: byAccountSplit });
 });
 
 // POST /api/inbox/read-all — clear unread across whatever the user is
@@ -319,6 +339,8 @@ inboxRouter.post("/read-all", async (req, res) => {
   const archived = body.archived === true;
   const starred = body.starred === true;
   const later = body.later === true;
+  const split =
+    (["important", "newsletter", "other"] as const).find((s) => s === body.split) ?? null;
 
   let q = supabase
     .from("threads")
@@ -334,8 +356,13 @@ inboxRouter.post("/read-all", async (req, res) => {
   // Same predicate as the list, so "Read all" acts on exactly what the Inbox
   // shows. A sent-only thread can still carry unread=true (the Sent tab offers
   // a mark-unread action), and without this it would be swept up invisibly and
-  // queue a flag op for a thread that has no INBOX uid to apply it to.
-  if (!archived && !starred && !later) q = q.eq("has_inbound", true);
+  // queue a flag op for a thread that has no INBOX uid to apply it to. The
+  // split scope rides the same guard: "Read all" while parked on Important
+  // must not mark the newsletters read too.
+  if (!archived && !starred && !later) {
+    q = q.eq("has_inbound", true);
+    if (split) q = q.eq("split_class", split);
+  }
 
   const { data: rows, error } = await q;
   if (error) {

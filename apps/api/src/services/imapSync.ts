@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 import { buildImap, findSpecialUse, findSentMailbox, isAuthError } from "./imapClient.js";
 import { resolveThread, touchThread } from "./threading.js";
+import { bulkSignals, classifyFromSignals } from "./splitClassify.js";
 
 // Per-account sync engine. One AccountSyncer = one long-lived IMAP connection
 // that (a) backfills + incrementally ingests INBOX by UID, (b) reconciles
@@ -900,6 +901,26 @@ export async function ingestMessage(
     const bodyHtml = parsed.html
       ? sanitizeHtml(parsed.html, SANITIZE_OPTS).slice(0, 500_000)
       : null;
+
+    // Split classification, from headers that exist only right now: they are
+    // not persisted, so this is the one moment the verdict can be made.
+    // headerLines carries lowercased keys and is the reliable PRESENCE check;
+    // headers.get() is only for the two headers whose VALUE matters, because
+    // mailparser shapes some values into objects rather than strings.
+    const headerKeys = new Set((parsed.headerLines ?? []).map((h) => h.key));
+    const fromAddrForSignals = (parsed.from?.value?.[0]?.address ?? "unknown").toLowerCase();
+    const signals =
+      direction === "inbound"
+        ? bulkSignals(
+            headerKeys,
+            (k) => {
+              const v = parsed.headers.get(k);
+              return v == null ? null : String(v);
+            },
+            fromAddrForSignals,
+          )
+        : [];
+    const splitClass = classifyFromSignals(signals);
     const snippet = toSnippet(bodyText ?? (parsed.html || null));
     // Fall back to the server's INTERNALDATE (when the message actually landed
     // in the mailbox) before ever reaching for the clock. Plenty of senders
@@ -936,6 +957,7 @@ export async function ingestMessage(
       snippet,
       seen,
       direction,
+      splitClass,
     });
 
     const { error } = await supabase.from("messages").upsert(
@@ -960,6 +982,7 @@ export async function ingestMessage(
         seen,
         direction,
         attachments,
+        bulk_signals: signals,
       },
       { onConflict: "account_id,imap_mailbox,imap_uid" },
     );
@@ -971,4 +994,21 @@ export async function ingestMessage(
     // mail arriving. A sent message discovered by the Sent pass is the user's
     // own action reflected back and must not resurrect anything.
     await touchThread(threadId, direction === "inbound");
+
+    // The split ratchet: a personal message promotes its whole thread to
+    // Important, and nothing ever demotes it back. Same stickiness as
+    // has_inbound, same reason: retention deletes message rows without
+    // recomputing rollups, so a re-derived verdict can silently lose
+    // information. The .neq guard is load-bearing, not cosmetic: threads has
+    // replica identity full and sits in supabase_realtime, so an UPDATE that
+    // matches a row pushes an event to every open dashboard and invalidates
+    // the inbox list under the reader. With .neq an already-important thread
+    // matches zero rows, writes no WAL, and fires nothing.
+    if (direction === "inbound" && splitClass === "important") {
+      await supabase
+        .from("threads")
+        .update({ split_class: "important" })
+        .eq("id", threadId)
+        .neq("split_class", "important");
+    }
 }

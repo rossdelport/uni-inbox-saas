@@ -172,4 +172,13 @@ export async function recordOutbound(
   });
   if (error) logger.error({ error, threadId }, "outbound message record failed");
   await touchThread(threadId);
+  // Replying in a thread promotes it to Important forever, whatever the
+  // sender looks like: the single highest-value zero-config personalisation
+  // in the split inbox. .neq keeps the no-op from firing a Realtime event at
+  // every open dashboard (threads has replica identity full).
+  await supabase
+    .from("threads")
+    .update({ split_class: "important" })
+    .eq("id", threadId)
+    .neq("split_class", "important");
 }

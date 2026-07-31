@@ -30,6 +30,9 @@ export interface IncomingMeta {
   /** Which way this message travelled. Decides whether a thread created for it
    *  belongs in the Inbox (mail arrived) or only in Sent (we started it). */
   direction: "inbound" | "outbound";
+  /** Split verdict for the message creating this thread. Optional so the
+   *  send path (which is always personal mail) can omit it. */
+  splitClass?: "important" | "newsletter" | "other";
 }
 
 /** Find the thread this message belongs to, or create one. Returns thread id. */
@@ -90,6 +93,9 @@ export async function resolveThread(meta: IncomingMeta): Promise<string> {
       // in Sent until someone replies. touchThread flips this to true the
       // moment an inbound message lands, and never flips it back.
       has_inbound: meta.direction === "inbound",
+      // A thread born from a message we SENT is by definition a person
+      // thread; inbound threads take the classifier's verdict.
+      split_class: meta.direction === "outbound" ? "important" : (meta.splitClass ?? "important"),
       message_count: 0, // bumped by touchThread below
       unread: !meta.seen,
       snippet: meta.snippet,
