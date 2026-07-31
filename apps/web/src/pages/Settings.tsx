@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase.js";
 import type { EmailAccount } from "../lib/types.js";
 import {
   useAccounts,
+  useAiCheckout,
   useBillingState,
   usePortal,
   useRemoveAccount,
@@ -401,7 +402,60 @@ function PlanPane() {
       </div>
       {portal.error && <p className="err">{(portal.error as Error).message}</p>}
 
+      <AiAddonCard />
+
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
+    </div>
+  );
+}
+
+// The AI summaries add-on: a separate $3/month subscription, off by default.
+// The honesty matters as much as the feature: the security promise is that no
+// AI reads anyone's mail UNLESS they turn this on, so the card says exactly
+// which mail is read, when, and by what.
+function AiAddonCard() {
+  const { data: billing } = useBillingState();
+  const aiCheckout = useAiCheckout();
+  const portal = usePortal();
+  if (!billing) return null;
+  const on = billing.ai_addon;
+
+  return (
+    <div className="set-card ai-addon">
+      <div className="ai-addon-head">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z" />
+        </svg>
+        <h2>AI summaries</h2>
+        {on ? (
+          <span className="ai-addon-state on">On</span>
+        ) : (
+          <span className="ai-addon-state">${billing.ai_price_usd}/month</span>
+        )}
+      </div>
+      <p>
+        A Summarize button on every conversation: two or three sentences on what it is
+        about and what needs an answer, cached so re-opening a thread is instant.
+      </p>
+      <p className="ai-addon-fine">
+        Off by default. When you press Summarize, that one conversation is sent to
+        Anthropic&apos;s Claude to write the summary, and API traffic is not used to
+        train models. Mail is never summarized in the background.
+      </p>
+      {on ? (
+        <button className="btn-ghost" disabled={portal.isPending} onClick={() => portal.mutate()}>
+          {portal.isPending ? "Opening…" : "Manage or cancel"}
+        </button>
+      ) : (
+        <button
+          className="btn-black btn-auto"
+          disabled={aiCheckout.isPending}
+          onClick={() => aiCheckout.mutate()}
+        >
+          {aiCheckout.isPending ? "Opening checkout…" : `Add for $${billing.ai_price_usd}/month`}
+        </button>
+      )}
+      {aiCheckout.error && <p className="err">{(aiCheckout.error as Error).message}</p>}
     </div>
   );
 }

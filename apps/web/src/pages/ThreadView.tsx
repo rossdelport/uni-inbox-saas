@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { useDeleteThread, useForward, useThread, useThreadOp } from "../lib/queries.js";
+import {
+  useAiSummary,
+  useBillingState,
+  useDeleteThread,
+  useForward,
+  useSummarize,
+  useThread,
+  useThreadOp,
+} from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
 import { MessageBody } from "../components/MessageBody.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
@@ -112,6 +120,8 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
 
       <h1>{thread.subject || "(no subject)"}</h1>
 
+      <AiSummaryBlock threadId={thread.id} />
+
       {forwardOpen && (
         <ForwardBox
           threadId={thread.id}
@@ -158,6 +168,49 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       </div>
 
       <ReplyComposer threadId={thread.id} replyTo={replyTo} accountEmail={thread.account_email} />
+    </div>
+  );
+}
+
+// AI summary strip, add-on subscribers only. Reads the server cache for free;
+// the button is the one thing that spends a paid call. When new mail lands the
+// cache goes stale server-side, the GET returns null again and the button
+// reappears, so freshness needs no client bookkeeping. Deliberately absent for
+// non-subscribers: the pitch lives on the Billing page, not as a nag here.
+function AiSummaryBlock({ threadId }: { threadId: string }) {
+  const { data: billing } = useBillingState();
+  const enabled = Boolean(billing?.ai_addon);
+  const { data } = useAiSummary(threadId, enabled);
+  const summarize = useSummarize();
+  if (!enabled) return null;
+  const s = data?.summary ?? null;
+
+  return (
+    <div className="ai-sum">
+      <svg
+        className="ai-spark"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z" />
+        <path d="M19 15l.9 2.6L22.5 18.5l-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z" opacity=".7" />
+      </svg>
+      {s ? (
+        <p>{s.summary}</p>
+      ) : (
+        <button
+          className="btn-mini"
+          disabled={summarize.isPending}
+          onClick={() =>
+            summarize.mutate(threadId, {
+              onError: (e) => toast((e as Error).message, "warn"),
+            })
+          }
+        >
+          {summarize.isPending ? "Summarizing…" : "Summarize this conversation"}
+        </button>
+      )}
     </div>
   );
 }

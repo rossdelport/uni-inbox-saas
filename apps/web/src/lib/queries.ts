@@ -439,3 +439,43 @@ export function usePortal() {
     onSuccess: ({ url }) => window.location.assign(url),
   });
 }
+
+// ── AI summaries (paid add-on) ─────────────────────
+
+export interface AiSummary {
+  summary: string;
+  cached: boolean;
+  model: string;
+  created_at: string;
+}
+
+/** Cached summary for a thread. Only asked for when the add-on is active, and
+ *  serves purely from the server-side cache: it can never spend tokens. */
+export function useAiSummary(threadId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["ai-summary", threadId],
+    queryFn: () => api<{ summary: AiSummary | null }>(`/api/ai/summary/${threadId}`),
+    enabled: enabled && Boolean(threadId),
+    staleTime: 60_000,
+  });
+}
+
+/** Generate (or refresh) the summary for a thread. The paid call. */
+export function useSummarize() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) =>
+      api<{ summary: AiSummary }>(`/api/ai/summary/${threadId}`, { method: "POST" }),
+    onSuccess: (r, threadId) => {
+      qc.setQueryData(["ai-summary", threadId], { summary: r.summary });
+    },
+  });
+}
+
+/** Start the AI add-on checkout ($3/month). */
+export function useAiCheckout() {
+  return useMutation({
+    mutationFn: () => api<{ url: string }>("/api/billing/ai-addon", { method: "POST" }),
+    onSuccess: ({ url }) => window.location.assign(url),
+  });
+}

@@ -67,6 +67,20 @@ const schema = z.object({
   // founder while keeping the first Sent cycle inside the 120s cycle deadline.
   SENT_INITIAL_SYNC_LIMIT: z.coerce.number().default(100),
 
+  // AI thread summaries (paid add-on). Optional: without the key the AI
+  // endpoints return 503 and everything else runs normally.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  // Haiku, deliberately: a 2-3 sentence thread summary is a Haiku-class task,
+  // and the $3/month add-on price only carries a margin at Haiku's rates
+  // (~0.25 cents per summary vs ~1.25 on Opus, which would LOSE money at the
+  // daily cap). Swap models here, not in code.
+  AI_SUMMARY_MODEL: z.string().default("claude-haiku-4-5"),
+  // Per-user per-day summary cap. Bounds a runaway client's spend; a capped
+  // day costs about 6 cents. Not a marketed limit.
+  AI_DAILY_CAP: z.coerce.number().default(25),
+  // Manual override for the add-on price id; normally resolved by lookup key.
+  STRIPE_PRICE_AI: z.string().optional(),
+
   // OAuth mail providers. Optional: without them the connect modal falls
   // back to app-password flows for those providers.
   GOOGLE_CLIENT_ID: z.string().optional(),

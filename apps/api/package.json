@@ -12,6 +12,7 @@
     "stripe:setup": "tsx src/scripts/_stripeSetup.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@supabase/supabase-js": "^2.47.0",
     "@uni/shared": "*",
     "cors": "^2.8.6",

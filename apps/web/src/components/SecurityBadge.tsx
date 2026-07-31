@@ -106,8 +106,9 @@ export function SecurityBadge() {
                 unreadable to every other customer.
               </li>
               <li>
-                <b>Never sold, never used to train AI.</b> No model of any kind reads
-                your email.
+                <b>Never sold, never used to train AI.</b> No AI reads your email
+                unless you switch on the optional summaries add-on yourself, and
+                even then only the conversations you ask it to summarize.
               </li>
             </ul>
             <p className="secure-foot">

@@ -6,7 +6,9 @@ import { logger } from "../lib/logger.js";
 import { getBilling, planPriceLabel, PRICING } from "../lib/plans.js";
 import {
   addSeat,
+  AI_ADDON_USD,
   confirmCheckout,
+  createAiCheckoutSession,
   createCheckoutSession,
   createPortalSession,
 } from "../services/stripeBilling.js";
@@ -25,7 +27,16 @@ billingRouter.get("/state", async (_req, res) => {
     .select("id", { count: "exact", head: true })
     .eq("owner_id", uid)
     .neq("status", "disabled");
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("ai_status")
+    .eq("user_id", uid)
+    .maybeSingle();
+  const aiStatus = (prof?.ai_status as string | null) ?? null;
   res.json({
+    ai_addon: ["trialing", "active", "past_due"].includes(aiStatus ?? ""),
+    ai_status: aiStatus,
+    ai_price_usd: AI_ADDON_USD,
     plan: billing.planId,
     plan_label: billing.plan.label,
     price_label: planPriceLabel(billing.planId, billing.monthlyQuantity),
@@ -85,6 +96,18 @@ billingRouter.get("/confirm", async (req, res) => {
     res.json(result);
   } catch (err) {
     logger.error({ err, uid: userId(res) }, "checkout confirm failed");
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// Start the AI add-on checkout ($3/month, separate subscription). Cancelling
+// later goes through the same billing portal as everything else.
+billingRouter.post("/ai-addon", async (_req, res) => {
+  try {
+    const url = await createAiCheckoutSession(userId(res));
+    res.json({ url });
+  } catch (err) {
+    logger.error({ err, uid: userId(res) }, "ai addon checkout failed");
     res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });

@@ -93,6 +93,100 @@ export async function ensurePrices(): Promise<{ monthly: string; lifetime: strin
   return priceIds;
 }
 
+// The AI add-on price, resolved separately from ensurePrices on purpose: that
+// function early-returns when both seat env overrides are set, so a third
+// price hung on it would silently never resolve in production.
+const AI_LOOKUP = "oneinbox_ai_monthly";
+export const AI_ADDON_USD = 3;
+let aiPriceId: string | null = null;
+
+export async function ensureAiPrice(): Promise<string> {
+  if (aiPriceId) return aiPriceId;
+  if (env.STRIPE_PRICE_AI) {
+    aiPriceId = env.STRIPE_PRICE_AI;
+    return aiPriceId;
+  }
+  const s = stripe();
+  const existing = await s.prices.list({ lookup_keys: [AI_LOOKUP], limit: 1 });
+  let price = existing.data[0]?.id;
+  if (!price) {
+    const products = await s.products.search({ query: `name:"OneInbox AI" AND active:"true"` });
+    const product =
+      products.data[0] ??
+      (await s.products.create({
+        name: "OneInbox AI",
+        description: "AI thread summaries inside OneInbox.",
+      }));
+    price = (
+      await s.prices.create({
+        product: product.id,
+        currency: "usd",
+        nickname: "AI summaries ($3/month add-on)",
+        lookup_key: AI_LOOKUP,
+        recurring: { interval: "month" },
+        unit_amount: AI_ADDON_USD * 100,
+      })
+    ).id;
+  }
+  aiPriceId = price;
+  logger.info({ aiPriceId }, "stripe AI add-on price resolved");
+  return aiPriceId;
+}
+
+/** Checkout for the AI add-on: a SEPARATE subscription on the same customer.
+ *  Not a second item on the seat subscription, because four money-handling
+ *  call sites read items.data[0] as the seat item and enforceInboxCap would
+ *  treat the add-on's quantity as an inbox allowance. */
+export async function createAiCheckoutSession(uid: string): Promise<string> {
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("ai_status")
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (ACTIVE_STATUSES.has((prof?.ai_status as string | null) ?? "")) {
+    throw new Error("AI summaries are already on your account.");
+  }
+  const customer = await getOrCreateCustomer(uid);
+  const price = await ensureAiPrice();
+  const session = await stripe().checkout.sessions.create({
+    mode: "subscription",
+    customer,
+    line_items: [{ price, quantity: 1 }],
+    subscription_data: { metadata: { user_id: uid, addon: "ai" } },
+    payment_method_collection: "always",
+    metadata: { user_id: uid, addon: "ai" },
+    allow_promotion_codes: true,
+    success_url: `${env.DASHBOARD_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${env.DASHBOARD_URL}/billing?checkout=cancelled`,
+  });
+  if (!session.url) throw new Error("Stripe returned no checkout URL.");
+  return session.url;
+}
+
+/** Mirror the AI add-on subscription's state onto the profile. Never touches
+ *  plan, seats or the inbox cap: the add-on cannot gate mailboxes. */
+export async function applyAiSubscription(uid: string, sub: Stripe.Subscription): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ ai_subscription_id: sub.id, ai_status: sub.status })
+    .eq("user_id", uid);
+  if (error) logger.error({ err: error, uid, subId: sub.id }, "ai subscription apply failed");
+  await supabase.from("billing_events").insert({
+    user_id: uid,
+    event_type: `ai_addon.${sub.status}`,
+    stripe_id: sub.id,
+    detail: { addon: "ai" },
+  });
+  logger.info({ uid, status: sub.status, subId: sub.id }, "ai add-on applied to profile");
+}
+
+/** True when this subscription is the AI add-on rather than the seat sub. */
+export function isAiSubscription(sub: Stripe.Subscription): boolean {
+  if (sub.metadata?.addon === "ai") return true;
+  const price = sub.items.data[0]?.price;
+  return price?.lookup_key === AI_LOOKUP || (aiPriceId !== null && price?.id === aiPriceId);
+}
+
 // Subscription statuses that count as "paying" (past_due keeps access during
 // the retry window rather than yanking the account on one failed card).
 const ACTIVE_STATUSES = new Set(["trialing", "active", "past_due"]);
@@ -367,6 +461,12 @@ export async function confirmCheckout(
   if (!sub || typeof sub === "string") {
     return { ok: false, status: session.status ?? "incomplete" };
   }
+  // The add-on's confirm path mirrors the webhook's routing: never let the
+  // seat logic interpret an AI subscription.
+  if (session.metadata?.addon === "ai" || isAiSubscription(sub)) {
+    await applyAiSubscription(uid, sub);
+    return { ok: sub.status === "trialing" || sub.status === "active", status: sub.status };
+  }
   await applySubscription(uid, sub);
   return {
     ok: sub.status === "trialing" || sub.status === "active",
@@ -406,6 +506,14 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
       if (!subId) return;
       const sub = await stripe().subscriptions.retrieve(subId);
+      // The AI add-on branches BEFORE seat handling: applySubscription would
+      // read this subscription's quantity as an inbox allowance and its
+      // lifetime guard would swallow the event for lifetime users, who are
+      // exactly as entitled to buy the add-on.
+      if (session.metadata?.addon === "ai" || isAiSubscription(sub)) {
+        await applyAiSubscription(uid, sub);
+        return;
+      }
       await applySubscription(uid, sub);
       return;
     }
@@ -425,6 +533,13 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       }
       if (!uid) {
         logger.warn({ subId: sub.id, type: event.type }, "stripe webhook: no user for subscription");
+        return;
+      }
+      // AI add-on events route to their own tiny handler, ahead of the seat
+      // logic and its guards (lifetime early-return, untracked-subscription
+      // skip), both of which would otherwise silently drop them.
+      if (isAiSubscription(sub)) {
+        await applyAiSubscription(uid, sub);
         return;
       }
       await applySubscription(uid, sub);
@@ -496,6 +611,34 @@ export async function reconcileBilling(): Promise<{ checked: number; changed: nu
       // guessing: a wrong downgrade locks out someone who is actually paying.
       failed += 1;
       logger.error({ err, uid, subId }, "billing reconcile: subscription refresh failed");
+    }
+  }
+
+  // Second pass: the AI add-on subscriptions, which the seat pass excludes by
+  // construction (different column, and lifetime profiles carry them too).
+  const { data: aiRows, error: aiErr } = await supabase
+    .from("profiles")
+    .select("user_id, ai_subscription_id, ai_status")
+    .not("ai_subscription_id", "is", null);
+  if (aiErr) {
+    logger.error({ err: aiErr }, "billing reconcile: ai profile query failed");
+  }
+  for (const row of aiRows ?? []) {
+    const subId = row.ai_subscription_id as string;
+    const uid = row.user_id as string;
+    try {
+      const sub = await stripe().subscriptions.retrieve(subId);
+      await applyAiSubscription(uid, sub);
+      if (sub.status !== row.ai_status) {
+        changed += 1;
+        logger.warn(
+          { uid, subId, was: row.ai_status, now: sub.status },
+          "billing reconcile: ai add-on drift corrected (a webhook was missed)",
+        );
+      }
+    } catch (err) {
+      failed += 1;
+      logger.error({ err, uid, subId }, "billing reconcile: ai subscription refresh failed");
     }
   }
 

@@ -79,6 +79,10 @@ export interface InboxPage {
 }
 
 export interface BillingState {
+  /** AI summaries add-on is live on this account. */
+  ai_addon: boolean;
+  ai_status: string | null;
+  ai_price_usd: number;
   plan: PlanId;
   plan_label: string;
   /** Display price for the current state, e.g. "$7/month" or "$50 one-time". */
