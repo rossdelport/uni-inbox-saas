@@ -9,6 +9,10 @@ import { logger } from "../lib/logger.js";
 export const inboxRouter = Router();
 
 const PAGE_SIZE = 50;
+// "Not snoozed" sentinel: NOT NULL epoch, so the inbox filter stays a single
+// method-arg .lte instead of an or= (which mis-parses ISO timestamps; see the
+// applyFlagOps comment in imapSync.ts). Mapped to null on the wire.
+const SNOOZE_NONE = "1970-01-01T00:00:00+00:00";
 // Sent is resolved by collecting outbound message thread ids first, so it can
 // only reach back this far. Well beyond what a solo founder sends in months,
 // and it keeps the id list a sane size for a single query.
@@ -63,7 +67,7 @@ inboxRouter.get("/", async (req, res) => {
   let query = supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, email_accounts!inner(label, color, email_address, created_at)",
+      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, snooze_until, email_accounts!inner(label, color, email_address, created_at)",
     )
     .eq("owner_id", uid)
     .order(sortCol, { ascending: false })
@@ -118,6 +122,10 @@ inboxRouter.get("/", async (req, res) => {
     // starred must still be findable under Starred.
     if (!deleted && !archived && !starred && !later) {
       query = query.eq("has_inbound", true);
+      // A snoozed thread is out of the Inbox until its wake time. Evaluated
+      // per request, so a dead worker can never hide mail past the moment the
+      // user chose; the sweep only tidies flags and nudges open tabs.
+      query = query.lte("snooze_until", new Date().toISOString());
       // Splits partition the plain Inbox only, matching where the guard above
       // already draws the Inbox-only line: Starred, Later, Archived and
       // Deleted are things the user explicitly filed, and a filed thread must
@@ -207,6 +215,9 @@ inboxRouter.get("/", async (req, res) => {
       archived: t.archived,
       starred: t.starred,
       read_later: t.read_later,
+      // Epoch sentinel means "not snoozed"; clients only ever see a real
+      // wake time or null.
+      snooze_until: String(t.snooze_until) > SNOOZE_NONE ? t.snooze_until : null,
       // Whether this row is part of the sidebar/tab-title count, which only
       // includes mail that arrived after the account was connected. Sent by
       // the server so the client can drop the badge the instant a thread is
@@ -361,6 +372,9 @@ inboxRouter.post("/read-all", async (req, res) => {
   // must not mark the newsletters read too.
   if (!archived && !starred && !later) {
     q = q.eq("has_inbound", true);
+    // Same snooze predicate as the list: "Read all" must not mark mail the
+    // Inbox is deliberately hiding until later.
+    q = q.lte("snooze_until", new Date().toISOString());
     if (split) q = q.eq("split_class", split);
   }
 
@@ -391,6 +405,56 @@ inboxRouter.post("/read-all", async (req, res) => {
 
   logger.info({ uid, marked: ids.length, account }, "read-all applied");
   res.json({ marked: ids.length, remaining: ids.length === READ_ALL_CAP });
+});
+
+// POST /api/inbox/threads/:id/snooze — hide until a chosen time. Local only:
+// IMAP has no snooze concept, and flag_ops' CHECK constraint would reject the
+// op anyway. Registered BEFORE /threads/:id/:op, which would otherwise
+// swallow "snooze" and 404 it as an unknown action.
+const snoozeInput = z.object({
+  // Client sends an ISO instant. Bounded to [now-5min, now+1year]: the small
+  // backwards allowance forgives clock skew, the ceiling catches a garbage
+  // date before it hides a thread for a decade.
+  until: z.string().datetime({ offset: true }),
+});
+
+inboxRouter.post("/threads/:id/snooze", async (req, res) => {
+  const uid = userId(res);
+  const parsed = snoozeInput.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: "invalid snooze time" });
+  const until = new Date(parsed.data.until);
+  const now = Date.now();
+  if (Number.isNaN(until.getTime()) || until.getTime() < now - 5 * 60_000) {
+    return res.status(400).json({ error: "The snooze time has already passed." });
+  }
+  if (until.getTime() > now + 366 * 24 * 3600 * 1000) {
+    return res.status(400).json({ error: "Snooze is limited to one year out." });
+  }
+
+  const { data: thread } = await supabase
+    .from("threads")
+    .select("id")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (!thread) return res.status(404).json({ error: "thread not found" });
+
+  // read_later comes along so the thread shows in the Snoozed list, which
+  // filters on read_later alone (that keeps the installed iOS build's Later
+  // tab correct without an app update).
+  const { error } = await supabase
+    .from("threads")
+    .update({
+      snooze_until: until.toISOString(),
+      snoozed_at: new Date().toISOString(),
+      read_later: true,
+    })
+    .eq("id", thread.id);
+  if (error) {
+    logger.error({ err: error, threadId: thread.id }, "snooze failed");
+    return res.status(500).json({ error: "could not snooze thread" });
+  }
+  res.json({ ok: true, snooze_until: until.toISOString() });
 });
 
 // Thread-level state flips. Local change is immediate; a flag_ops row queues
@@ -429,7 +493,11 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
                 : op === "later"
                   ? { read_later: true }
                   : op === "unlater"
-                    ? { read_later: false }
+                    // Also clears any snooze: "remove from Later" is the only
+                    // unsnooze the installed iOS build has, and without this a
+                    // snoozed thread it removed would stay hidden from the
+                    // Inbox until its wake time with no way to see why.
+                    ? { read_later: false, snooze_until: SNOOZE_NONE, snoozed_at: null }
                     : { deleted_at: null }; // restore from trash
   await supabase.from("threads").update(local).eq("id", thread.id);
   if (op === "read" || op === "unread") {

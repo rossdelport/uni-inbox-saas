@@ -42,7 +42,7 @@ const VIEW_TITLES: Record<InboxViewName, string> = {
 const TABS: Array<{ key: InboxViewName; label: string; path: string }> = [
   { key: "all", label: "Inbox", path: "/" },
   { key: "starred", label: "Starred", path: "/starred" },
-  { key: "later", label: "Later", path: "/later" },
+  { key: "later", label: "Snoozed", path: "/later" },
   { key: "sent", label: "Sent", path: "/sent" },
   { key: "archived", label: "Archived", path: "/archived" },
   { key: "deleted", label: "Deleted", path: "/deleted" },
@@ -293,7 +293,19 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                 <div className="body">
                   <div className="r1">
                     <span className="who">{senderLabel(t.from_name, t.from_address)}</span>
-                    <span className="when">{formatWhen(t.last_message_at)}</span>
+                    {/* In the Snoozed view the useful time is when it comes
+                        BACK, not when it last moved. A wake time in the past
+                        (the up-to-60s window before the sweep tidies it) reads
+                        "back now" rather than a stale countdown. */}
+                    {view === "later" && t.snooze_until ? (
+                      <span className="when snz-when">
+                        {new Date(t.snooze_until).getTime() <= Date.now()
+                          ? "back now"
+                          : `back ${formatWhen(t.snooze_until)}`}
+                      </span>
+                    ) : (
+                      <span className="when">{formatWhen(t.last_message_at)}</span>
+                    )}
                   </div>
                   <div className="subj">{t.subject || "(no subject)"}</div>
                   {t.snippet && <div className="prev">{t.snippet}</div>}

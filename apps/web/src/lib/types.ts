@@ -36,6 +36,9 @@ export interface ThreadSummary {
   archived: boolean;
   starred: boolean;
   read_later: boolean;
+  /** Wake time when snoozed, else null. The Snoozed list shows it; the Inbox
+   *  simply does not contain snoozed threads. */
+  snooze_until: string | null;
   /** True when this thread is part of the sidebar / tab-title count: unread
    *  AND arrived after its account was connected. Sent by the server so the
    *  badge can drop the instant a thread is opened, instead of waiting on a

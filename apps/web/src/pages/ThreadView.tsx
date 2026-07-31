@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useAiSummary,
   useBillingState,
@@ -12,6 +12,7 @@ import { formatWhen, senderLabel } from "../lib/format.js";
 import { MessageBody } from "../components/MessageBody.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
 import { ReplyComposer } from "../components/ReplyComposer.js";
+import { SnoozePicker } from "../components/SnoozePicker.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import { toast } from "../lib/toast.js";
 import type { Message } from "../lib/types.js";
@@ -27,6 +28,8 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const [showEarlier, setShowEarlier] = useState(false);
   const [forwardOpen, setForwardOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const snoozeChipRef = useRef<HTMLButtonElement>(null);
 
   if (!threadId) {
     return (
@@ -89,11 +92,28 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
             ★ {thread.starred ? "Starred" : "Star"}
           </button>
           <button
-            className={`chip ${thread.read_later ? "on" : ""}`}
-            onClick={() => threadOp.mutate({ threadId: thread.id, op: thread.read_later ? "unlater" : "later" })}
+            ref={snoozeChipRef}
+            className={`chip ${thread.read_later || thread.snooze_until ? "on" : ""}`}
+            onClick={() => {
+              // Already snoozed or saved: one tap brings it back (unlater
+              // clears both states). Otherwise open the picker.
+              if (thread.read_later || thread.snooze_until) {
+                threadOp.mutate({ threadId: thread.id, op: "unlater" });
+              } else {
+                setSnoozeOpen(true);
+              }
+            }}
           >
-            ◷ {thread.read_later ? "Saved" : "Read later"}
+            ◷ {thread.snooze_until ? "Snoozed" : thread.read_later ? "Saved" : "Snooze"}
           </button>
+          {snoozeOpen && snoozeChipRef.current && (
+            <SnoozePicker
+              threadId={thread.id}
+              anchor={snoozeChipRef.current.getBoundingClientRect()}
+              onClose={() => setSnoozeOpen(false)}
+              onSnoozed={onBack}
+            />
+          )}
           <button
             className="chip"
             onClick={() => {

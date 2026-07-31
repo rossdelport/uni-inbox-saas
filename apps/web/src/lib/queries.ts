@@ -440,6 +440,24 @@ export function usePortal() {
   });
 }
 
+/** Snooze a thread until an ISO instant. Local-only state; the thread leaves
+ *  the Inbox immediately and returns at the wake time (or when new mail
+ *  lands on it, whichever comes first). */
+export function useSnooze() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, until }: { threadId: string; until: string }) =>
+      api<{ ok: boolean; snooze_until: string }>(`/api/inbox/threads/${threadId}/snooze`, {
+        method: "POST",
+        body: JSON.stringify({ until }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+    },
+  });
+}
+
 // ── AI summaries (paid add-on) ─────────────────────
 
 export interface AiSummary {

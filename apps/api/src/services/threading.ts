@@ -136,15 +136,28 @@ export async function touchThread(threadId: string, inboundMail = false): Promis
   // an inbound message dated after the deletion, so re-ingests of old
   // messages (reconnects, resyncs) cannot do it either.
   let undelete = false;
+  let wakeSnooze = false;
   if (inboundMail && newestInbound) {
     const { data: t } = await supabase
       .from("threads")
-      .select("deleted_at")
+      .select("deleted_at, snoozed_at, snooze_until")
       .eq("id", threadId)
       .maybeSingle();
     const deletedAt = t?.deleted_at as string | null | undefined;
     undelete = Boolean(
       deletedAt && new Date(newestInbound.date as string).getTime() > new Date(deletedAt).getTime(),
+    );
+    // New mail wakes a snoozed thread (Superhuman semantics: a reply is more
+    // urgent than the timer). Same date guard as undelete, and for the same
+    // reason: backfill and resyncs re-ingest OLD mail through this exact
+    // path, and mail from before the snooze was set must not cancel it.
+    const snoozedAt = t?.snoozed_at as string | null | undefined;
+    const snoozeUntil = t?.snooze_until as string | null | undefined;
+    wakeSnooze = Boolean(
+      snoozedAt &&
+        snoozeUntil &&
+        new Date(snoozeUntil).getTime() > Date.now() &&
+        new Date(newestInbound.date as string).getTime() > new Date(snoozedAt).getTime(),
     );
   }
 
@@ -172,6 +185,9 @@ export async function touchThread(threadId: string, inboundMail = false): Promis
       // sweep cannot drag an archived-but-unread thread back to the inbox.
       ...(unread && inboundMail ? { archived: false } : {}),
       ...(undelete ? { deleted_at: null } : {}),
+      ...(wakeSnooze
+        ? { snooze_until: "1970-01-01T00:00:00+00:00", snoozed_at: null, read_later: false }
+        : {}),
     })
     .eq("id", threadId);
   // One statement carries every rollup on the thread. Discarding its error let

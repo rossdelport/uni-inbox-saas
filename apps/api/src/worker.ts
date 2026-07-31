@@ -3,6 +3,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { superviseTick } from "./services/imapSync.js";
 import { retentionSweep } from "./services/retention.js";
+import { snoozeSweep } from "./services/snooze.js";
 import { reconcileBilling } from "./services/stripeBilling.js";
 import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
@@ -50,6 +51,13 @@ setInterval(() => {
 void superviseTick()
   .catch((err) => logger.error({ err }, "initial supervisor tick failed"))
   .finally(() => markTick());
+
+// Snooze sweep: every minute. Cosmetic-but-visible tidying (the read path is
+// what actually hides and reveals snoozed threads), so a failed tick costs a
+// delayed Realtime nudge, nothing more.
+setInterval(() => {
+  void snoozeSweep();
+}, 60_000);
 
 // Retention sweep: daily, first pass 5 minutes after boot (not at boot, so a
 // crash-loop never hammers deletes).
