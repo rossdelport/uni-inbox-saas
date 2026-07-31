@@ -2,8 +2,10 @@ import { useRef, useState } from "react";
 import {
   useAiSummary,
   useBillingState,
+  useCancelOutbox,
   useDeleteThread,
   useForward,
+  useOutboxForThread,
   useSummarize,
   useThread,
   useThreadOp,
@@ -185,9 +187,60 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
           );
         })}
       </div>
+
+      <OutboxStrip threadId={thread.id} />
       </div>
 
       <ReplyComposer threadId={thread.id} replyTo={replyTo} accountEmail={thread.account_email} />
+    </div>
+  );
+}
+
+// Sends still in motion for this conversation: queued (undo window or
+// scheduled), sending, and the two states that need a human (failed,
+// unknown). Sent rows vanish on their own: the delivered message replaces
+// them in the thread.
+function OutboxStrip({ threadId }: { threadId: string }) {
+  const { data } = useOutboxForThread(threadId);
+  const cancel = useCancelOutbox();
+  const items = data?.items ?? [];
+  if (items.length === 0) return null;
+
+  return (
+    <div className="obx">
+      {items.map((i) => {
+        const scheduled = i.status === "queued" && new Date(i.not_before).getTime() > Date.now() + 60_000;
+        const label =
+          i.status === "queued"
+            ? scheduled
+              ? `Scheduled: sends ${new Date(i.not_before).toLocaleString()}`
+              : "Sending shortly…"
+            : i.status === "sending"
+              ? "Sending…"
+              : i.status === "unknown"
+                ? (i.last_error ?? "We could not confirm this send.")
+                : (i.last_error ?? "This send failed.");
+        return (
+          <div key={i.id} className={`obx-row ${i.status}`}>
+            <span className="obx-dot" aria-hidden="true" />
+            <span className="obx-text">{label}</span>
+            {i.status === "queued" && (
+              <button
+                className="btn-mini"
+                disabled={cancel.isPending}
+                onClick={() =>
+                  cancel.mutate(i.id, {
+                    onSuccess: () => toast(scheduled ? "Scheduled send cancelled." : "Send cancelled.", "success"),
+                    onError: (e) => toast((e as Error).message, "warn"),
+                  })
+                }
+              >
+                {scheduled ? "Cancel" : "Undo"}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

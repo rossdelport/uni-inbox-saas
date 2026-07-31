@@ -54,11 +54,19 @@ export interface SentInfo {
   raw: Buffer;
 }
 
-export async function smtpSend(account: SendAccount, input: OutboundInput): Promise<SentInfo> {
+export async function smtpSend(
+  account: SendAccount,
+  input: OutboundInput,
+  // Callers that queue the send allocate the Message-ID at ENQUEUE time and
+  // pass it here, so any retry goes out under the same id and receiving mail
+  // systems dedupe a rare double-delivery. Omitted = nodemailer generates one.
+  messageId?: string,
+): Promise<SentInfo> {
   const oauth = providerForAuthMethod(account.auth_method ?? "password");
   const creds = oauth ? null : decryptCredentials(account.credentials_enc);
 
   const composer = new MailComposer({
+    messageId,
     from: input.fromName
       ? { name: input.fromName, address: account.email_address }
       : account.email_address,
@@ -82,7 +90,7 @@ export async function smtpSend(account: SendAccount, input: OutboundInput): Prom
   });
   const mail = composer.compile();
   const raw = await mail.build();
-  const messageId = mail.messageId();
+  const finalMessageId = mail.messageId() ?? messageId ?? "";
 
   const transport = nodemailer.createTransport({
     host: account.smtp_host,
@@ -113,7 +121,7 @@ export async function smtpSend(account: SendAccount, input: OutboundInput): Prom
     transport.close();
   }
 
-  return { messageId, raw };
+  return { messageId: finalMessageId, raw };
 }
 
 /** Best-effort copy to the account's Sent mailbox. Gmail auto-saves on SMTP

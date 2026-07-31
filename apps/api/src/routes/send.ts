@@ -12,6 +12,7 @@ import {
   smtpSend,
   type SendAccount,
 } from "../services/smtpSend.js";
+import { enqueueSend } from "../services/outbox.js";
 
 export const sendRouter = Router();
 
@@ -73,7 +74,25 @@ async function displayName(uid: string): Promise<string | null> {
 
 // Reply to a thread. From-account is the THREAD'S account — server-resolved,
 // deliberately not a request field.
+// Queue fields shared by every send route. client_token makes a retried or
+// double-submitted request resolve to ONE outbox row (optional: the installed
+// iOS build sends none and gets a server-side fallback token). send_at is
+// Send Later.
+const queueFields = {
+  client_token: z.string().min(8).max(80).optional(),
+  send_at: z.string().datetime({ offset: true }).optional(),
+} as const;
+
+function checkSendAt(sendAt: string | undefined): string | null {
+  if (!sendAt) return null;
+  const t = new Date(sendAt).getTime();
+  if (Number.isNaN(t)) return "invalid send time";
+  if (t > Date.now() + 31 * 24 * 3600 * 1000) return "Send later is limited to 31 days out.";
+  return null;
+}
+
 const replyInput = z.object({
+  ...queueFields,
   body_text: z.string().min(1).max(100_000),
   body_html: z.string().max(500_000).optional(),
   cc: z.array(z.string().email()).max(20).optional(),
@@ -152,6 +171,27 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
     fromName: await displayName(uid),
   };
 
+  const sendAtErr = checkSendAt(parsed.data.send_at);
+  if (sendAtErr) return res.status(400).json({ error: sendAtErr });
+
+  if (env.OUTBOX_ENABLED === "1") {
+    try {
+      const queued = await enqueueSend({
+        uid,
+        account: account as SendAccount,
+        threadId: thread.id as string,
+        kind: "reply",
+        input,
+        clientToken: parsed.data.client_token,
+        sendAt: parsed.data.send_at ?? null,
+      });
+      return res.json({ ok: true, queued: true, ...queued });
+    } catch (err) {
+      logger.error({ err, uid, threadId: thread.id }, "reply enqueue failed");
+      return res.status(502).json({ error: "Could not queue the send. Try again." });
+    }
+  }
+
   try {
     const sent = await smtpSend(account as SendAccount, input);
     await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
@@ -167,6 +207,7 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
 // account. Original body is quoted under a Gmail-style header block.
 // (Original attachments are not re-sent in v1; they live on the IMAP server.)
 const forwardInput = z.object({
+  ...queueFields,
   to: emailList,
   cc: z.array(z.string().email()).max(20).optional(),
   note: z.string().max(20_000).optional(),
@@ -244,6 +285,27 @@ sendRouter.post("/threads/:id/forward", async (req, res) => {
     fromName: await displayName(uid),
   };
 
+  const fwdSendAtErr = checkSendAt(parsed.data.send_at);
+  if (fwdSendAtErr) return res.status(400).json({ error: fwdSendAtErr });
+
+  if (env.OUTBOX_ENABLED === "1") {
+    try {
+      const queued = await enqueueSend({
+        uid,
+        account: account as SendAccount,
+        threadId: thread.id as string,
+        kind: "forward",
+        input,
+        clientToken: parsed.data.client_token,
+        sendAt: parsed.data.send_at ?? null,
+      });
+      return res.json({ ok: true, queued: true, ...queued });
+    } catch (err) {
+      logger.error({ err, uid, threadId: thread.id }, "forward enqueue failed");
+      return res.status(502).json({ error: "Could not queue the send. Try again." });
+    }
+  }
+
   try {
     const sent = await smtpSend(account as SendAccount, input);
     await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
@@ -257,6 +319,7 @@ sendRouter.post("/threads/:id/forward", async (req, res) => {
 
 // Fresh compose. account_id is explicit here (and ownership-checked).
 const composeInput = z.object({
+  ...queueFields,
   account_id: z.string().uuid(),
   to: emailList,
   cc: z.array(z.string().email()).max(20).optional(),
@@ -300,6 +363,30 @@ sendRouter.post("/messages/send", async (req, res) => {
     attachments,
     fromName: await displayName(uid),
   };
+
+  const newSendAtErr = checkSendAt(parsed.data.send_at);
+  if (newSendAtErr) return res.status(400).json({ error: newSendAtErr });
+
+  if (env.OUTBOX_ENABLED === "1") {
+    try {
+      // No thread yet: the drain creates it at delivery time, exactly as the
+      // synchronous path did, so a cancelled send never leaves a phantom
+      // thread behind.
+      const queued = await enqueueSend({
+        uid,
+        account: account as SendAccount,
+        threadId: null,
+        kind: "new",
+        input,
+        clientToken: parsed.data.client_token,
+        sendAt: parsed.data.send_at ?? null,
+      });
+      return res.json({ ok: true, queued: true, ...queued });
+    } catch (err) {
+      logger.error({ err, uid }, "compose enqueue failed");
+      return res.status(502).json({ error: "Could not queue the send. Try again." });
+    }
+  }
 
   try {
     const sent = await smtpSend(account as SendAccount, input);

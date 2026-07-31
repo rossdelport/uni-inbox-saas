@@ -14,6 +14,8 @@ import { messagesRouter } from "./routes/messages.js";
 import { sendRouter } from "./routes/send.js";
 import { billingRouter } from "./routes/billing.js";
 import { aiRouter } from "./routes/ai.js";
+import { outboxRouter } from "./routes/outbox.js";
+import { snippetsRouter } from "./routes/snippets.js";
 import { contactRouter } from "./routes/contact.js";
 import { oauthRouter } from "./routes/oauth.js";
 import { metricsRouter } from "./routes/metrics.js";
@@ -134,6 +136,8 @@ app.use("/api/metrics", metricsRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/outbox", outboxRouter);
+app.use("/api/snippets", snippetsRouter);
 app.use("/api/accounts", accountsRouter);
 app.use("/api/inbox", inboxRouter);
 app.use("/api", messagesRouter); // /api/threads/:id, /api/messages/:id/attachments/:partId

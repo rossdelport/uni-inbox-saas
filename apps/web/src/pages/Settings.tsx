@@ -7,8 +7,11 @@ import {
   useAccounts,
   useAiCheckout,
   useBillingState,
+  useCreateSnippet,
+  useDeleteSnippet,
   usePortal,
   useRemoveAccount,
+  useSnippets,
   useUpdateAccount,
 } from "../lib/queries.js";
 import { PlansModal } from "../components/PlansModal.js";
@@ -17,7 +20,7 @@ import { ColorDots } from "../components/ColorDots.js";
 import { toast } from "../lib/toast.js";
 import { PasswordInput } from "../components/PasswordInput.js";
 
-type Pane = "profile" | "accounts" | "plan";
+type Pane = "profile" | "accounts" | "snippets" | "plan";
 
 // Settings in the kit's .set-main layout: side nav + panes for Profile,
 // Accounts (real management) and Plan & billing.
@@ -41,6 +44,9 @@ export function Settings() {
         <button className={`side-item ${pane === "accounts" ? "active" : ""}`} onClick={() => setPane("accounts")}>
           Accounts
         </button>
+        <button className={`side-item ${pane === "snippets" ? "active" : ""}`} onClick={() => setPane("snippets")}>
+          Snippets
+        </button>
         <button className={`side-item ${pane === "plan" ? "active" : ""}`} onClick={() => setPane("plan")}>
           Plan &amp; billing
         </button>
@@ -48,6 +54,7 @@ export function Settings() {
       <div className="set-content">
         {pane === "profile" && <ProfilePane />}
         {pane === "accounts" && <AccountsPane />}
+        {pane === "snippets" && <SnippetsPane />}
         {pane === "plan" && <PlanPane />}
       </div>
     </div>
@@ -341,6 +348,94 @@ function AccountRow({ account }: { account: EmailAccount }) {
           {((update.error ?? remove.error) as Error).message}
         </p>
       )}
+    </div>
+  );
+}
+
+// Saved reply blocks. Kept deliberately plain: a list and one add form.
+// Inserted in the composer via the lightning button or by typing ;shortcut
+// followed by a space.
+function SnippetsPane() {
+  const { data } = useSnippets();
+  const create = useCreateSnippet();
+  const del = useDeleteSnippet();
+  const [shortcut, setShortcut] = useState("");
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+  const snippets = data?.snippets ?? [];
+
+  function add() {
+    if (!shortcut.trim() || !name.trim() || !body.trim()) return;
+    create.mutate(
+      { shortcut: shortcut.trim(), name: name.trim(), body_text: body },
+      {
+        onSuccess: () => {
+          setShortcut("");
+          setName("");
+          setBody("");
+          toast("Snippet saved.", "success");
+        },
+        onError: (e) => toast((e as Error).message, "warn"),
+      },
+    );
+  }
+
+  return (
+    <div className="set-pane active">
+      <h1>Snippets</h1>
+      <p className="p-sub">
+        Things you type a lot, ready to drop into any reply: the lightning button in the
+        composer, or type ;shortcut then a space.
+      </p>
+
+      <div className="set-card">
+        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8 }}>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>Shortcut</label>
+            <input placeholder="intro" value={shortcut} onChange={(e) => setShortcut(e.target.value)} />
+          </div>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>Name</label>
+            <input placeholder="Intro reply" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+        </div>
+        <div className="field">
+          <label>Text</label>
+          <textarea
+            style={{ minHeight: 88 }}
+            placeholder="Thanks for reaching out..."
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </div>
+        <button
+          className="btn-black btn-auto"
+          style={{ marginTop: 10 }}
+          disabled={create.isPending || !shortcut.trim() || !name.trim() || !body.trim()}
+          onClick={add}
+        >
+          {create.isPending ? "Saving…" : "Save snippet"}
+        </button>
+      </div>
+
+      {snippets.map((sn) => (
+        <div key={sn.id} className="set-card snip-row">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="snip-head">
+              <b>{sn.name}</b>
+              <code>;{sn.shortcut}</code>
+            </div>
+            <p className="snip-body">{sn.body_text}</p>
+          </div>
+          <button
+            className="btn-mini"
+            disabled={del.isPending}
+            onClick={() => del.mutate(sn.id, { onError: (e) => toast((e as Error).message, "warn") })}
+          >
+            Delete
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

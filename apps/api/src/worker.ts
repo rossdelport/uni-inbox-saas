@@ -4,6 +4,7 @@ import { logger } from "./lib/logger.js";
 import { superviseTick } from "./services/imapSync.js";
 import { retentionSweep } from "./services/retention.js";
 import { snoozeSweep } from "./services/snooze.js";
+import { outboxDrain } from "./services/outboxDrain.js";
 import { reconcileBilling } from "./services/stripeBilling.js";
 import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
@@ -51,6 +52,22 @@ setInterval(() => {
 void superviseTick()
   .catch((err) => logger.error({ err }, "initial supervisor tick failed"))
   .finally(() => markTick());
+
+// Outbox drain: every 5s. The undo window is 10s, so a send goes out at most
+// ~15s after the button. Never overlaps itself: a slow SMTP conversation must
+// not let a second drain claim the next batch while the first still runs.
+let draining = false;
+if (env.OUTBOX_ENABLED === "1") {
+  setInterval(() => {
+    if (draining) return;
+    draining = true;
+    outboxDrain()
+      .catch((err) => logger.error({ err }, "outbox drain failed"))
+      .finally(() => {
+        draining = false;
+      });
+  }, 5_000);
+}
 
 // Snooze sweep: every minute. Cosmetic-but-visible tidying (the read path is
 // what actually hides and reveals snoozed threads), so a failed tick costs a

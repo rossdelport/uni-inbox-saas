@@ -26,9 +26,12 @@ export function Compose() {
     compose.mutate(
       { account_id: fromId, to: recipients, subject, body_text: body },
       {
-        onSuccess: ({ thread_id }) => {
-          toast("Message sent", "success");
-          navigate(`/?t=${thread_id}`);
+        onSuccess: () => {
+          // Queued through the outbox: the thread does not exist until the
+          // worker delivers, so land on Sent, where the scheduled strip and
+          // then the real thread both show up.
+          toast("On its way. It appears in Sent once delivered.", "success");
+          navigate("/sent");
         },
       },
     );

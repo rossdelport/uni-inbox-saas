@@ -11,9 +11,11 @@ import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom
 import {
   useAccounts,
   useBackfill,
+  useCancelOutbox,
   useDeleteThread,
   useInbox,
   useReadAll,
+  useScheduledSends,
   useThreadOp,
 } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
@@ -295,6 +297,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         {/* Keyed on what you switched to, so changing tab or account replays
             the entrance and resets the scroll to the top of the new list. */}
         <div className="list-rows rise" key={`${view}:${account ?? "all"}:${split ?? "all"}`}>
+          {view === "sent" && !searching && <ScheduledStrip />}
           {inbox.isLoading ? (
             <div className="empty-state" style={{ padding: "60px 20px" }}>
               <div>Loading your mail…</div>
@@ -538,5 +541,41 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
     >
       <path d={dir === "left" ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
     </svg>
+  );
+}
+
+
+// Scheduled sends, pinned above the Sent list: mail that exists only as an
+// outbox row until the worker delivers it. Cancel returns it to nowhere (a
+// scheduled compose has no thread yet), which is exactly what cancel means.
+function ScheduledStrip() {
+  const { data } = useScheduledSends(true);
+  const cancel = useCancelOutbox();
+  const items = data?.items ?? [];
+  if (items.length === 0) return null;
+  return (
+    <div className="obx" style={{ margin: "4px 4px 10px" }}>
+      {items.map((i) => (
+        <div key={i.id} className="obx-row queued">
+          <span className="obx-dot" aria-hidden="true" />
+          <span className="obx-text">
+            To {i.to.join(", ")}{i.subject ? ` · ${i.subject}` : ""} · sends{" "}
+            {new Date(i.not_before).toLocaleString()}
+          </span>
+          <button
+            className="btn-mini"
+            disabled={cancel.isPending}
+            onClick={() =>
+              cancel.mutate(i.id, {
+                onSuccess: () => toast("Scheduled send cancelled.", "success"),
+                onError: (e) => toast((e as Error).message, "warn"),
+              })
+            }
+          >
+            Cancel
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

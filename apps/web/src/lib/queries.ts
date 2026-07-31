@@ -376,6 +376,7 @@ export function useReply() {
       attachments,
       cc,
       bcc,
+      send_at,
     }: {
       threadId: string;
       body_text: string;
@@ -383,14 +384,19 @@ export function useReply() {
       attachments?: OutgoingAttachment[];
       cc?: string[];
       bcc?: string[];
+      /** ISO instant for Send Later; omitted = send after the undo window. */
+      send_at?: string;
     }) =>
-      api(`/api/threads/${threadId}/reply`, {
+      api<QueuedSend>(`/api/threads/${threadId}/reply`, {
         method: "POST",
-        body: JSON.stringify({ body_text, body_html, attachments, cc, bcc }),
+        // One token per submission attempt: a retried or double-clicked send
+        // resolves to the same outbox row server-side.
+        body: JSON.stringify({ body_text, body_html, attachments, cc, bcc, send_at, client_token: crypto.randomUUID() }),
       }),
     onSuccess: (_data, { threadId }) => {
       void qc.invalidateQueries({ queryKey: ["thread", threadId] });
       void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["outbox"] });
     },
   });
 }
@@ -413,12 +419,15 @@ export function useForward() {
 export function useCompose() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string }) =>
-      api<{ thread_id: string }>("/api/messages/send", {
+    mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string; send_at?: string }) =>
+      api<QueuedSend>("/api/messages/send", {
         method: "POST",
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, client_token: crypto.randomUUID() }),
       }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["inbox"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["outbox"] });
+    },
   });
 }
 
@@ -463,6 +472,98 @@ export function useSnooze() {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
     },
+  });
+}
+
+// ── Outbox (undo send / send later) ─────────────────
+
+export interface QueuedSend {
+  ok: boolean;
+  queued?: boolean;
+  outbox_id?: string;
+  status?: string;
+  not_before?: string;
+  undo_seconds?: number;
+}
+
+export interface OutboxItem {
+  id: string;
+  account_id: string;
+  thread_id: string | null;
+  kind: string;
+  status: string;
+  not_before: string;
+  sent_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  subject: string | null;
+  to: string[];
+}
+
+/** Sends still in motion for one thread (queued/sending/failed/unknown).
+ *  Polls fast while anything is pending: the undo countdown lives on this. */
+export function useOutboxForThread(threadId: string | null) {
+  return useQuery({
+    queryKey: ["outbox", threadId],
+    queryFn: () => api<{ items: OutboxItem[] }>(`/api/outbox?thread=${threadId}`),
+    enabled: Boolean(threadId),
+    refetchInterval: (query) =>
+      (query.state.data?.items ?? []).some((i) => i.status === "queued" || i.status === "sending")
+        ? 2_500
+        : false,
+  });
+}
+
+/** Everything scheduled for later (the Sent tab's top strip). */
+export function useScheduledSends(enabled: boolean) {
+  return useQuery({
+    queryKey: ["outbox", "scheduled"],
+    queryFn: () => api<{ items: OutboxItem[] }>(`/api/outbox?scheduled=1`),
+    enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useCancelOutbox() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ ok: boolean }>(`/api/outbox/${id}/cancel`, { method: "POST" }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["outbox"] }),
+  });
+}
+
+// ── Snippets ─────────────────────
+
+export interface Snippet {
+  id: string;
+  shortcut: string;
+  name: string;
+  body_text: string;
+  body_html: string | null;
+}
+
+export function useSnippets() {
+  return useQuery({
+    queryKey: ["snippets"],
+    queryFn: () => api<{ snippets: Snippet[] }>("/api/snippets"),
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateSnippet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { shortcut: string; name: string; body_text: string; body_html?: string }) =>
+      api<Snippet>("/api/snippets", { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["snippets"] }),
+  });
+}
+
+export function useDeleteSnippet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ ok: boolean }>(`/api/snippets/${id}`, { method: "DELETE" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["snippets"] }),
   });
 }
 

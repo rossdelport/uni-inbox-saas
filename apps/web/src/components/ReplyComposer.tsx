@@ -1,5 +1,11 @@
-import { useRef, useState } from "react";
-import { useReply, type OutgoingAttachment } from "../lib/queries.js";
+import { useEffect, useRef, useState } from "react";
+import {
+  useCancelOutbox,
+  useReply,
+  useSnippets,
+  type OutgoingAttachment,
+  type QueuedSend,
+} from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 
 const MAX_FILES = 5;
@@ -24,6 +30,31 @@ export function ReplyComposer({
   const [showCc, setShowCc] = useState(false);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
+  const { data: snippetData } = useSnippets();
+  const snippets = snippetData?.snippets ?? [];
+  const [snipOpen, setSnipOpen] = useState(false);
+  const [laterOpen, setLaterOpen] = useState(false);
+  const cancelOutbox = useCancelOutbox();
+  // The undo window: the queued send plus everything needed to put the draft
+  // back if the user pulls it. Held here, not in the outbox row, so undo can
+  // restore the exact editor HTML and the original File objects.
+  const [pendingUndo, setPendingUndo] = useState<null | {
+    outboxId: string;
+    until: number;
+    html: string;
+    files: File[];
+    cc: string;
+    bcc: string;
+  }>(null);
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!pendingUndo) return;
+    const t = setInterval(() => {
+      if (Date.now() >= pendingUndo.until) setPendingUndo(null);
+      else forceTick((n) => n + 1);
+    }, 250);
+    return () => clearInterval(t);
+  }, [pendingUndo]);
 
   // Synchronous send latch. `reply.isPending` only flips once mutate() is
   // called, and send() awaits fileToBase64 for every attachment first, so for
@@ -36,6 +67,45 @@ export function ReplyComposer({
 
   function syncEmpty() {
     setEmpty(!(editRef.current?.innerText ?? "").trim());
+  }
+
+  // ;shortcode expansion, Superhuman style: typing ";intro " swaps the token
+  // for the snippet at the caret. Runs on every input; the regex only looks
+  // at the text node the caret sits in, so it costs nothing.
+  function maybeExpandSnippet() {
+    const sel = window.getSelection();
+    const node = sel?.anchorNode;
+    if (!sel || !node || node.nodeType !== Node.TEXT_NODE || snippets.length === 0) return;
+    const text = node.textContent ?? "";
+    const upTo = text.slice(0, sel.anchorOffset);
+    const m = /;([a-z0-9_-]+)[\s\u00a0]$/i.exec(upTo);
+    if (!m) return;
+    const snip = snippets.find((x) => x.shortcut === m[1]!.toLowerCase());
+    if (!snip) return;
+    const range = document.createRange();
+    range.setStart(node, sel.anchorOffset - m[0].length);
+    range.setEnd(node, sel.anchorOffset);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand(
+      "insertHTML",
+      false,
+      snip.body_html ?? snip.body_text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>"),
+    );
+    syncEmpty();
+  }
+
+  function insertSnippet(id: string) {
+    const snip = snippets.find((x) => x.id === id);
+    if (!snip) return;
+    editRef.current?.focus();
+    document.execCommand(
+      "insertHTML",
+      false,
+      snip.body_html ?? snip.body_text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>"),
+    );
+    setSnipOpen(false);
+    syncEmpty();
   }
 
   // execCommand is legacy but universally supported and exactly the right
@@ -73,10 +143,11 @@ export function ReplyComposer({
       .map((a) => a.trim())
       .filter((a) => a.includes("@"));
 
-  async function send() {
+  async function send(sendAt?: string) {
     const el = editRef.current;
     if (!el || !canSend || sendingRef.current) return;
     sendingRef.current = true;
+    const stash = { html: el.innerHTML, files, cc, bcc };
     const ccList = splitAddrs(cc);
     const bccList = splitAddrs(bcc);
     const body_text = el.innerText.replace(/ /g, " ").trim();
@@ -104,16 +175,28 @@ export function ReplyComposer({
         attachments: attachments.length > 0 ? attachments : undefined,
         cc: ccList.length > 0 ? ccList : undefined,
         bcc: bccList.length > 0 ? bccList : undefined,
+        send_at: sendAt,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data: QueuedSend) => {
           el.innerHTML = "";
           setFiles([]);
           setEmpty(true);
           setCc("");
           setBcc("");
           setShowCc(false);
-          toast(`Reply sent from ${accountEmail}`, "success");
+          if (data.queued && sendAt) {
+            toast(`Scheduled. It sends ${new Date(sendAt).toLocaleString()}.`, "success");
+          } else if (data.queued && data.outbox_id && data.not_before) {
+            // Undo window: keep the draft on ice until the worker may claim it.
+            setPendingUndo({
+              outboxId: data.outbox_id,
+              until: new Date(data.not_before).getTime(),
+              ...stash,
+            });
+          } else {
+            toast(`Reply sent from ${accountEmail}`, "success");
+          }
         },
         onSettled: () => {
           sendingRef.current = false;
@@ -192,6 +275,35 @@ export function ReplyComposer({
             e.target.value = "";
           }}
         />
+        <span style={{ position: "relative" }}>
+          <button
+            className="rc-btn"
+            title="Insert a snippet (or type ;shortcut in the message)"
+            onMouseDown={stop}
+            onClick={() => setSnipOpen((v) => !v)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12L13 2z" />
+            </svg>
+          </button>
+          {snipOpen && (
+            <div className="snz-pop rc-snips" style={{ position: "absolute", top: 30, left: 0, width: 240 }}>
+              {snippets.length === 0 ? (
+                <p className="rc-snips-empty">
+                  No snippets yet. Create them in Settings, then insert them here or by typing
+                  ;shortcut in the message.
+                </p>
+              ) : (
+                snippets.map((sn) => (
+                  <button key={sn.id} className="snz-item" onMouseDown={stop} onClick={() => insertSnippet(sn.id)}>
+                    <span>{sn.name}</span>
+                    <i>;{sn.shortcut}</i>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </span>
         <button
           className="rc-btn"
           style={{ width: "auto", padding: "0 9px", marginLeft: "auto", fontSize: 11, fontWeight: 700 }}
@@ -231,7 +343,10 @@ export function ReplyComposer({
         role="textbox"
         aria-multiline="true"
         data-placeholder={`Reply to ${replyTo}...`}
-        onInput={syncEmpty}
+        onInput={() => {
+          maybeExpandSnippet();
+          syncEmpty();
+        }}
       />
 
       {files.length > 0 && (
@@ -252,14 +367,89 @@ export function ReplyComposer({
       )}
 
       {reply.error && <p className="err">{(reply.error as Error).message}</p>}
-      <div className="rr-bar">
-        <span className="rr-note">Sends from {accountEmail}</span>
-        <button className="btn-sm" disabled={!canSend} onClick={() => void send()}>
-          {reply.isPending ? "Sending…" : "Reply"}
-        </button>
-      </div>
+      {pendingUndo ? (
+        <div className="rr-bar">
+          <span className="rr-note">
+            Sending in {Math.max(0, Math.ceil((pendingUndo.until - Date.now()) / 1000))}s…
+          </span>
+          <button
+            className="btn-mini"
+            disabled={cancelOutbox.isPending}
+            onClick={() =>
+              cancelOutbox.mutate(pendingUndo.outboxId, {
+                onSuccess: () => {
+                  // Put the draft back exactly as it was.
+                  if (editRef.current) editRef.current.innerHTML = pendingUndo.html;
+                  setFiles(pendingUndo.files);
+                  setCc(pendingUndo.cc);
+                  setBcc(pendingUndo.bcc);
+                  setShowCc(Boolean(pendingUndo.cc || pendingUndo.bcc));
+                  setPendingUndo(null);
+                  syncEmpty();
+                  toast("Send cancelled. Your draft is back.", "success");
+                },
+                onError: () => {
+                  setPendingUndo(null);
+                  toast("Too late to undo: it was already on its way.", "warn");
+                },
+              })
+            }
+          >
+            Undo
+          </button>
+        </div>
+      ) : (
+        <div className="rr-bar">
+          <span className="rr-note">Sends from {accountEmail}</span>
+          <span style={{ position: "relative", display: "flex", gap: 6 }}>
+            <button
+              className="btn-mini"
+              title="Send later"
+              disabled={!canSend}
+              onClick={() => setLaterOpen((v) => !v)}
+            >
+              ◷
+            </button>
+            {laterOpen && (
+              <div className="snz-pop" style={{ position: "absolute", bottom: 34, right: 0, width: 210 }}>
+                {sendLaterPresets().map((p) => (
+                  <button
+                    key={p.label}
+                    className="snz-item"
+                    onClick={() => {
+                      setLaterOpen(false);
+                      void send(p.when.toISOString());
+                    }}
+                  >
+                    <span>{p.label}</span>
+                    <i>{p.when.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}</i>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button className="btn-sm" disabled={!canSend} onClick={() => void send()}>
+              {reply.isPending ? "Sending…" : "Reply"}
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   );
+}
+
+/** Send Later presets: computed at open, never in the past. */
+function sendLaterPresets(): Array<{ label: string; when: Date }> {
+  const now = new Date();
+  const out: Array<{ label: string; when: Date }> = [
+    { label: "In 1 hour", when: new Date(now.getTime() + 3600_000) },
+  ];
+  const tonight = new Date(now);
+  tonight.setHours(18, 0, 0, 0);
+  if (tonight.getTime() > now.getTime() + 30 * 60_000) out.push({ label: "This evening", when: tonight });
+  const tomorrow = new Date(now.getTime() + 24 * 3600_000);
+  tomorrow.setHours(8, 0, 0, 0);
+  out.push({ label: "Tomorrow morning", when: tomorrow });
+  return out;
 }
 
 async function fileToBase64(f: File): Promise<string> {
