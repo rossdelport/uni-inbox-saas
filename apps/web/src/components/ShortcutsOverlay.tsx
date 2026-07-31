@@ -43,6 +43,7 @@ export function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
           <Row label="Star" keys={["S"]} />
           <Row label="Delete" keys={["#"]} />
           <Row label="Reply" keys={["R"]} />
+          <Row label="Summarize (AI add-on)" keys={["I"]} />
         </div>
         <div className="kbd-sec">
           <h4>Write</h4>

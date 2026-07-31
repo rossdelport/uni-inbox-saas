@@ -306,8 +306,24 @@ function AiSummaryBlock({ threadId }: { threadId: string }) {
   const enabled = Boolean(billing?.ai_addon);
   const { data } = useAiSummary(threadId, enabled);
   const summarize = useSummarize();
-  if (!enabled) return null;
   const s = data?.summary ?? null;
+  // Superhuman's "I": one key summarizes the open thread, pressing it again
+  // tucks the summary away. Add-on subscribers only; for everyone else the
+  // binding is inactive so "i" stays a dead key, not a nag. Hidden state
+  // resets per thread because the whole pane is keyed on threadId.
+  const [hidden, setHidden] = useState(false);
+  useHotkeys(
+    {
+      i: () => {
+        if (s) setHidden((v) => !v);
+        else if (!summarize.isPending)
+          summarize.mutate(threadId, { onError: (e) => toast((e as Error).message, "warn") });
+      },
+    },
+    { active: enabled, priority: KP.pane },
+  );
+  if (!enabled) return null;
+  if (hidden) return null;
 
   return (
     <div className="ai-sum">

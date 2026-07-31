@@ -7,6 +7,14 @@ projects, each with its own mailbox and none worth a full client setup.
 
 ## Positioning
 
+- **The promise (Ross, 2026-07-31, after the Superhuman feature build):** "Keep
+  reading email the normal way, just see all your emails in one place, let it
+  sort the noise out, and get through it faster." OneInbox is Superhuman minus
+  the intensity: the triage core (keys, snooze, splits, snippets, summaries) at
+  $5 instead of $30, without asking anyone to change how they work. Deliberately
+  NOT building the intense half (calendar, booking pages, auto-drafts, Ask-AI
+  chat); candidates that fit the promise are get-me-to-zero, custom splits per
+  client, auto-archive rules, and press-I-to-summarize.
 - The wedge: "solo founder with 6 project inboxes, $5/month, zero clutter".
   Team tools (Missive ~$14/user, Front) are overkill; Shortwave is Gmail-only;
   Gmail's built-in POP-fetch is free but ugly and buried. We win on focus and
