@@ -7,6 +7,8 @@ import {
   type QueuedSend,
 } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
+import { KP, useHotkeys } from "../lib/keyboard.js";
+import { onComposerDirty, onReplyIntent } from "../lib/composerIntent.js";
 
 const MAX_FILES = 5;
 const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
@@ -64,6 +66,45 @@ export function ReplyComposer({
   // read in the same tick, before React ever re-renders.
   const sendingRef = useRef(false);
   const canSend = (!empty || files.length > 0) && !reply.isPending;
+
+  // "r" in the reading pane lands the caret here.
+  useEffect(
+    () =>
+      onReplyIntent(() => {
+        editRef.current?.focus();
+        editRef.current?.scrollIntoView({ block: "nearest" });
+      }),
+    [],
+  );
+  // Unsent content, read live: keyboard actions that would unmount this
+  // component check it before navigating, because the body lives in an
+  // uncontrolled contentEditable that unmounting destroys.
+  const draftRef = useRef({ files, cc, bcc });
+  draftRef.current = { files, cc, bcc };
+  useEffect(
+    () =>
+      onComposerDirty(() => {
+        const d = draftRef.current;
+        return (
+          Boolean((editRef.current?.innerText ?? "").trim()) ||
+          d.files.length > 0 ||
+          d.cc.trim().length > 0 ||
+          d.bcc.trim().length > 0
+        );
+      }),
+    [],
+  );
+  // Escape closes the snippet and send-later popovers before anything below
+  // them (like the reading pane's back) can see it.
+  useHotkeys(
+    {
+      Escape: () => {
+        setSnipOpen(false);
+        setLaterOpen(false);
+      },
+    },
+    { active: snipOpen || laterOpen, priority: KP.overlay },
+  );
 
   function syncEmpty() {
     setEmpty(!(editRef.current?.innerText ?? "").trim());
@@ -346,6 +387,14 @@ export function ReplyComposer({
         onInput={() => {
           maybeExpandSnippet();
           syncEmpty();
+        }}
+        onKeyDown={(e) => {
+          // Cmd/Ctrl+Enter sends. Handled on the element because the global
+          // layer deliberately ignores everything while typing.
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            void send();
+          }
         }}
       />
 

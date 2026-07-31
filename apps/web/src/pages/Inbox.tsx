@@ -20,8 +20,11 @@ import {
 } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
+import { KP, useHotkeys } from "../lib/keyboard.js";
+import { composerDirty } from "../lib/composerIntent.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
 import { PaneResizer } from "../components/PaneResizer.js";
+import { SnoozePicker } from "../components/SnoozePicker.js";
 import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
 import { ReadingPane } from "./ThreadView.js";
 import { MAIL_SRC } from "../lib/assets.js";
@@ -150,6 +153,92 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     setParams(next);
   }
 
+  // ── Keyboard cursor ──────────────────────────────────────────────────
+  // -1 = no cursor drawn: the outline appears only once the keyboard (or a
+  // row click) places it, so mouse-first users never see a stray highlight.
+  const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
+  const [cur, setCur] = useState(-1);
+  const rowEls = useRef<Array<HTMLDivElement | null>>([]);
+  const [kbSnooze, setKbSnooze] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
+  useEffect(() => setCur(-1), [view, account, split, searching]);
+  // Archive and delete remove their row optimistically, so the next row
+  // slides into the cursor index by itself; this only catches the end.
+  useEffect(() => {
+    if (cur >= threads.length && threads.length > 0) setCur(threads.length - 1);
+  }, [cur, threads.length]);
+  useEffect(() => {
+    if (cur >= 0) rowEls.current[cur]?.scrollIntoView({ block: "nearest" });
+  }, [cur]);
+
+  // Switching the open thread remounts the reading pane (it is keyed on
+  // threadId), which destroys any reply typed into it. Refuse to move on.
+  function guardDraft(): boolean {
+    if (!composerDirty()) return false;
+    toast("You have an unsent reply. Send it or clear it first.", "warn");
+    return true;
+  }
+  function moveCursor(delta: number) {
+    if (threads.length === 0) return;
+    const next = cur < 0 ? 0 : Math.min(threads.length - 1, Math.max(0, cur + delta));
+    // With the reading pane open, j/k walk the conversations themselves.
+    const t = threads[next];
+    if (threadId && t && t.id !== threadId) {
+      if (guardDraft()) return;
+      openThread(t);
+    }
+    setCur(next);
+  }
+  function openCursor() {
+    const t = threads[cur >= 0 ? cur : 0];
+    if (!t) return false as const;
+    if (threadId && t.id !== threadId && guardDraft()) return;
+    if (cur < 0) setCur(0);
+    openThread(t);
+  }
+  /** Run fn on the cursor row; declines the key when there is none. */
+  function withCursor(fn: (t: ThreadSummary, el: HTMLDivElement | null) => void) {
+    const t = cur >= 0 ? threads[cur] : undefined;
+    if (!t) return false as const;
+    fn(t, rowEls.current[cur] ?? null);
+  }
+
+  // Cursor movement never fires read POSTs (only opening does), so holding j
+  // to skim a list cannot mark it read behind you.
+  useHotkeys(
+    {
+      j: () => moveCursor(1),
+      k: () => moveCursor(-1),
+      Enter: () => openCursor(),
+      o: () => openCursor(),
+      e: () =>
+        withCursor((t) =>
+          threadOp.mutate(
+            view === "deleted"
+              ? { threadId: t.id, op: "restore" }
+              : { threadId: t.id, op: t.archived ? "unarchive" : "archive" },
+          ),
+        ),
+      s: () =>
+        withCursor((t) => threadOp.mutate({ threadId: t.id, op: t.starred ? "unstar" : "star" })),
+      h: () =>
+        withCursor((t, el) => {
+          if (t.read_later || t.snooze_until) threadOp.mutate({ threadId: t.id, op: "unlater" });
+          else if (el) setKbSnooze({ threadId: t.id, anchor: el.getBoundingClientRect() });
+        }),
+      "#": () => {
+        // Deleted view offers Restore only; "#" matching the rows it sits on.
+        if (view === "deleted") return false;
+        return withCursor((t) => {
+          deleteThread.mutate(t.id, { onSuccess: () => toast("Conversation deleted", "danger") });
+          if (threadId === t.id) closeThread();
+        });
+      },
+      u: () => (threadId ? closeThread() : false),
+      Escape: () => (threadId ? closeThread() : false),
+    },
+    { priority: KP.list },
+  );
+
   // First run: no accounts connected yet.
   if (!accountsLoading && accounts && accounts.length === 0) {
     return (
@@ -180,7 +269,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   }
 
   // Server-side search already filtered across every mailbox; no client pass.
-  const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
   const q = debouncedQ.toLowerCase();
   const unreadN = threads.filter((t) => t.unread).length;
   const accountsInView = new Set(threads.map((t) => t.account_id)).size;
@@ -327,12 +415,18 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
               </div>
             </div>
           ) : (
-            threads.map((t) => (
+            threads.map((t, i) => (
               <div
                 key={t.id}
-                className={`mrow ${t.unread ? "unread" : ""} ${threadId === t.id ? "sel" : ""}`}
+                ref={(el) => {
+                  rowEls.current[i] = el;
+                }}
+                className={`mrow ${t.unread ? "unread" : ""} ${threadId === t.id ? "sel" : ""} ${cur === i ? "cur" : ""}`}
                 style={{ "--acc": t.account_color } as CSSProperties}
-                onClick={() => openThread(t)}
+                onClick={() => {
+                  setCur(i);
+                  openThread(t);
+                }}
               >
                 {t.unread && <span className="unread-dot" style={{ background: t.account_color }} />}
                 <SenderAvatar name={t.from_name} email={t.from_address} color={t.account_color} />
@@ -456,6 +550,15 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
       {/* Keeps the onboarding wizard alive across the first connect (the
           first-run branch above unmounts the moment accounts exist). */}
       {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
+
+      {/* Snooze picker for the keyboard cursor ("h"), anchored to its row. */}
+      {kbSnooze && (
+        <SnoozePicker
+          threadId={kbSnooze.threadId}
+          anchor={kbSnooze.anchor}
+          onClose={() => setKbSnooze(null)}
+        />
+      )}
     </>
   );
 }

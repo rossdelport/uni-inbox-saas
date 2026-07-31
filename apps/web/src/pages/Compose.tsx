@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAccounts, useCompose } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
+import { KP, useHotkeys } from "../lib/keyboard.js";
 
 // Fresh compose: the ONE place where the from-account is an explicit choice.
 export function Compose() {
@@ -13,6 +14,21 @@ export function Compose() {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  // First Escape blurs whichever field you are in (global rule); the next
+  // one returns to the inbox, but never over typed content: leaving this
+  // page destroys the message state, so a started message refuses Escape.
+  useHotkeys(
+    {
+      Escape: () => {
+        if (to.trim() || subject.trim() || body.trim()) {
+          toast("This message has not been sent. Send it or clear it first.", "warn");
+          return;
+        }
+        void navigate("/");
+      },
+    },
+    { priority: KP.list },
+  );
 
   const fromId = accountId || active[0]?.id || "";
 
@@ -54,7 +70,17 @@ export function Compose() {
         <h1>New message</h1>
         <p className="p-sub">Pick which address it sends from.</p>
 
-        <form className="set-card" onSubmit={onSubmit}>
+        <form
+          className="set-card"
+          onSubmit={onSubmit}
+          onKeyDown={(e) => {
+            // Cmd/Ctrl+Enter sends from any field, with native validation.
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.requestSubmit();
+            }
+          }}
+        >
           <div className="field">
             <label>From</label>
             <div className="m-provs" style={{ marginTop: 4 }}>

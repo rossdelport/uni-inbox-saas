@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { KP, useHotkeys } from "../lib/keyboard.js";
 
 // Trust marker at the foot of the sidebar. Ads brought in people asking "is it
 // encrypted?", so the answer is worth stating where they can find it.
@@ -41,22 +42,20 @@ export function SecurityBadge() {
     function onDown(e: MouseEvent) {
       if (!(e.target as Element).closest?.(".secure-pop, .secure-chip")) setOpen(false);
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
     // A fixed panel would drift away from its anchor on scroll or resize.
     const close = () => setOpen(false);
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
     window.addEventListener("resize", close);
     window.addEventListener("scroll", close, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", close);
       window.removeEventListener("scroll", close, true);
     };
   }, [open]);
+  // Escape at overlay priority, so it closes just this popover and never the
+  // thread behind it. No catch-all: it is an explainer, not a modal.
+  useHotkeys({ Escape: () => setOpen(false) }, { active: open, priority: KP.overlay });
 
   return (
     <div className="side-secure">

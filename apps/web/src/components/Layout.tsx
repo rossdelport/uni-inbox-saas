@@ -18,6 +18,8 @@ import { ConnectAccountModal } from "./ConnectAccountModal.js";
 import { ColorDots } from "./ColorDots.js";
 import { PaneResizer, restorePaneWidths } from "./PaneResizer.js";
 import { SecurityBadge } from "./SecurityBadge.js";
+import { ShortcutsOverlay } from "./ShortcutsOverlay.js";
+import { KP, setKeyboardEnabled, useHotkeys } from "../lib/keyboard.js";
 
 export interface AppOutletContext {
   search: string;
@@ -53,7 +55,9 @@ export function Layout() {
   const [toastState, setToastState] = useState<{ msg: string; kind: ToastKind; key: number } | null>(
     null,
   );
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -175,6 +179,32 @@ export function Layout() {
     e.stopPropagation();
     setPlansOpen(true);
   }
+  // The click gate above is capture-phase and mouse-only; without this an
+  // unpaid user could archive, send and delete entirely by keyboard.
+  useEffect(() => {
+    setKeyboardEnabled(!unpaid);
+    return () => setKeyboardEnabled(true);
+  }, [unpaid]);
+
+  // App-wide keys. View jumps go through go(), so with no accounts connected
+  // they open the connect modal exactly like the sidebar links they mirror.
+  useHotkeys(
+    {
+      c: () => go("/compose"),
+      "/": () => {
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      },
+      "?": () => setShortcutsOpen(true),
+      "g i": () => go("/"),
+      "g s": () => go("/starred"),
+      "g h": () => go("/later"),
+      "g t": () => go("/sent"),
+      "g e": () => go("/archived"),
+      "g d": () => go("/deleted"),
+    },
+    { priority: KP.page },
+  );
 
   return (
     <div className="dash" onClickCapture={gateClicks}>
@@ -194,6 +224,7 @@ export function Layout() {
             <path d="M20 20l-3.5-3.5" />
           </svg>
           <input
+            ref={searchRef}
             type="text"
             placeholder="Search every inbox at once..."
             value={search}
@@ -383,6 +414,7 @@ export function Layout() {
 
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
       {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
+      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
       {toastState && (
         <Toast
           key={toastState.key}

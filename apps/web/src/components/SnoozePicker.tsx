@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSnooze } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
+import { KP, useHotkeys } from "../lib/keyboard.js";
 
 // Snooze menu, portalled to <body>. A portal because both intended anchors
 // live inside overflow-clipped containers (.dash-side hides x-overflow, list
@@ -68,16 +69,12 @@ export function SnoozePicker({
     function onDown(e: MouseEvent) {
       if (!popRef.current?.contains(e.target as Node)) onClose();
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onDown);
   }, [onClose]);
+  // Overlay priority: Escape closes only the picker, never the thread or
+  // modal underneath, and the catch-all stops "h"/"e" acting behind it.
+  useHotkeys({ Escape: () => onClose(), "*": () => {} }, { priority: KP.overlay });
 
   function pick(when: Date) {
     snooze.mutate(

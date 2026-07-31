@@ -11,6 +11,8 @@ import {
   useThreadOp,
 } from "../lib/queries.js";
 import { formatWhen, senderLabel } from "../lib/format.js";
+import { KP, useHotkeys } from "../lib/keyboard.js";
+import { composerDirty, requestReply } from "../lib/composerIntent.js";
 import { MessageBody } from "../components/MessageBody.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
 import { ReplyComposer } from "../components/ReplyComposer.js";
@@ -32,6 +34,55 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const [forwardOpen, setForwardOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const snoozeChipRef = useRef<HTMLButtonElement>(null);
+
+  // Keys for the open conversation. Above the list's priority: with a thread
+  // showing, "e" archives THIS thread and goes back, not the cursor row.
+  const th = data?.thread;
+  // Leaving this pane unmounts the reply composer, and a typed reply lives
+  // only in its contentEditable: closing would destroy it silently. Any key
+  // that navigates away refuses while there is unsent content.
+  function guardDraft(): boolean {
+    if (!composerDirty()) return false;
+    toast("You have an unsent reply. Send it or clear it first.", "warn");
+    return true;
+  }
+  useHotkeys(
+    {
+      r: () => {
+        if (!requestReply()) return false;
+      },
+      e: () => {
+        if (!th) return false;
+        if (guardDraft()) return;
+        threadOp.mutate({ threadId: th.id, op: th.archived ? "unarchive" : "archive" });
+        onBack();
+      },
+      s: () => {
+        if (!th) return false;
+        threadOp.mutate({ threadId: th.id, op: th.starred ? "unstar" : "star" });
+      },
+      h: () => {
+        if (!th) return false;
+        if (th.read_later || th.snooze_until) threadOp.mutate({ threadId: th.id, op: "unlater" });
+        else setSnoozeOpen(true);
+      },
+      "#": () => {
+        if (!th) return false;
+        if (guardDraft()) return;
+        deleteThread.mutate(th.id, { onSuccess: () => toast("Conversation deleted", "danger") });
+        onBack();
+      },
+      u: () => {
+        if (guardDraft()) return;
+        onBack();
+      },
+      Escape: () => {
+        if (forwardOpen) setForwardOpen(false);
+        else if (!guardDraft()) onBack();
+      },
+    },
+    { active: Boolean(threadId && th), priority: KP.pane },
+  );
 
   if (!threadId) {
     return (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useBillingState, useCheckout, usePortal } from "../lib/queries.js";
+import { KP, useHotkeys } from "../lib/keyboard.js";
 
 // Kit-styled modal shell: .uni-modal-bg fades in with the "open" class.
 export function ModalShell({
@@ -16,15 +17,11 @@ export function ModalShell({
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const raf = requestAnimationFrame(() => setOpen(true));
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      cancelAnimationFrame(raf);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  // Escape closes; the catch-all keeps list and page keys dead behind the
+  // dialog, so "e" cannot archive a conversation under an open modal.
+  useHotkeys({ Escape: () => onClose(), "*": () => {} }, { priority: KP.overlay });
 
   return (
     <div
