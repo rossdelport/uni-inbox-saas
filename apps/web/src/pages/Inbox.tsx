@@ -55,6 +55,13 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const navigate = useNavigate();
   const account = params.get("account");
   const threadId = params.get("t");
+  // Split chip, plain Inbox only. Lives in the URL so a refresh or a shared
+  // link keeps the pile you were looking at; anything unrecognised is "all".
+  const rawSplit = params.get("split");
+  const split =
+    view === "all" && (rawSplit === "important" || rawSplit === "newsletter" || rawSplit === "other")
+      ? rawSplit
+      : null;
   const { search } = useOutletContext<AppOutletContext>();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   // Search is server-side across EVERY mailbox at once. Debounced so we
@@ -75,6 +82,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           later: view === "later",
           deleted: view === "deleted",
           sent: view === "sent",
+          split,
         },
   );
   const threadOp = useThreadOp();
@@ -183,7 +191,18 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   function goTab(path: string) {
     const next = new URLSearchParams(params);
     next.delete("t");
+    // Splits partition the plain Inbox only; carrying the param to Starred or
+    // Sent would silently filter a view that never shows the strip.
+    if (path !== "/") next.delete("split");
     navigate({ pathname: path, search: next.toString() ? `?${next.toString()}` : "" });
+  }
+
+  function goSplit(next_split: string | null) {
+    const next = new URLSearchParams(params);
+    next.delete("t"); // switching pile closes the open thread, like a tab switch
+    if (next_split) next.set("split", next_split);
+    else next.delete("split");
+    setParams(next);
   }
 
   return (
@@ -208,7 +227,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                 disabled={readAll.isPending}
                 onClick={() =>
                   readAll.mutate(
-                    { account, archived: view === "archived", starred: view === "starred", later: view === "later" },
+                    { account, archived: view === "archived", starred: view === "starred", later: view === "later", split },
                     {
                       onSuccess: (r) =>
                         toast(
@@ -248,10 +267,34 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
               ))}
             </TabStrip>
           )}
+          {/* Split chips: a SECOND strip, blue-tinted and one step lighter
+              than the black view pills, so which-mailbox-state and
+              which-kind-of-mail never read as one nine-item row. Inbox only,
+              hidden while searching. */}
+          {!searching && view === "all" && (
+            <div className="split-strip">
+              {(
+                [
+                  { key: null, label: "All" },
+                  { key: "important", label: "Important" },
+                  { key: "newsletter", label: "Newsletters" },
+                  { key: "other", label: "Other" },
+                ] as Array<{ key: string | null; label: string }>
+              ).map((c) => (
+                <button
+                  key={c.label}
+                  className={`schip ${split === c.key ? "on" : ""}`}
+                  onClick={() => goSplit(c.key)}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {/* Keyed on what you switched to, so changing tab or account replays
             the entrance and resets the scroll to the top of the new list. */}
-        <div className="list-rows rise" key={`${view}:${account ?? "all"}`}>
+        <div className="list-rows rise" key={`${view}:${account ?? "all"}:${split ?? "all"}`}>
           {inbox.isLoading ? (
             <div className="empty-state" style={{ padding: "60px 20px" }}>
               <div>Loading your mail…</div>

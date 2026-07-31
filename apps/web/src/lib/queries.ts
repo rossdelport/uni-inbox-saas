@@ -56,14 +56,16 @@ export interface InboxView {
   deleted?: boolean;
   /** Threads this user has replied to or started. */
   sent?: boolean;
+  /** Split chip on the plain Inbox: important | newsletter | other. */
+  split?: string | null;
   /** Search across every mailbox at once (server-side; other filters ignored). */
   q?: string;
 }
 
 export function useInbox(view: InboxView) {
-  const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, q = "" } = view;
+  const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, split = null, q = "" } = view;
   return useInfiniteQuery({
-    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, sent, q],
+    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, sent, split ?? "all", q],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set("cursor", pageParam);
@@ -74,6 +76,7 @@ export function useInbox(view: InboxView) {
       if (archived) params.set("archived", "1");
       if (starred) params.set("starred", "1");
       if (later) params.set("later", "1");
+      if (split) params.set("split", split);
       return api<InboxPage>(`/api/inbox?${params.toString()}`);
     },
     initialPageParam: "",
@@ -121,6 +124,8 @@ export function useBackfill() {
 export interface UnreadCounts {
   total: number;
   by_account: Record<string, number>;
+  /** Per-account per-split unread, summing to by_account. */
+  by_account_split?: Record<string, Record<string, number>>;
 }
 
 /** Sidebar and tab-title numbers. Server-counted, and only mail that landed
@@ -143,6 +148,9 @@ export interface ReadAllScope {
   archived?: boolean;
   starred?: boolean;
   later?: boolean;
+  /** Scope to the split chip on screen, so "Read all" on Important cannot
+   *  silently mark the newsletters read too. */
+  split?: string | null;
 }
 
 /** Clear unread across the current view. Scoped server-side by the same

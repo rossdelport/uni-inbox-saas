@@ -722,6 +722,16 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
    wrong and the user has made no mistake, it is their mail host's policy. */
 .m-note-stop{background:#fff8ec;border-color:#f0d9ab;color:#7a5310}
 
+/* Split strip: the second row under the view tabs. Blue-tinted and a step
+   lighter than the black .ltab pills so the two strips read as different
+   kinds of control, not one nine-item row. */
+.split-strip{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.schip{padding:4.5px 11px;border-radius:999px;font-size:11px;font-weight:700;color:var(--ink2);
+  background:#fff;border:1px solid var(--line);
+  transition:background .15s ease,color .15s ease,border-color .15s ease}
+.schip:hover{border-color:rgba(var(--b1-rgb),.4);color:var(--b1-ink)}
+.schip.on{background:rgba(var(--b1-rgb),.10);border-color:rgba(var(--b1-rgb),.35);color:var(--b1-ink)}
+
 /* Snooze picker: portalled menu, fixed-positioned from the anchor chip. */
 .snz-pop{position:fixed;z-index:80;background:#fff;border-radius:14px;padding:6px;
   box-shadow:var(--sh-float);border:1px solid var(--line)}
