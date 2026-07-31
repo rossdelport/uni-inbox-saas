@@ -26,14 +26,22 @@ export async function retentionSweep(): Promise<void> {
 
   const { data: accounts } = await supabase.from("email_accounts").select("id");
   for (const account of accounts ?? []) {
-    // Newest N message ids for this account (kept regardless of age).
-    const { data: keep } = await supabase
-      .from("messages")
-      .select("id")
-      .eq("account_id", account.id)
-      .order("date", { ascending: false })
-      .limit(env.MAIL_RETENTION_MAX_PER_ACCOUNT);
-    const keepIds = new Set((keep ?? []).map((r) => r.id as string));
+    // Newest N per DIRECTION (kept regardless of age). One pool for both let
+    // either side evict the other: with Sent sync on, a heavy sender's own
+    // mail could push received mail out of the window, and losing a message
+    // someone sent YOU is the worse failure by far. Two pools, neither
+    // touches the other.
+    const keepIds = new Set<string>();
+    for (const direction of ["inbound", "outbound"] as const) {
+      const { data: keep } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("account_id", account.id)
+        .eq("direction", direction)
+        .order("date", { ascending: false })
+        .limit(env.MAIL_RETENTION_MAX_PER_ACCOUNT);
+      for (const r of keep ?? []) keepIds.add(r.id as string);
+    }
 
     const { data: oldOnes } = await supabase
       .from("messages")

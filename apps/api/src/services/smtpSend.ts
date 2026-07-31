@@ -4,7 +4,7 @@ import { decryptCredentials } from "../lib/crypto.js";
 import { getAccessToken, providerForAuthMethod } from "./oauthTokens.js";
 import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
-import { withImap, findSpecialUse } from "./imapClient.js";
+import { withImap, findSentMailbox } from "./imapClient.js";
 import { touchThread } from "./threading.js";
 
 // Outbound mail. The iron rule: a reply is ALWAYS sent from the account that
@@ -122,7 +122,10 @@ export async function appendToSent(account: SendAccount, raw: Buffer): Promise<v
   if (account.provider_preset === "gmail") return;
   try {
     await withImap(account, async (client) => {
-      const sentBox = (await findSpecialUse(client, "\\Sent")) ?? "Sent";
+      // Same resolver as the Sent sync pass, so the folder we APPEND to is the
+      // folder the syncer reads back; a mismatch would make every send look
+      // like a new unsynced message.
+      const sentBox = (await findSentMailbox(client)) ?? "Sent";
       await client.append(sentBox, raw, ["\\Seen"]);
     });
   } catch (err) {

@@ -117,6 +117,7 @@ export async function touchThread(threadId: string, inboundMail = false): Promis
   // when you reply to them. Threads you started and are still awaiting a
   // reply on fall back to the newest message so they sort sensibly.
   const newestInbound = msgs.find((m) => m.direction === "inbound");
+  const newestOutbound = msgs.find((m) => m.direction === "outbound");
 
   // A reply that arrives AFTER a thread was binned pulls it back out of the
   // trash: deleting says "done with this", not "never show me this person
@@ -157,6 +158,10 @@ export async function touchThread(threadId: string, inboundMail = false): Promis
       // out would otherwise re-derive as "never received anything" and drop
       // out of the Inbox for good.
       ...(newestInbound ? { has_inbound: true } : {}),
+      // Outbound mirror of has_inbound, with the same sticky-on-purpose shape:
+      // retention can age out the outbound rows, and "the user replied to
+      // this" must not silently become false when it does.
+      ...(newestOutbound ? { has_outbound: true, last_outbound_at: newestOutbound.date } : {}),
       // Unarchiving is likewise reserved for real arriving mail, so a flag
       // sweep cannot drag an archived-but-unread thread back to the inbox.
       ...(unread && inboundMail ? { archived: false } : {}),

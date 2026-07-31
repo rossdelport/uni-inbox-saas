@@ -334,7 +334,9 @@ accountsRouter.post("/", async (req, res) => {
     return res.status(500).json({ error: "could not save account" });
   }
 
-  await supabase.from("sync_state").insert({ account_id: created.id });
+  await supabase
+    .from("sync_state")
+    .insert({ account_id: created.id, mailbox: "INBOX", mailbox_role: "inbox" });
   res.status(201).json(created);
 });
 

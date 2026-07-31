@@ -46,6 +46,7 @@ export async function backfillOlder(
     .from("sync_state")
     .select("oldest_seen_uid")
     .eq("account_id", accountId)
+    .eq("mailbox_role", "inbox")
     .maybeSingle();
 
   // Seed the floor from what is stored if the column is still empty.
@@ -109,7 +110,8 @@ export async function backfillOlder(
   await supabase
     .from("sync_state")
     .update({ oldest_seen_uid: from, updated_at: new Date().toISOString() })
-    .eq("account_id", accountId);
+    .eq("account_id", accountId)
+    .eq("mailbox_role", "inbox");
 
   logger.info({ accountId, from, to, added }, "backfilled older mail");
   return {

@@ -4,7 +4,7 @@ import type { ImapFlow } from "imapflow";
 import { env } from "../config/env.js";
 import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
-import { buildImap, findSpecialUse, isAuthError } from "./imapClient.js";
+import { buildImap, findSpecialUse, findSentMailbox, isAuthError } from "./imapClient.js";
 import { resolveThread, touchThread } from "./threading.js";
 
 // Per-account sync engine. One AccountSyncer = one long-lived IMAP connection
@@ -73,6 +73,15 @@ export class AccountSyncer {
   private client: ImapFlow | null = null;
   private stopped = false;
   private wakeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A cycle is in flight. Server events fire safeCycle unconditionally, and
+   *  the Sent pass selects a second mailbox on this connection: a re-entrant
+   *  cycle mid-Sent would run INBOX UID commands against the Sent folder,
+   *  marking arbitrary sent mail read or moving it. One cycle at a time. */
+  private cycling = false;
+  /** Resolved Sent path, cached per connection. */
+  private sentPath: string | null = null;
+  /** Server has no Sent mailbox at all; stop looking for this run. */
+  private sentMissing = false;
   /** Started once per run(); loops until stop() or a connection error. */
   constructor(private account: AccountRow) {}
 
@@ -96,9 +105,15 @@ export class AccountSyncer {
       await this.client.mailboxOpen("INBOX");
 
       // New-mail push: imapflow idles automatically between commands and emits
-      // "exists" when the INBOX count changes.
-      this.client.on("exists", () => void this.safeCycle("new-mail"));
-      this.client.on("flags", () => void this.safeCycle("flags-changed"));
+      // "exists" when the open mailbox's count changes. Filtered by path
+      // because the Sent pass selects a second mailbox on this same
+      // connection, and its events must not masquerade as new INBOX mail.
+      this.client.on("exists", (info: { path?: string }) => {
+        if ((info?.path ?? "INBOX") === "INBOX") void this.safeCycle("new-mail");
+      });
+      this.client.on("flags", (info: { path?: string }) => {
+        if ((info?.path ?? "INBOX") === "INBOX") void this.safeCycle("flags-changed");
+      });
 
       await this.cycle();
       await this.markHealthy();
@@ -188,12 +203,44 @@ export class AccountSyncer {
     }
   }
 
-  /** One full pass: ingest new UIDs, reconcile flags, apply pending flag ops. */
+  /** One full pass: INBOX work first, then a best-effort Sent pass. */
   private async cycle(): Promise<void> {
+    if (this.cycling) return;
+    this.cycling = true;
+    try {
+      await this.cycleInbox();
+      if (env.SENT_SYNC_ENABLED === "1" && !this.sentMissing) {
+        try {
+          await this.cycleSent();
+        } catch (err) {
+          // Sent is additive: a failure here must not put the account into
+          // failure backoff and take INBOX sync down with it.
+          logger.warn({ err, accountId: this.account.id }, "sent sync pass failed");
+        } finally {
+          // IDLE, the flag pump and reconcile all address the SELECTED
+          // mailbox, so whatever happened the connection comes home to INBOX.
+          const client = this.client;
+          if (client?.usable) await client.mailboxOpen("INBOX");
+        }
+      }
+    } finally {
+      this.cycling = false;
+    }
+  }
+
+  /** Ingest new INBOX UIDs, reconcile flags, apply pending flag ops. */
+  private async cycleInbox(): Promise<void> {
     const client = this.client;
     if (!client?.usable) throw new Error("imap connection not usable");
 
-    const mailbox = client.mailbox;
+    // Self-sufficient rather than trusting the caller's selection: every UID
+    // command below addresses whichever mailbox is open, so running this with
+    // Sent selected would corrupt the wrong folder.
+    let mailbox = client.mailbox;
+    if (!mailbox || typeof mailbox === "boolean" || mailbox.path !== "INBOX") {
+      await client.mailboxOpen("INBOX");
+      mailbox = client.mailbox;
+    }
     if (!mailbox || typeof mailbox === "boolean") throw new Error("INBOX not open");
 
     // ── UIDVALIDITY guard ─────────────────────────────────────────────
@@ -201,6 +248,7 @@ export class AccountSyncer {
       .from("sync_state")
       .select("uid_validity, last_seen_uid")
       .eq("account_id", this.account.id)
+      .eq("mailbox_role", "inbox")
       .maybeSingle();
     const uidValidity = Number(mailbox.uidValidity ?? 0);
     let lastSeenUid = Number(state?.last_seen_uid ?? 0);
@@ -213,14 +261,18 @@ export class AccountSyncer {
         await supabase.from("threads").delete().eq("account_id", this.account.id);
       }
       lastSeenUid = 0;
-      await supabase.from("sync_state").upsert({
-        account_id: this.account.id,
-        mailbox: "INBOX",
-        uid_validity: uidValidity,
-        last_seen_uid: 0,
-        last_full_sync_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      await supabase.from("sync_state").upsert(
+        {
+          account_id: this.account.id,
+          mailbox: "INBOX",
+          mailbox_role: "inbox",
+          uid_validity: uidValidity,
+          last_seen_uid: 0,
+          last_full_sync_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "account_id,mailbox_role" },
+      );
     }
 
     // ── Initial backfill cap: only the newest INITIAL_SYNC_LIMIT ──────
@@ -251,12 +303,14 @@ export class AccountSyncer {
           last_sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("account_id", this.account.id);
+        .eq("account_id", this.account.id)
+        .eq("mailbox_role", "inbox");
     } else {
       await supabase
         .from("sync_state")
         .update({ last_sync_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("account_id", this.account.id);
+        .eq("account_id", this.account.id)
+        .eq("mailbox_role", "inbox");
     }
 
     // Local intent BEFORE remote truth. Reconcile mirrors the server's \Seen
@@ -266,6 +320,109 @@ export class AccountSyncer {
     // very cycle that undid it, seconds later.
     await this.applyFlagOps(client);
     await this.reconcileFlags(client);
+  }
+
+  /**
+   * Ingest new Sent-mailbox UIDs so threads show both sides of the
+   * conversation, including replies sent from other clients (phone, Gmail
+   * web). Read-only: the one thing that ever writes to Sent is appendToSent.
+   *
+   * Mail we sent ourselves was already recorded at send time, so most of what
+   * this finds is adopted by Message-ID rather than inserted (see
+   * ingestMessage). Everything lands with direction "outbound", which keeps it
+   * out of the Inbox: has_inbound decides Inbox membership, and touchThread is
+   * called without the ingest-path flag so a sent message can never unarchive
+   * or undelete a thread.
+   */
+  private async cycleSent(): Promise<void> {
+    const client = this.client;
+    if (!client?.usable) return;
+
+    if (!this.sentPath) {
+      this.sentPath = await findSentMailbox(client);
+      if (!this.sentPath) {
+        this.sentMissing = true;
+        logger.info(
+          { accountId: this.account.id },
+          "server has no Sent mailbox; sent sync disabled for this account",
+        );
+        return;
+      }
+    }
+    const path = this.sentPath;
+
+    const box = await client.mailboxOpen(path, { readOnly: true });
+    const uidValidity = Number(box.uidValidity ?? 0);
+
+    const { data: state } = await supabase
+      .from("sync_state")
+      .select("uid_validity, last_seen_uid")
+      .eq("account_id", this.account.id)
+      .eq("mailbox_role", "sent")
+      .maybeSingle();
+    let lastSeenUid = Number(state?.last_seen_uid ?? 0);
+
+    if (!state || Number(state.uid_validity ?? 0) !== uidValidity) {
+      if (state && state.uid_validity !== null) {
+        // Sent UIDs are meaningless now. Unlike the INBOX guard this must NOT
+        // wipe the account; only the Sent UID bookkeeping is stale. Forget
+        // those UIDs and let the rescan re-adopt rows by Message-ID.
+        logger.warn({ accountId: this.account.id }, "Sent UIDVALIDITY changed; re-adopting");
+        await supabase
+          .from("messages")
+          .update({ imap_uid: null, imap_mailbox: null })
+          .eq("account_id", this.account.id)
+          .eq("imap_mailbox", path);
+      }
+      lastSeenUid = 0;
+      await supabase.from("sync_state").upsert(
+        {
+          account_id: this.account.id,
+          mailbox: path,
+          mailbox_role: "sent",
+          uid_validity: uidValidity,
+          last_seen_uid: 0,
+          last_full_sync_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "account_id,mailbox_role" },
+      );
+    }
+
+    // First pass reaches back a bounded number of messages, like INBOX's
+    // initial cap, so one huge Sent folder cannot eat the cycle deadline.
+    if (lastSeenUid === 0) {
+      const uidNext = Number(box.uidNext ?? 1);
+      lastSeenUid = Math.max(0, uidNext - 1 - env.SENT_INITIAL_SYNC_LIMIT);
+    }
+
+    const cutoff = new Date(Date.now() - env.MAIL_RETENTION_DAYS * 24 * 3600 * 1000);
+    let maxSeen = lastSeenUid;
+    for await (const msg of client.fetch(
+      { uid: `${lastSeenUid + 1}:*` },
+      { uid: true, internalDate: true, source: true },
+      { uid: true },
+    )) {
+      if (msg.uid <= lastSeenUid) continue;
+      maxSeen = Math.max(maxSeen, msg.uid);
+      if (msg.internalDate && msg.internalDate < cutoff) continue;
+      if (!msg.source) continue;
+      // seen=true always: it is the user's own mail.
+      await ingestMessage(this.account, msg.uid, true, msg.source, msg.internalDate, {
+        mailbox: path,
+        direction: "outbound",
+      });
+    }
+
+    await supabase
+      .from("sync_state")
+      .update({
+        last_seen_uid: maxSeen,
+        last_sync_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("account_id", this.account.id)
+      .eq("mailbox_role", "sent");
   }
 
   /** Parse + store one message, threading it as it lands. */
@@ -681,9 +838,16 @@ export async function wakeAccount(accountId: string): Promise<void> {
     .eq("status", "active");
 }
 
+export interface IngestOptions {
+  /** IMAP mailbox the message lives in. Defaults to INBOX. */
+  mailbox?: string;
+  /** Which way the message travelled. Defaults to inbound. */
+  direction?: "inbound" | "outbound";
+}
+
 /** Parse + store one message against an account, threading it as it lands.
- *  Shared by the live syncer and the on-demand backfill of older mail, so
- *  both paths produce identical rows and identical threading. */
+ *  Shared by the live syncer (INBOX and Sent), and the on-demand backfill of
+ *  older mail, so all paths produce identical rows and identical threading. */
 export async function ingestMessage(
   account: AccountRow,
   uid: number,
@@ -692,9 +856,40 @@ export async function ingestMessage(
   // ImapFlow hands this back as either a Date or a raw string depending on
   // the server, so take both and normalise below.
   internalDate?: string | Date | null,
+  opts?: IngestOptions,
 ): Promise<void> {
+    const mailbox = opts?.mailbox ?? "INBOX";
+    const direction = opts?.direction ?? "inbound";
     const parsed = await simpleParser(source);
     const messageId = parsed.messageId ?? null;
+
+    // Outbound dedupe-by-adoption. Mail the user sends through OneInbox is
+    // recorded locally at send time with no UID, and the same bytes then land
+    // in Sent (Gmail auto-saves SMTP sends; we APPEND for everyone else), so
+    // the Sent pass re-discovers a message we already hold. Adopt the existing
+    // row rather than inserting a twin. Exact string equality is safe here:
+    // both nodemailer's generated Message-ID and mailparser's parse of it are
+    // angle-bracketed, verified against every outbound row in production.
+    if (direction === "outbound" && messageId) {
+      const { data: existing } = await supabase
+        .from("messages")
+        .select("id, imap_uid")
+        .eq("account_id", account.id)
+        .eq("message_id", messageId)
+        .eq("direction", "outbound")
+        .limit(1);
+      const hit = existing?.[0];
+      if (hit) {
+        if (hit.imap_uid === null) {
+          const { error } = await supabase
+            .from("messages")
+            .update({ imap_uid: uid, imap_mailbox: mailbox })
+            .eq("id", hit.id as string);
+          if (error) logger.warn({ error, accountId: account.id, uid }, "outbound adopt failed");
+        }
+        return;
+      }
+    }
     const from = parsed.from?.value?.[0];
     const references = Array.isArray(parsed.references)
       ? parsed.references
@@ -740,8 +935,7 @@ export async function ingestMessage(
       date,
       snippet,
       seen,
-      // The syncer only ever opens INBOX, so anything it ingests arrived here.
-      direction: "inbound",
+      direction,
     });
 
     const { error } = await supabase.from("messages").upsert(
@@ -750,7 +944,7 @@ export async function ingestMessage(
         account_id: account.id,
         thread_id: threadId,
         imap_uid: uid,
-        imap_mailbox: "INBOX",
+        imap_mailbox: mailbox,
         message_id: messageId,
         in_reply_to: parsed.inReplyTo || null,
         references_ids: references,
@@ -764,7 +958,7 @@ export async function ingestMessage(
         body_html: bodyHtml,
         snippet,
         seen,
-        direction: "inbound",
+        direction,
         attachments,
       },
       { onConflict: "account_id,imap_mailbox,imap_uid" },
@@ -773,7 +967,8 @@ export async function ingestMessage(
       logger.error({ error, accountId: account.id, uid }, "message upsert failed");
       return;
     }
-    // Ingest is the one caller allowed to pull threads out of trash/archive:
-    // this is real mail arriving, not a recount.
-    await touchThread(threadId, true);
+    // Only INBOUND ingest may pull threads out of trash/archive: that is real
+    // mail arriving. A sent message discovered by the Sent pass is the user's
+    // own action reflected back and must not resurrect anything.
+    await touchThread(threadId, direction === "inbound");
 }

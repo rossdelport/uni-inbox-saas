@@ -58,6 +58,15 @@ const schema = z.object({
   // Per-user daily outbound send cap (protects against runaway clients).
   SEND_DAILY_CAP: z.coerce.number().default(50),
 
+  // Sent-mailbox sync kill switch. Compared against "1", never coerced to
+  // boolean: Boolean("0") and Boolean("false") are both true, so a coerced
+  // flag could never be switched off.
+  SENT_SYNC_ENABLED: z.string().default("1"),
+  // The first pass over a Sent folder only reaches back this many messages.
+  // Sent volume is the user's own output, so this covers months for a solo
+  // founder while keeping the first Sent cycle inside the 120s cycle deadline.
+  SENT_INITIAL_SYNC_LIMIT: z.coerce.number().default(100),
+
   // OAuth mail providers. Optional: without them the connect modal falls
   // back to app-password flows for those providers.
   GOOGLE_CLIENT_ID: z.string().optional(),

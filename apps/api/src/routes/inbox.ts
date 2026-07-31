@@ -139,22 +139,34 @@ inboxRouter.get("/", async (req, res) => {
       .select("thread_id, from_name, from_address, to_addresses, subject, date, direction")
       .in("thread_id", threadIds)
       .order("date", { ascending: false });
-    for (const m of msgs ?? []) {
+    // Two passes over the same rows. The preferred direction depends on the
+    // view: Sent rows are labelled by recipient (every sender is the user), an
+    // inbox row is labelled by the newest INBOUND sender. Before Sent sync the
+    // newest message was almost always inbound, so "newest overall" worked;
+    // now a thread the user just replied to has an outbound row on top, and
+    // without the direction filter the whole inbox would relabel itself with
+    // the user's own name as they replied. The second pass fills threads that
+    // only have the other direction (a sent-only thread starred into view),
+    // formatted for what it is.
+    const fill = (m: {
+      thread_id: unknown; from_name: unknown; from_address: unknown;
+      to_addresses: unknown; subject: unknown; direction: unknown;
+    }) => {
       const tid = m.thread_id as string;
-      if (latestFrom.has(tid)) continue;
-      // In Sent, wait for the newest OUTBOUND message: a thread that has since
-      // been replied to would otherwise take its recipient from an inbound row
-      // that has the user in `to`.
-      if (sent && m.direction !== "outbound") continue;
+      if (latestFrom.has(tid)) return;
+      const outbound = m.direction === "outbound";
       const recipients = (m.to_addresses as string[] | null) ?? [];
       const to = recipients[0] ?? null;
       const extra = recipients.length > 1 ? ` +${recipients.length - 1}` : "";
       latestFrom.set(tid, {
-        name: sent ? (to ? `To ${to}${extra}` : null) : ((m.from_name as string | null) ?? null),
-        address: sent ? to : ((m.from_address as string | null) ?? null),
+        name: outbound ? (to ? `To ${to}${extra}` : null) : ((m.from_name as string | null) ?? null),
+        address: outbound ? to : ((m.from_address as string | null) ?? null),
         subject: (m.subject as string | null) ?? null,
       });
-    }
+    };
+    const preferred = sent ? "outbound" : "inbound";
+    for (const m of msgs ?? []) if (m.direction === preferred) fill(m);
+    for (const m of msgs ?? []) fill(m);
   }
 
   const threads = page.map((t) => {

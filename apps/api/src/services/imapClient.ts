@@ -72,6 +72,26 @@ export async function findSpecialUse(
   return hit?.path ?? null;
 }
 
+// Servers that predate SPECIAL-USE (RFC 6154) advertise no \Sent flag, so the
+// fallback is the handful of names the ecosystem actually uses. Order matters:
+// plain "Sent" is the convention Dovecot/Porkbun/Zoho follow, "Sent Items" is
+// Outlook's, "Sent Messages" is Apple's.
+const SENT_NAMES = ["sent", "sent items", "sent messages", "sent mail", "inbox.sent"];
+
+/** The account's Sent mailbox path, or null when the server simply has none. */
+export async function findSentMailbox(client: ImapFlow): Promise<string | null> {
+  const boxes = await client.list();
+  const special = boxes.find((b) => b.specialUse === "\\Sent");
+  if (special) return special.path;
+  for (const name of SENT_NAMES) {
+    const hit = boxes.find(
+      (b) => b.path.toLowerCase() === name || b.name?.toLowerCase() === name,
+    );
+    if (hit) return hit.path;
+  }
+  return null;
+}
+
 /** True when the error is a credentials problem (vs a transient network one). */
 export function isAuthError(err: unknown): boolean {
   const e = err as { authenticationFailed?: boolean; response?: string; message?: string };
