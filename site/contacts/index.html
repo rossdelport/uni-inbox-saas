@@ -550,11 +550,11 @@ var PRICING_HTML = `
   <div class="uni-pcard">
     <div class="uni-ptitle">Monthly</div>
     <div class="uni-pprice"><span class="uni-amt" data-out>$5</span><span class="uni-per">/month</span></div>
-    <div class="uni-pdesc"><b data-acct>3</b> email accounts included</div>
-    <input type="range" min="3" max="15" value="3" step="1" class="uni-slider" oninput="uniSlide(this,'m')" aria-label="Number of email accounts">
-    <div class="uni-scale"><span>3 accounts</span><span>15 accounts</span></div>
+    <div class="uni-pdesc"><b data-acct>5</b> email accounts included</div>
+    <input type="range" min="5" max="15" value="5" step="1" class="uni-slider" oninput="uniSlide(this,'m')" aria-label="Number of email accounts">
+    <div class="uni-scale"><span>5 accounts</span><span>15 accounts</span></div>
     <div class="uni-pfoot">
-      <a class="uni-pbtn" data-buy="monthly" href="__CHECKOUT__?plan=monthly&accounts=3">Get started today</a>
+      <a class="uni-pbtn" data-buy="monthly" href="__CHECKOUT__?plan=monthly&accounts=5">Get started today</a>
       <ul class="uni-feats">
         <li>Unified color-coded inbox</li>
         <li>Reply from the right address, always</li>
@@ -659,7 +659,7 @@ window.uniSlide = function(el, type){
   var pct = ((n - parseInt(el.min, 10)) / (parseInt(el.max, 10) - parseInt(el.min, 10))) * 100;
   el.style.setProperty('--fill', pct + '%');
   if (type === 'm'){
-    card.querySelector('[data-out]').textContent = '$' + (5 + 2 * (n - 3));
+    card.querySelector('[data-out]').textContent = '$' + (5 + 2 * (n - 5));
     card.querySelector('[data-acct]').textContent = n;
     var buy = card.querySelector('[data-buy="monthly"]');
     if (buy) buy.href = CHECKOUT + '?plan=monthly&accounts=' + n;

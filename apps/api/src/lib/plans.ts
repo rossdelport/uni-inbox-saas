@@ -1,13 +1,13 @@
 import type { PlanId } from "@uni/shared";
 import { supabase } from "./supabase.js";
 
-// Pricing: one Monthly plan ($5/month with 3 accounts included, +$2/month per
+// Pricing: one Monthly plan ($5/month with 5 accounts included, +$2/month per
 // extra account, billed as Stripe subscription quantity with graduated tiers)
 // and a $50 one-time Lifetime plan (10 accounts). The 3-day trial matches
-// Monthly's included 3, so the paywall moment is "I want my fourth inbox".
+// the original 3-account entry point; Monthly now gives users room to grow.
 export const PRICING = {
   monthlyBaseUsd: 5,
-  monthlyIncluded: 3,
+  monthlyIncluded: 5,
   monthlyPerExtraUsd: 2,
   lifetimeUsd: 50,
   lifetimeMax: 10,
@@ -33,7 +33,7 @@ export function planPriceLabel(planId: PlanId, monthlyQuantity: number): string 
 export interface ProfileBilling {
   planId: PlanId;
   plan: { id: PlanId; label: string; maxInboxes: number };
-  /** Stripe subscription quantity while on Monthly (>= 3), else 0. */
+  /** Stripe subscription quantity while on Monthly (>= 5), else 0. */
   monthlyQuantity: number;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;

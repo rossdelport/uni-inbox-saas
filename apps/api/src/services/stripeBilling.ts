@@ -6,8 +6,8 @@ import { logger } from "../lib/logger.js";
 import { getBilling, PRICING } from "../lib/plans.js";
 
 // Stripe billing core. One product ("OneInbox"), two prices:
-//  - Monthly (STRIPE_PRICE_MONTHLY): recurring, graduated tiers — quantity is
-//    the number of allowed accounts; first 3 bill a flat $5, each extra $2.
+//  - Monthly (STRIPE_PRICE_MONTHLY_V2): recurring, graduated tiers — quantity
+//    is the number of allowed accounts; first 5 bill a flat $5, each extra $2.
 //  - Lifetime (STRIPE_PRICE_LIFETIME): $50 one-time payment, 10 accounts.
 // The 3-day trial is Stripe's, taken with a card up front on the first
 // subscription, so it converts on its own instead of needing a second visit.
@@ -35,13 +35,14 @@ export const SIGNUP_TRIAL_DAYS = 3;
 // Prices are resolved (and created on first run) by lookup key, so the only
 // required env is STRIPE_SECRET_KEY. STRIPE_PRICE_* env vars act as manual
 // overrides if ever needed.
-const LOOKUP = { monthly: "oneinbox_monthly", lifetime: "oneinbox_lifetime" } as const;
+const LOOKUP = { monthly: "oneinbox_monthly_v2", lifetime: "oneinbox_lifetime" } as const;
+const LEGACY_MONTHLY_INCLUDED = 3;
 let priceIds: { monthly: string; lifetime: string } | null = null;
 
 export async function ensurePrices(): Promise<{ monthly: string; lifetime: string }> {
   if (priceIds) return priceIds;
-  if (env.STRIPE_PRICE_MONTHLY && env.STRIPE_PRICE_LIFETIME) {
-    priceIds = { monthly: env.STRIPE_PRICE_MONTHLY, lifetime: env.STRIPE_PRICE_LIFETIME };
+  if (env.STRIPE_PRICE_MONTHLY_V2 && env.STRIPE_PRICE_LIFETIME) {
+    priceIds = { monthly: env.STRIPE_PRICE_MONTHLY_V2, lifetime: env.STRIPE_PRICE_LIFETIME };
     return priceIds;
   }
   const s = stripe();
@@ -49,8 +50,10 @@ export async function ensurePrices(): Promise<{ monthly: string; lifetime: strin
     lookup_keys: [LOOKUP.monthly, LOOKUP.lifetime],
     limit: 10,
   });
-  let monthly = existing.data.find((p) => p.lookup_key === LOOKUP.monthly)?.id;
-  let lifetime = existing.data.find((p) => p.lookup_key === LOOKUP.lifetime)?.id;
+  let monthly =
+    env.STRIPE_PRICE_MONTHLY_V2 ?? existing.data.find((p) => p.lookup_key === LOOKUP.monthly)?.id;
+  let lifetime =
+    env.STRIPE_PRICE_LIFETIME ?? existing.data.find((p) => p.lookup_key === LOOKUP.lifetime)?.id;
   if (!monthly || !lifetime) {
     const products = await s.products.search({ query: `name:"OneInbox" AND active:"true"` });
     const product =
@@ -64,13 +67,13 @@ export async function ensurePrices(): Promise<{ monthly: string; lifetime: strin
         await s.prices.create({
           product: product.id,
           currency: "usd",
-          nickname: "Monthly (3 included, $2 per extra account)",
+          nickname: "Monthly (5 included, $2 per extra account)",
           lookup_key: LOOKUP.monthly,
           recurring: { interval: "month" },
           billing_scheme: "tiered",
           tiers_mode: "graduated",
           tiers: [
-            { up_to: 3, flat_amount: 500, unit_amount: 0 },
+            { up_to: PRICING.monthlyIncluded, flat_amount: 500, unit_amount: 0 },
             { up_to: "inf", unit_amount: 200 },
           ],
         })
@@ -294,7 +297,7 @@ export async function addSeat(uid: string): Promise<{ quantity: number }> {
   const subId = prof?.stripe_subscription_id as string | null;
   if (!subId) throw new Error("No subscription on file. Contact support.");
 
-  const sub = await stripe().subscriptions.retrieve(subId);
+  const sub = await migrateMonthlySubscriptionPrice(await stripe().subscriptions.retrieve(subId));
   const item = sub.items.data[0];
   if (!item) throw new Error("Subscription has no items. Contact support.");
   const current = item.quantity ?? PRICING.monthlyIncluded;
@@ -307,6 +310,37 @@ export async function addSeat(uid: string): Promise<{ quantity: number }> {
   });
   await applySubscription(uid, updated);
   return { quantity };
+}
+
+/**
+ * Move a subscription from the original 3-included Stripe price to the
+ * current 5-included price without changing what the customer pays.
+ *
+ * Stripe prices are immutable. An old quantity of 4 meant "3 + 1 paid extra";
+ * on V2 that same entitlement is quantity 6 ("5 + 1 paid extra"). Keeping the
+ * paid-extra count stable avoids both surprise charges and lost inbox slots.
+ */
+async function migrateMonthlySubscriptionPrice(sub: Stripe.Subscription): Promise<Stripe.Subscription> {
+  const item = sub.items.data[0];
+  if (!item || isAiSubscription(sub)) return sub;
+  const prices = await ensurePrices();
+  if (item.price.id === prices.monthly) return sub;
+
+  const oldQuantity = item.quantity ?? LEGACY_MONTHLY_INCLUDED;
+  const paidExtras = Math.max(0, oldQuantity - LEGACY_MONTHLY_INCLUDED);
+  const quantity = Math.min(PRICING.monthlyIncluded + paidExtras, PRICING.monthlyHardCap);
+  const updated = await stripe().subscriptions.update(sub.id, {
+    items: [{ id: item.id, price: prices.monthly, quantity }],
+    // The two tier structures produce the same total for the preserved number
+    // of paid extras, so there is no reason to generate a mid-cycle invoice.
+    proration_behavior: "none",
+    metadata: { ...sub.metadata, pricing_version: "monthly_v2_5_included" },
+  });
+  logger.info(
+    { subId: sub.id, fromPrice: item.price.id, toPrice: prices.monthly, oldQuantity, quantity },
+    "monthly subscription migrated to 5-included pricing",
+  );
+  return updated;
 }
 
 /** Excess inboxes after a downgrade get disabled (never deleted): newest
@@ -505,7 +539,9 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       const subId =
         typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
       if (!subId) return;
-      const sub = await stripe().subscriptions.retrieve(subId);
+      const sub = await migrateMonthlySubscriptionPrice(
+        await stripe().subscriptions.retrieve(subId),
+      );
       // The AI add-on branches BEFORE seat handling: applySubscription would
       // read this subscription's quantity as an inbox allowance and its
       // lifetime guard would swallow the event for lifetime users, who are
@@ -588,7 +624,9 @@ export async function reconcileBilling(): Promise<{ checked: number; changed: nu
     const subId = row.stripe_subscription_id as string;
     const uid = row.user_id as string;
     try {
-      const sub = await stripe().subscriptions.retrieve(subId);
+      const sub = await migrateMonthlySubscriptionPrice(
+        await stripe().subscriptions.retrieve(subId),
+      );
       await applySubscription(uid, sub);
       const drifted =
         sub.status !== row.subscription_status ||

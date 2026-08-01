@@ -42,7 +42,7 @@ export function ModalShell({
   );
 }
 
-// "Choose your plan": Monthly ($5, 3 accounts, +$2 per extra) and Lifetime
+// "Choose your plan": Monthly ($5, 5 accounts, +$2 per extra) and Lifetime
 // ($50 once, 10 accounts), exactly like the marketing site's pricing.
 export function PlansModal({ onClose }: { onClose: () => void }) {
   const { data: billing } = useBillingState();

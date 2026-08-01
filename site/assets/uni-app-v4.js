@@ -12,7 +12,7 @@ window.UNI = (function(){
     {id:'a3', prov:'icloud',  email:'ross@icloud.com'},
     {id:'a4', prov:'other',   email:'ross@trynoisy.com'}
   ];
-  var DEFAULT_PLAN = {tier:'monthly', included:3, extra:2};   // $9/mo, 5 accounts
+  var DEFAULT_PLAN = {tier:'monthly', included:5, extra:0};   // $5/mo, 5 accounts
   var DEFAULT_PROFILE = {name:'Ross Miller', email:'ross@acmestudio.com'};
 
   function load(k, def){ try{ var v = JSON.parse(localStorage.getItem(k)); return v || JSON.parse(JSON.stringify(def)); }catch(e){ return JSON.parse(JSON.stringify(def)); } }
@@ -78,7 +78,7 @@ window.UNI = (function(){
       '<div class="m-plans">' +
         '<div class="m-plan" data-tier="monthly">' + (p.tier === 'monthly' ? '<span class="badge-cur">Current plan</span>' : '') +
           '<div class="pname">Monthly</div><div class="price">$5<small>/month</small></div>' +
-          '<ul><li>3 email accounts included</li><li>+$2/month per extra account</li><li>Unified inbox, search and labels</li><li>Cancel anytime</li></ul>' +
+          '<ul><li>5 email accounts included</li><li>+$2/month per extra account</li><li>Unified inbox, search and labels</li><li>Cancel anytime</li></ul>' +
           '<button class="btn-black" data-act="monthly" style="height:44px;font-size:14px">' + (p.tier === 'monthly' ? 'Current plan' : 'Switch to Monthly') + '</button>' +
         '</div>' +
         '<div class="m-plan best" data-tier="lifetime">' + (p.tier === 'lifetime' ? '<span class="badge-cur">Current plan</span>' : '<span class="badge-cur" style="background:#111">Best value</span>') +
@@ -92,7 +92,7 @@ window.UNI = (function(){
       var tier = btn.getAttribute('data-act');
       if (tier === p.tier){ btn.disabled = true; btn.style.opacity = '.45'; btn.style.cursor = 'default'; return; }
       btn.addEventListener('click', function(){
-        var np = tier === 'lifetime' ? {tier:'lifetime', included:10, extra:0} : {tier:'monthly', included:3, extra:0};
+        var np = tier === 'lifetime' ? {tier:'lifetime', included:10, extra:0} : {tier:'monthly', included:5, extra:0};
         api.savePlan(np);
         m.close();
         api.toast('Plan switched to ' + api.planLabel(np) + ' (' + api.planPrice(np) + ')');
