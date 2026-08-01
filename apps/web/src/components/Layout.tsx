@@ -230,11 +230,15 @@ export function Layout() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <kbd>/</kbd>
         </div>
+        <button className="top-icon-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
+          ?
+        </button>
         <div className="dd-wrap" style={{ marginLeft: "auto" }} ref={menuRef}>
-          <div className="dash-avatar" onClick={() => setMenuOpen((o) => !o)}>
+          <button className="dash-avatar" aria-label="Open account menu" onClick={() => setMenuOpen((o) => !o)}>
             {initial}
-          </div>
+          </button>
           <div className={`uni-dd ${menuOpen ? "open" : ""}`}>
             <div className="dd-head">
               <div className="n">{displayName}</div>

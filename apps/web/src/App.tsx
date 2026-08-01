@@ -20,6 +20,7 @@ import { Billing } from "./pages/Billing.js";
 import { Settings } from "./pages/Settings.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { Users } from "./pages/Users.js";
+import { DashboardPreview } from "./pages/DashboardPreview.js";
 
 function RouteError() {
   const error = useRouteError();
@@ -94,6 +95,16 @@ function CheckoutSplash() {
 }
 
 export function App() {
+  // A realistic, local-only dashboard for visual review. It deliberately
+  // bypasses auth and APIs in development, and cannot exist in production.
+  if (import.meta.env.DEV && window.location.pathname === "/app/design-preview") {
+    return <DashboardPreview />;
+  }
+
+  return <AuthenticatedApp />;
+}
+
+function AuthenticatedApp() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [, bump] = useState(0);
