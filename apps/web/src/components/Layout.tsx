@@ -20,6 +20,7 @@ import { ColorDots } from "./ColorDots.js";
 import { PaneResizer, restorePaneWidths } from "./PaneResizer.js";
 import { SecurityBadge } from "./SecurityBadge.js";
 import { ShortcutsOverlay } from "./ShortcutsOverlay.js";
+import { HelpSupportModal } from "./HelpSupportModal.js";
 import { KP, setKeyboardEnabled, useHotkeys } from "../lib/keyboard.js";
 
 export interface AppOutletContext {
@@ -61,6 +62,7 @@ export function Layout() {
     null,
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -312,9 +314,14 @@ export function Layout() {
                   <UsersIcon /> Users
                 </button>
               )}
-              <a href="/contacts/" onClick={() => setMenuOpen(false)}>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setHelpOpen(true);
+                }}
+              >
                 <HelpIcon /> Help &amp; support
-              </a>
+              </button>
               <div className="dd-sep" />
               <button style={{ color: "var(--danger-ink)" }} onClick={() => void supabase.auth.signOut()}>
                 <LogoutIcon /> Log out
@@ -493,6 +500,13 @@ export function Layout() {
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
       {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
       {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+      {helpOpen && (
+        <HelpSupportModal
+          name={displayName}
+          email={user?.email ?? ""}
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
       {toastState && (
         <Toast
           key={toastState.key}

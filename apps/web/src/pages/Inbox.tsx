@@ -507,7 +507,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
       </section>
 
       <section
-        className={`dash-read rise ${selectedThread ? "thread-selected" : ""}`}
+        className={`dash-read ${selectedThread ? "thread-selected" : ""}`}
         key={threadId ?? "empty"}
         style={
           selectedThread

@@ -64,7 +64,7 @@ export function SecurityBadge() {
         className={`secure-chip ${open ? "on" : ""}`}
         onClick={toggle}
         aria-expanded={open}
-        aria-label="How OneInbox protects your mail"
+        aria-label="Learn how your email is kept safe"
       >
         <svg
           viewBox="0 0 24 24"
@@ -77,7 +77,7 @@ export function SecurityBadge() {
           <path d="M12 3l7 3v6c0 4.2-2.9 7.7-7 9-4.1-1.3-7-4.8-7-9V6l7-3z" />
           <path d="M9 12.2l2.1 2.1L15.2 10" />
         </svg>
-        <span className="secure-label">Encrypted and private</span>
+        <span className="secure-label">Encrypted</span>
       </button>
 
       {open &&
@@ -86,32 +86,30 @@ export function SecurityBadge() {
           <div
             className="secure-pop"
             role="dialog"
-            aria-label="How OneInbox protects your mail"
+            aria-label="How OneInbox keeps your email safe"
             style={{ left: pos.left, bottom: pos.bottom, width: POP_W }}
           >
-            <h4>How your mail is protected</h4>
+            <h4>How we keep your email safe</h4>
             <ul>
               <li>
-                <b>Your password is never stored in the clear.</b> It is encrypted with
-                AES-256-GCM before it reaches our database. With Google or Microsoft
-                there is no password at all, just a token you can revoke.
+                <b>Your password is locked.</b> We lock it before we save it. It is not
+                saved as normal words that someone can read.
               </li>
               <li>
-                <b>Encrypted in transit.</b> Every connection to your mail provider runs
-                over TLS.
+                <b>Google and Microsoft keep your password.</b> They give OneInbox a safe
+                key instead. You can turn this key off at any time.
               </li>
               <li>
-                <b>Encrypted at rest, isolated to you.</b> Database rules keep your mail
-                unreadable to every other customer.
+                <b>Your email travels safely.</b> We use a locked connection when we get
+                or send your email.
               </li>
               <li>
-                <b>Never sold, never used to train AI.</b> No AI reads your email
-                unless you switch on the optional summaries add-on yourself, and
-                even then only the conversations you ask it to summarize.
+                <b>Your email is yours.</b> Other OneInbox users cannot see it. We do not
+                sell it or use it to train AI.
               </li>
             </ul>
             <p className="secure-foot">
-              Disconnect an account and every message we hold for it is deleted.{" "}
+              Remove an inbox and we delete the email saved for it.{" "}
               <a href="/privacy-policy" target="_blank" rel="noreferrer">
                 Privacy policy
               </a>
