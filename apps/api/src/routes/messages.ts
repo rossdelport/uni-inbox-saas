@@ -112,3 +112,53 @@ messagesRouter.get("/messages/:id/attachments/:partId", async (req, res) => {
     if (!res.headersSent) res.status(502).json({ error: "could not fetch attachment from the mail server" });
   }
 });
+
+// Inline MIME images use cid:... URLs inside the email HTML. The iframe cannot
+// attach a bearer token itself, so the dashboard fetches each image here and
+// gives the frame a local blob URL. Matching against the original MIME source
+// also repairs old rows whose attachment metadata predates contentId storage.
+messagesRouter.get("/messages/:id/inline/:contentId", async (req, res) => {
+  const uid = userId(res);
+  const { data: message } = await supabase
+    .from("messages")
+    .select("id, account_id, imap_uid, imap_mailbox")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (!message || !message.imap_uid) {
+    return res.status(404).json({ error: "inline image not available" });
+  }
+
+  const { data: account } = await supabase
+    .from("email_accounts")
+    .select("id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method")
+    .eq("id", message.account_id)
+    .maybeSingle();
+  if (!account) return res.status(404).json({ error: "account not found" });
+
+  const wanted = req.params.contentId.trim().replace(/^<|>$/g, "").toLowerCase();
+  try {
+    await withImap(account, async (client) => {
+      await client.mailboxOpen(message.imap_mailbox ?? "INBOX", { readOnly: true });
+      const { content } = await client.download(String(message.imap_uid), undefined, { uid: true });
+      const { simpleParser } = await import("mailparser");
+      const parsed = await simpleParser(content);
+      const image = (parsed.attachments ?? []).find(
+        (attachment) =>
+          attachment.contentId?.replace(/^<|>$/g, "").toLowerCase() === wanted &&
+          attachment.contentType.toLowerCase().startsWith("image/"),
+      );
+      if (!image) {
+        res.status(404).json({ error: "inline image not found" });
+        return;
+      }
+      res.setHeader("Content-Type", image.contentType);
+      res.setHeader("Content-Disposition", "inline");
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      res.end(image.content);
+    });
+  } catch (err) {
+    logger.warn({ err, messageId: message.id }, "inline image fetch failed");
+    if (!res.headersSent) res.status(502).json({ error: "could not fetch inline image" });
+  }
+});

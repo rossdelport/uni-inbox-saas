@@ -41,6 +41,9 @@ export interface ThreadSummary {
 export interface AttachmentMeta {
   filename: string | null;
   contentType: string | null;
+  contentId?: string | null;
+  contentDisposition?: string | null;
+  related?: boolean;
   size: number;
   partId: string;
 }

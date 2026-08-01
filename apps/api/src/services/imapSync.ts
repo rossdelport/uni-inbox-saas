@@ -27,15 +27,17 @@ export interface AccountRow {
 }
 
 const SANITIZE_OPTS: sanitizeHtml.IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2", "center", "font"]),
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "picture", "source", "h1", "h2", "center", "font"]),
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
     "*": ["style", "align", "width", "height", "cellpadding", "cellspacing", "border", "bgcolor"],
-    img: ["src", "alt", "width", "height", "style"],
+    img: ["src", "srcset", "sizes", "alt", "width", "height", "style"],
+    source: ["src", "srcset", "sizes", "media", "type"],
     a: ["href", "name", "target", "rel"],
   },
-  // data: images survive; remote http(s) images are left in the HTML and the
-  // CLIENT blocks them by default (privacy toggle in the thread view).
+  // data: images survive; remote http(s) images are left in the HTML for the
+  // sandboxed client renderer. cid: sources are resolved through an authed
+  // on-demand attachment endpoint rather than exposed as public URLs.
   allowedSchemes: ["http", "https", "mailto", "data", "cid"],
 };
 
@@ -966,6 +968,9 @@ export async function ingestMessage(
     const attachments = (parsed.attachments ?? []).map((a, i) => ({
       filename: a.filename ?? null,
       contentType: a.contentType ?? null,
+      contentId: a.contentId?.replace(/^<|>$/g, "") ?? null,
+      contentDisposition: a.contentDisposition ?? null,
+      related: Boolean(a.related),
       size: a.size ?? 0,
       partId: String(i + 1),
     }));

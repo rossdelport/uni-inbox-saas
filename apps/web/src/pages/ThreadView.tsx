@@ -468,7 +468,7 @@ function GmMessage({
       </button>
       {open && (
         <div className="gm-body">
-          <MessageBody bodyHtml={m.body_html} bodyText={m.body_text} />
+          <MessageBody messageId={m.id} bodyHtml={m.body_html} bodyText={m.body_text} />
           {m.attachments.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
               {m.attachments.map((a) => (

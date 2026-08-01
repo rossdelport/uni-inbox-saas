@@ -1,55 +1,144 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DOMPurify from "dompurify";
+import { supabase } from "../lib/supabase.js";
+
+function normalizeCid(value: string): string {
+  let cid = value.trim().replace(/^cid:/i, "").replace(/^<|>$/g, "");
+  try {
+    cid = decodeURIComponent(cid);
+  } catch {
+    // A literal percent sign is valid in a content id. Keep it unchanged.
+  }
+  return cid.toLowerCase();
+}
+
+function inlineCids(bodyHtml: string | null): string[] {
+  if (!bodyHtml) return [];
+  const clean = DOMPurify.sanitize(bodyHtml, {
+    FORBID_TAGS: ["script", "iframe", "object"],
+    ADD_TAGS: ["picture", "source"],
+    ADD_ATTR: ["srcset", "sizes", "media", "type"],
+  });
+  const parsed = new DOMParser().parseFromString(clean, "text/html");
+  return Array.from(
+    new Set(
+      Array.from(parsed.querySelectorAll("img[src^='cid:' i]"))
+        .map((img) => normalizeCid(img.getAttribute("src") ?? ""))
+        .filter(Boolean),
+    ),
+  );
+}
 
 // Renders one message body. HTML mail goes through DOMPurify (defense in
-// depth on top of the server-side sanitize) into a sandboxed iframe; remote
-// images are blocked by default so tracking pixels don't fire on open.
+// depth on top of the server-side sanitize) into a sandboxed iframe. Remote
+// images load normally; inline cid: images are fetched through our auth gate.
 export function MessageBody({
+  messageId,
   bodyHtml,
   bodyText,
 }: {
+  messageId: string;
   bodyHtml: string | null;
   bodyText: string | null;
 }) {
-  const [loadImages, setLoadImages] = useState(false);
+  const cids = useMemo(() => inlineCids(bodyHtml), [bodyHtml]);
+  const [inlineImages, setInlineImages] = useState<Record<string, string>>({});
 
-  const { doc, hadRemoteImages } = useMemo(() => {
-    if (!bodyHtml) return { doc: null, hadRemoteImages: false };
-    let clean = DOMPurify.sanitize(bodyHtml, { FORBID_TAGS: ["script", "iframe", "object"] });
-    const hasRemote = /src\s*=\s*["']https?:\/\//i.test(clean);
-    if (!loadImages) {
-      clean = clean.replace(/(<img[^>]+src\s*=\s*["'])https?:\/\/[^"']*(["'])/gi, "$1$2");
-    }
-    // Inline cid: images point at IMAP attachment parts the iframe can't
-    // fetch; blank them so they hide instead of rendering broken glyphs.
-    clean = clean.replace(/(<img[^>]+src\s*=\s*["'])cid:[^"']*(["'])/gi, "$1$2");
-    // Every link opens in a new tab (via <base target="_blank">) and must not
-    // hand the opener over to the destination. Drop any rel the sender set,
-    // then force our own.
-    clean = clean
-      .replace(/(<a\b[^>]*?)\s+rel\s*=\s*(["'])[^"']*\2/gi, "$1")
-      .replace(/<a\b/gi, '<a rel="noopener noreferrer"');
+  // Inline images are MIME attachments referenced as cid:... in the HTML.
+  // Fetch them with the user's bearer token, then give the sandbox a local
+  // blob URL. This works for old messages too: the API re-reads the original
+  // IMAP source and matches its Content-ID on demand.
+  useEffect(() => {
+    setInlineImages({});
+    if (cids.length === 0) return;
+
+    let cancelled = false;
+    const objectUrls = new Set<string>();
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token || cancelled) return;
+
+      const entries: Array<readonly [string, string]> = [];
+      // Each endpoint call briefly opens this mailbox. Keep them sequential
+      // so a newsletter with many logos cannot fan out into an IMAP storm.
+      for (const cid of cids) {
+        if (cancelled) break;
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL ?? ""}/api/messages/${messageId}/inline/${encodeURIComponent(cid)}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          if (!blob.type.toLowerCase().startsWith("image/")) continue;
+          const url = URL.createObjectURL(blob);
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            break;
+          }
+          objectUrls.add(url);
+          entries.push([cid, url] as const);
+        } catch {
+          // One broken inline part must not stop the rest of the email.
+        }
+      }
+      if (!cancelled) {
+        setInlineImages(Object.fromEntries(entries));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [cids, messageId]);
+
+  const doc = useMemo(() => {
+    if (!bodyHtml) return null;
+    const clean = DOMPurify.sanitize(bodyHtml, {
+      FORBID_TAGS: ["script", "iframe", "object"],
+      ADD_TAGS: ["picture", "source"],
+      ADD_ATTR: ["srcset", "sizes", "media", "type"],
+    });
+    const parsed = new DOMParser().parseFromString(clean, "text/html");
+
+    parsed.querySelectorAll("img").forEach((img) => {
+      const raw = (img.getAttribute("src") ?? "").trim();
+      if (/^cid:/i.test(raw)) {
+        const resolved = inlineImages[normalizeCid(raw)];
+        if (resolved) img.setAttribute("src", resolved);
+        else img.removeAttribute("src");
+      } else if (
+        raw &&
+        !/^(?:https?:)?\/\//i.test(raw) &&
+        !/^(?:data|blob):/i.test(raw)
+      ) {
+        // Email HTML has no trustworthy base URL. A relative source would hit
+        // tryoneinbox.co and show a broken icon, so hide it cleanly instead.
+        img.removeAttribute("src");
+      }
+      img.setAttribute("loading", "eager");
+      img.setAttribute("referrerpolicy", "no-referrer");
+    });
+
+    parsed.querySelectorAll("a").forEach((anchor) => {
+      anchor.setAttribute("rel", "noopener noreferrer");
+      anchor.setAttribute("target", "_blank");
+    });
+
     const html =
       `<base target="_blank"><style>body{font:14px/1.6 -apple-system,system-ui,sans-serif;` +
       `color:#0A2540;margin:0;padding:4px;word-break:break-word}` +
       `img{max-width:100%;height:auto}` +
-      // Blocked/stripped images disappear entirely, no broken-image icons.
       `img[src=""],img:not([src]){display:none}` +
-      `a{color:#0B6FE6}</style>${clean}`;
-    return { doc: html, hadRemoteImages: hasRemote };
-  }, [bodyHtml, loadImages]);
+      `a{color:#0B6FE6}</style>${parsed.body.innerHTML}`;
+    return html;
+  }, [bodyHtml, inlineImages]);
 
   if (doc) {
     return (
       <div>
-        {hadRemoteImages && !loadImages && (
-          <button
-            className="mb-2 rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-200"
-            onClick={() => setLoadImages(true)}
-          >
-            Load remote images
-          </button>
-        )}
         <iframe
           title="message"
           // allow-same-origin WITHOUT allow-scripts: content is inert (script
@@ -73,7 +162,17 @@ export function MessageBody({
             const frame = e.currentTarget;
             const size = () => {
               try {
-                const h = frame.contentDocument?.body?.scrollHeight;
+                const body = frame.contentDocument?.body;
+                body?.querySelectorAll("img").forEach((image) => {
+                  const hideBroken = () => {
+                    if (image.complete && image.naturalWidth === 0) image.style.display = "none";
+                  };
+                  image.addEventListener("error", () => {
+                    image.style.display = "none";
+                  }, { once: true });
+                  hideBroken();
+                });
+                const h = body?.scrollHeight;
                 if (h) frame.style.height = `${Math.min(h + 24, 5000)}px`;
               } catch {
                 frame.style.height = "480px";
