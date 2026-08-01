@@ -11,7 +11,7 @@ Plain HTML/CSS/JS. **No build step, no dependencies, no environment variables.**
 | `/pricing` | `pricing/index.html` |
 | `/solutions` | `solutions/index.html` |
 | `/contacts` | `contacts/index.html` |
-| `/privacy-policy` | `privacy-policy/index.html` |
+| `/privacy-policy` | `privacy-policy/index.html` (hand-written page, no Framer runtime) |
 | `/service` | `service/index.html` (Terms of Service, hand-written page, no Framer runtime) |
 | 404 | `404/index.html` (+ `404.html` copy that Vercel uses for unmatched routes) |
 
