@@ -129,6 +129,17 @@ app.get("/api/oauth/:provider/callback", (req, res) => {
   void import("./routes/oauth.js").then((m) => m.oauthCallback(req, res));
 });
 
+// Public capability flags only (never ids or secrets). Keeping this tiny
+// diagnostic outside the auth gate lets mobile/web clients and uptime checks
+// distinguish "provider not configured" from a broken signed-in request.
+app.get("/api/oauth/providers", (_req, res) => {
+  void import("./services/oauthTokens.js")
+    .then((m) =>
+      res.json({ google: m.oauthConfigured("google"), microsoft: m.oauthConfigured("microsoft") }),
+    )
+    .catch(() => res.status(503).json({ google: false, microsoft: false }));
+});
+
 // Everything below requires a valid Supabase Auth JWT from the dashboard.
 app.use("/api", requireAuth);
 app.use("/api/oauth", oauthRouter);

@@ -80,6 +80,16 @@ export function Layout() {
       toast(`${connected} connected. Syncing now.`, "success");
     } else if (connectError === "plan_full") {
       toast("Your plan is full. Open Plans and billing to add room.", "warn");
+    } else if (connectError === "access_denied") {
+      toast("Connection cancelled. No access was granted.", "warn");
+    } else if (connectError === "bad_state") {
+      toast("That connection window expired. Please start again.", "warn");
+    } else if (connectError === "no_email") {
+      toast("Microsoft did not share a mailbox address. Try another Microsoft account.", "danger");
+    } else if (connectError === "no_refresh_token") {
+      toast("Long-term mailbox access was not approved. Reconnect and allow all requested access.", "danger");
+    } else if (connectError === "exchange_failed") {
+      toast("The provider rejected the connection setup. Please try again or contact support.", "danger");
     } else {
       toast("Could not connect the account. Try again.", "danger");
     }

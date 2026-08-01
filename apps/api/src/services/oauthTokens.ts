@@ -38,7 +38,7 @@ export const OAUTH_PROVIDERS: Record<OauthProvider, ProviderConf> = {
     authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     scope:
-      "openid email offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send",
+      "openid profile email offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send",
     clientId: () => env.MS_CLIENT_ID,
     clientSecret: () => env.MS_CLIENT_SECRET,
     imap: { host: "outlook.office365.com", port: 993 },
@@ -137,8 +137,14 @@ export function emailFromIdToken(idToken: string | undefined): string | null {
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
       email?: string;
       preferred_username?: string;
+      upn?: string;
+      unique_name?: string;
     };
-    const email = claims.email ?? claims.preferred_username ?? null;
+    // Microsoft work/school tenants do not guarantee the `email` claim. With
+    // the `profile` scope, preferred_username is the normal v2 fallback; upn
+    // and unique_name keep older tenant token shapes working too.
+    const email =
+      claims.email ?? claims.preferred_username ?? claims.upn ?? claims.unique_name ?? null;
     return email && email.includes("@") ? email.toLowerCase() : null;
   } catch {
     return null;

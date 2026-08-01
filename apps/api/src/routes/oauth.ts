@@ -43,6 +43,7 @@ oauthRouter.post("/:provider/start", (req, res) => {
     client_id: c.clientId() ?? "",
     redirect_uri: `${appOrigin()}/api/oauth/${provider}/callback`,
     response_type: "code",
+    response_mode: "query",
     scope: c.scope,
     state: signState(userId(res), provider),
   });
@@ -63,7 +64,18 @@ export async function oauthCallback(req: Request, res: Response) {
 
   const state = verifyState(String(req.query.state ?? ""));
   if (!state || state.provider !== provider) return back("connect_error=bad_state");
-  if (req.query.error) return back(`connect_error=${encodeURIComponent(String(req.query.error))}`);
+  if (req.query.error) {
+    const providerError = String(req.query.error);
+    logger.warn(
+      {
+        provider,
+        error: providerError,
+        errorDescription: String(req.query.error_description ?? "").slice(0, 300),
+      },
+      "oauth provider returned an error",
+    );
+    return back(`connect_error=${encodeURIComponent(providerError)}`);
+  }
 
   const code = String(req.query.code ?? "");
   if (!code) return back("connect_error=no_code");
