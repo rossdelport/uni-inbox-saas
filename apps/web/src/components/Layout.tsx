@@ -51,6 +51,9 @@ export function Layout() {
   const [plansOpen, setPlansOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    typeof window !== "undefined" && window.localStorage.getItem("oi-sidebar-collapsed") === "true",
+  );
   const [colorFor, setColorFor] = useState<string | null>(null);
   const updateAccount = useUpdateAccount();
   const syncAccounts = useSyncAccounts();
@@ -237,96 +240,98 @@ export function Layout() {
           />
           <kbd>/</kbd>
         </div>
-        <button
-          className="sync-now-btn"
-          disabled={syncAccounts.isPending || syncTargets.length === 0}
-          onClick={() => {
-            syncAccounts.mutate(
-              syncTargets.map((account) => account.id),
-              {
-                onSuccess: (count) =>
-                  toast(
-                    count === 1 ? "Sync started for this inbox." : `Sync started for ${count} inboxes.`,
-                    "success",
-                  ),
-                onError: () => toast("Could not start sync. Try again.", "warn"),
-              },
-            );
-          }}
-        >
-          <svg
-            className={syncAccounts.isPending ? "is-spinning" : ""}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div className="dash-top-actions">
+          <button
+            className="sync-now-btn"
+            disabled={syncAccounts.isPending || syncTargets.length === 0}
+            onClick={() => {
+              syncAccounts.mutate(
+                syncTargets.map((account) => account.id),
+                {
+                  onSuccess: (count) =>
+                    toast(
+                      count === 1 ? "Sync started for this inbox." : `Sync started for ${count} inboxes.`,
+                      "success",
+                    ),
+                  onError: () => toast("Could not start sync. Try again.", "warn"),
+                },
+              );
+            }}
           >
-            <path d="M20 7v5h-5" />
-            <path d="M4 17v-5h5" />
-            <path d="M6.1 9A7 7 0 0 1 18.5 6.5L20 8" />
-            <path d="M17.9 15A7 7 0 0 1 5.5 17.5L4 16" />
-          </svg>
-          <span>{syncAccounts.isPending ? "Syncing…" : "Sync now"}</span>
-        </button>
-        <button className="top-icon-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
-          ?
-        </button>
-        <div className="dd-wrap" style={{ marginLeft: "auto" }} ref={menuRef}>
-          <button className="dash-avatar" aria-label="Open account menu" onClick={() => setMenuOpen((o) => !o)}>
-            {initial}
+            <svg
+              className={syncAccounts.isPending ? "is-spinning" : ""}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 7v5h-5" />
+              <path d="M4 17v-5h5" />
+              <path d="M6.1 9A7 7 0 0 1 18.5 6.5L20 8" />
+              <path d="M17.9 15A7 7 0 0 1 5.5 17.5L4 16" />
+            </svg>
+            <span>{syncAccounts.isPending ? "Syncing…" : "Sync now"}</span>
           </button>
-          <div className={`uni-dd ${menuOpen ? "open" : ""}`}>
-            <div className="dd-head">
-              <div className="n">{displayName}</div>
-              <div className="e">{user?.email}</div>
-            </div>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                navigate("/settings");
-              }}
-            >
-              <GearIcon /> Settings
+          <button className="top-icon-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
+            ?
+          </button>
+          <div className="dd-wrap" ref={menuRef}>
+            <button className="dash-avatar" aria-label="Open account menu" onClick={() => setMenuOpen((o) => !o)}>
+              {initial}
             </button>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                setPlansOpen(true);
-              }}
-            >
-              <StarIcon /> Plans &amp; billing
-            </button>
-            {user?.email?.toLowerCase() === "rossdelport1998@gmail.com" && (
+            <div className={`uni-dd ${menuOpen ? "open" : ""}`}>
+              <div className="dd-head">
+                <div className="n">{displayName}</div>
+                <div className="e">{user?.email}</div>
+              </div>
               <button
                 onClick={() => {
                   setMenuOpen(false);
-                  navigate("/users");
+                  navigate("/settings");
                 }}
               >
-                <UsersIcon /> Users
+                <GearIcon /> Settings
               </button>
-            )}
-            <a href="/contacts/" onClick={() => setMenuOpen(false)}>
-              <HelpIcon /> Help &amp; support
-            </a>
-            <div className="dd-sep" />
-            <button style={{ color: "var(--danger-ink)" }} onClick={() => void supabase.auth.signOut()}>
-              <LogoutIcon /> Log out
-            </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setPlansOpen(true);
+                }}
+              >
+                <StarIcon /> Plans &amp; billing
+              </button>
+              {user?.email?.toLowerCase() === "rossdelport1998@gmail.com" && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate("/users");
+                  }}
+                >
+                  <UsersIcon /> Users
+                </button>
+              )}
+              <a href="/contacts/" onClick={() => setMenuOpen(false)}>
+                <HelpIcon /> Help &amp; support
+              </a>
+              <div className="dd-sep" />
+              <button style={{ color: "var(--danger-ink)" }} onClick={() => void supabase.auth.signOut()}>
+                <LogoutIcon /> Log out
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="dash-main">
-        <aside className={`dash-side ${drawer ? "open" : ""}`}>
-          <button className="side-compose" onClick={() => go("/compose")}>
+        <aside className={`dash-side ${drawer ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
+          <button className="side-compose" aria-label="Compose" title="Compose" onClick={() => go("/compose")}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
-            Compose
+            <span className="side-text">Compose</span>
           </button>
           <SideLink to="/" label="All inboxes" active={!activeAccount} count={totalUnread} onGo={go}>
             <InboxIcon />
@@ -356,10 +361,11 @@ export function Layout() {
                   <button
                     className={`side-item ${activeAccount === a.id ? "active" : ""}`}
                     style={activeAccount === a.id ? { background: `${a.color}14` } : undefined}
+                    title={`${a.label} — ${a.email_address}`}
                     onClick={() => go(`/?account=${a.id}`)}
                   >
                     <i className="side-dot" style={{ background: a.color }} />
-                    <span style={{ minWidth: 0 }}>
+                    <span className="side-text" style={{ minWidth: 0 }}>
                       {a.label}
                       <span className="email">{a.email_address}</span>
                     </span>
@@ -417,6 +423,8 @@ export function Layout() {
           </div>
           <button
             className="side-item side-add"
+            aria-label="Add account"
+            title="Add account"
             onClick={() => {
               setDrawer(false);
               setConnectOpen(true);
@@ -426,7 +434,7 @@ export function Layout() {
               <circle cx="12" cy="12" r="9" />
               <path d="M12 8v8M8 12h8" />
             </svg>
-            Add account
+            <span className="side-text">Add account</span>
           </button>
 
           <div className="side-foot">
@@ -453,9 +461,28 @@ export function Layout() {
               </a>
             </div>
           )}
-            <SecurityBadge />
+            <div className="side-bottom-row">
+              <SecurityBadge />
+              <button
+                className="sidebar-collapse-btn"
+                type="button"
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => {
+                  setSidebarCollapsed((collapsed) => {
+                    const next = !collapsed;
+                    window.localStorage.setItem("oi-sidebar-collapsed", String(next));
+                    return next;
+                  });
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={sidebarCollapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
+                </svg>
+              </button>
+            </div>
           </div>
-          <PaneResizer cssVar="--side-w" storageKey="oi-side-w" min={176} max={360} fallback={232} />
+          {!sidebarCollapsed && <PaneResizer cssVar="--side-w" storageKey="oi-side-w" min={176} max={360} fallback={232} />}
         </aside>
 
         <div className={`side-scrim ${drawer ? "show" : ""}`} onClick={() => setDrawer(false)} />
@@ -563,7 +590,7 @@ function SideLink({
       }
     >
       {children}
-      {label}
+      <span className="side-text">{label}</span>
       {count !== undefined && count > 0 && <span className="cnt">{count}</span>}
     </NavLink>
   );

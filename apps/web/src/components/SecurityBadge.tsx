@@ -77,7 +77,7 @@ export function SecurityBadge() {
           <path d="M12 3l7 3v6c0 4.2-2.9 7.7-7 9-4.1-1.3-7-4.8-7-9V6l7-3z" />
           <path d="M9 12.2l2.1 2.1L15.2 10" />
         </svg>
-        Encrypted and private
+        <span className="secure-label">Encrypted and private</span>
       </button>
 
       {open &&
