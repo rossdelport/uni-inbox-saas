@@ -384,7 +384,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                 ref={(el) => {
                   rowEls.current[i] = el;
                 }}
-                className={`mrow ${t.unread ? "unread" : ""} ${threadId === t.id ? "sel" : ""} ${cur === i ? "cur" : ""}`}
+                className={`mrow ${t.unread ? "unread" : ""} ${threadId === t.id ? "sel" : ""} ${threads[i + 1]?.id === threadId ? "before-sel" : ""} ${cur === i ? "cur" : ""}`}
                 style={{ "--acc": t.account_color } as CSSProperties}
                 onClick={() => {
                   setCur(i);

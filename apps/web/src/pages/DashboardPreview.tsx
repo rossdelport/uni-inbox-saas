@@ -230,8 +230,8 @@ export function DashboardPreview() {
           </div>
           <div className="preview-list-summary"><span>{visible.length} conversations</span><button>Mark all read</button></div>
           <div className="list-rows">
-            {visible.map((message) => (
-              <button key={message.id} className={`mrow ${message.unread ? "unread" : ""} ${selected.id === message.id ? "sel" : ""}`} style={{ "--acc": message.color } as React.CSSProperties} onClick={() => setSelectedId(message.id)}>
+            {visible.map((message, index) => (
+              <button key={message.id} className={`mrow ${message.unread ? "unread" : ""} ${selected.id === message.id ? "sel" : ""} ${visible[index + 1]?.id === selected.id ? "before-sel" : ""}`} style={{ "--acc": message.color } as React.CSSProperties} onClick={() => setSelectedId(message.id)}>
                 {message.unread && <span className="unread-dot" style={{ background: message.color }} />}
                 <span className="ava" style={{ background: `color-mix(in srgb, ${message.color} 14%, white)`, color: message.color }}>{message.initials}</span>
                 <span className="body"><span className="r1"><span className="who">{message.sender}</span><span className="when">{message.time}</span></span><span className="subj">{message.subject}</span><span className="prev">{message.preview}</span><span className="via"><i style={{ background: message.color }} />{message.account}</span></span>
@@ -247,7 +247,7 @@ export function DashboardPreview() {
             <div><button aria-label="Archive"><Icon><path d="M3 5h18v4H3z" /><path d="M5 9v11h14V9M10 13h4" /></Icon></button><button aria-label="Snooze"><Icon><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Icon></button><button aria-label="Delete"><Icon><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></Icon></button></div>
             <div><span>1 of {MESSAGES.length}</span><button aria-label="Previous"><Icon><path d="m15 18-6-6 6-6" /></Icon></button><button aria-label="Next"><Icon><path d="m9 18 6-6-6-6" /></Icon></button></div>
           </div>
-          <article className="preview-reader">
+          <article key={selected.id} className="preview-reader thread-spring-target">
             <div className="preview-reader-label"><i style={{ background: selected.color }} />{selected.account}<span>to {selected.accountEmail}</span></div>
             <div className="preview-subject-row"><h1>{selected.subject}</h1><button className={selected.starred ? "on" : ""}>★</button></div>
             <div className="preview-sender">

@@ -1145,6 +1145,7 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
   border-radius:0;background:#fff;box-shadow:none;text-align:left;transition:background .14s,border-color .14s}
 .mrow:first-child{border-top-color:rgba(15,35,58,.065)}
 .mrow:hover{background:#f7faff;border-color:rgba(15,35,58,.065);box-shadow:none;transform:none}
+.mrow.before-sel{border-bottom-color:transparent}
 .mrow.sel{
   margin:0 0 5px;border-color:transparent;border-radius:12px;
   background:color-mix(in srgb,var(--acc,var(--b1)) 5%,#fff);box-shadow:none;overflow:hidden}
@@ -1168,6 +1169,14 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .dash-read.thread-selected{border-top:3px solid var(--thread-accent,var(--b1))}
 .read-scroll{padding:30px clamp(28px,4vw,58px) 28px}
 .read-wrap h1{font-size:25px;line-height:1.25;color:var(--text)}
+.thread-selected .read-wrap,.thread-spring-target{
+  transform-origin:50% 32%;animation:thread-spring-in .28s cubic-bezier(.22,1,.36,1) both}
+@keyframes thread-spring-in{
+  0%{opacity:.55;transform:translateX(3px) scale(.996)}
+  62%{opacity:1;transform:translateX(-.7px) scale(1.0015)}
+  100%{opacity:1;transform:none}
+}
+@media(prefers-reduced-motion:reduce){.thread-selected .read-wrap,.thread-spring-target{animation:none}}
 .read-wrap .via-chips{gap:6px;margin-bottom:16px;flex-wrap:wrap}
 .chip{font-size:11px;padding:5px 10px;border-radius:8px;background:#f6f8fb;box-shadow:none}
 .gm-thread{margin-top:22px}
