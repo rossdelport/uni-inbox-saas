@@ -324,8 +324,17 @@ export function Layout() {
                     {a.status !== "active" ? (
                       <span
                         className="cnt"
-                        style={{ background: "#fde8e6", color: "var(--danger-ink)" }}
-                        title={a.status === "auth_failed" ? "Sign in failed" : "Paused"}
+                        role="button"
+                        style={{ background: "#fde8e6", color: "var(--danger-ink)", cursor: "pointer" }}
+                        title={
+                          a.status === "auth_failed"
+                            ? "Sign in failed. Click to fix in Settings."
+                            : "Paused. Click to manage in Settings."
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          go("/settings?pane=accounts");
+                        }}
                       >
                         !
                       </span>

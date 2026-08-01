@@ -747,11 +747,17 @@ export class AccountSyncer {
     const message = err instanceof Error ? err.message : String(err);
     if (isAuthError(err)) {
       logger.warn({ accountId: this.account.id }, "imap auth failed; pausing account");
+      // OAuth accounts have no password to update: the refresh token died
+      // (revoked, or a 7-day testing-mode expiry), so the fix is a fresh
+      // sign-in via the Reconnect button, and the message must say so.
+      const oauth = this.account.auth_method === "oauth_google" || this.account.auth_method === "oauth_microsoft";
       await supabase
         .from("email_accounts")
         .update({
           status: "auth_failed",
-          last_error: "Sign-in failed. Update the password for this account in Settings.",
+          last_error: oauth
+            ? "Sign-in expired. Open Settings and hit Reconnect to sign in again."
+            : "Sign-in failed. Update the password for this account in Settings.",
         })
         .eq("id", this.account.id);
       return;

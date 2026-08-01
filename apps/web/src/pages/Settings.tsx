@@ -9,6 +9,7 @@ import {
   useBillingState,
   useCreateSnippet,
   useDeleteSnippet,
+  useOauthStart,
   usePortal,
   useRemoveAccount,
   useSnippets,
@@ -205,6 +206,15 @@ function AccountsPane() {
 function AccountRow({ account }: { account: EmailAccount }) {
   const update = useUpdateAccount();
   const remove = useRemoveAccount();
+  const oauthStart = useOauthStart();
+  // OAuth accounts have no password: their fix path is a fresh provider
+  // sign-in, which the callback applies to this same row in place.
+  const oauthProvider =
+    account.auth_method === "oauth_google"
+      ? ("google" as const)
+      : account.auth_method === "oauth_microsoft"
+        ? ("microsoft" as const)
+        : null;
   const [fixOpen, setFixOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -241,9 +251,19 @@ function AccountRow({ account }: { account: EmailAccount }) {
         >
           Edit
         </button>
-        <button className="btn-mini" onClick={() => setFixOpen((v) => !v)}>
-          Update password
-        </button>
+        {oauthProvider ? (
+          <button
+            className="btn-mini"
+            disabled={oauthStart.isPending}
+            onClick={() => oauthStart.mutate(oauthProvider)}
+          >
+            Reconnect
+          </button>
+        ) : (
+          <button className="btn-mini" onClick={() => setFixOpen((v) => !v)}>
+            Update password
+          </button>
+        )}
         {account.status === "disabled" ? (
           <button
             className="btn-mini"
