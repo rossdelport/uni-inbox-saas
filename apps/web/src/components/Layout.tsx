@@ -7,6 +7,7 @@ import {
   useAccounts,
   useBillingState,
   useOauthProviders,
+  useSyncAccounts,
   useUnreadCounts,
   useUpdateAccount,
 } from "../lib/queries.js";
@@ -52,6 +53,7 @@ export function Layout() {
   const [drawer, setDrawer] = useState(false);
   const [colorFor, setColorFor] = useState<string | null>(null);
   const updateAccount = useUpdateAccount();
+  const syncAccounts = useSyncAccounts();
   const [toastState, setToastState] = useState<{ msg: string; kind: ToastKind; key: number } | null>(
     null,
   );
@@ -123,6 +125,9 @@ export function Layout() {
   const totalUnread = counts.data?.total ?? 0;
   const unreadByAccount = new Map<string, number>(
     Object.entries(counts.data?.by_account ?? {}),
+  );
+  const syncTargets = (accounts ?? []).filter(
+    (account) => account.status === "active" && (!activeAccount || account.id === activeAccount),
   );
 
   // Pinned-tab glanceability: unread count lives in the browser tab title.
@@ -232,6 +237,39 @@ export function Layout() {
           />
           <kbd>/</kbd>
         </div>
+        <button
+          className="sync-now-btn"
+          disabled={syncAccounts.isPending || syncTargets.length === 0}
+          onClick={() => {
+            syncAccounts.mutate(
+              syncTargets.map((account) => account.id),
+              {
+                onSuccess: (count) =>
+                  toast(
+                    count === 1 ? "Sync started for this inbox." : `Sync started for ${count} inboxes.`,
+                    "success",
+                  ),
+                onError: () => toast("Could not start sync. Try again.", "warn"),
+              },
+            );
+          }}
+        >
+          <svg
+            className={syncAccounts.isPending ? "is-spinning" : ""}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20 7v5h-5" />
+            <path d="M4 17v-5h5" />
+            <path d="M6.1 9A7 7 0 0 1 18.5 6.5L20 8" />
+            <path d="M17.9 15A7 7 0 0 1 5.5 17.5L4 16" />
+          </svg>
+          <span>{syncAccounts.isPending ? "Syncing…" : "Sync now"}</span>
+        </button>
         <button className="top-icon-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
           ?
         </button>

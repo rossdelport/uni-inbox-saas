@@ -1,13 +1,11 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from "react";
-import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import {
   useAccounts,
   useBackfill,
@@ -42,22 +40,10 @@ const VIEW_TITLES: Record<InboxViewName, string> = {
   sent: "Sent",
 };
 
-// List-pane tabs: same views as the sidebar, but they keep the current
-// account focus (sidebar views are global).
-const TABS: Array<{ key: InboxViewName; label: string; path: string }> = [
-  { key: "all", label: "Inbox", path: "/" },
-  { key: "starred", label: "Starred", path: "/starred" },
-  { key: "later", label: "Snoozed", path: "/later" },
-  { key: "sent", label: "Sent", path: "/sent" },
-  { key: "archived", label: "Archived", path: "/archived" },
-  { key: "deleted", label: "Deleted", path: "/deleted" },
-];
-
 // The mail surface: .dash-list (message rows) + .dash-read (reading pane).
 // The selected thread lives in the ?t= query param so the view sticks.
 export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
   const account = params.get("account");
   const threadId = params.get("t");
   // Split chip, plain Inbox only. Lives in the URL so a refresh or a shared
@@ -157,6 +143,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   // -1 = no cursor drawn: the outline appears only once the keyboard (or a
   // row click) places it, so mouse-first users never see a stray highlight.
   const threads = inbox.data?.pages.flatMap((p) => p.threads) ?? [];
+  const selectedThread = threads.find((thread) => thread.id === threadId);
   const [cur, setCur] = useState(-1);
   const rowEls = useRef<Array<HTMLDivElement | null>>([]);
   const [kbSnooze, setKbSnooze] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
@@ -278,15 +265,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const activeAcct = account ? accounts?.find((a) => a.id === account) : undefined;
   const title = searching ? "Search" : (activeAcct?.label ?? VIEW_TITLES[view]);
 
-  function goTab(path: string) {
-    const next = new URLSearchParams(params);
-    next.delete("t");
-    // Splits partition the plain Inbox only; carrying the param to Starred or
-    // Sent would silently filter a view that never shows the strip.
-    if (path !== "/") next.delete("split");
-    navigate({ pathname: path, search: next.toString() ? `?${next.toString()}` : "" });
-  }
-
   function goSplit(next_split: string | null) {
     const next = new URLSearchParams(params);
     next.delete("t"); // switching pile closes the open thread, like a tab switch
@@ -344,23 +322,8 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     ` across ${accountsInView} account${accountsInView === 1 ? "" : "s"}`
                   : "")}
           </p>
-          {!searching && (
-            <TabStrip>
-              {TABS.map((t) => (
-                <button
-                  key={t.key}
-                  className={`ltab ${view === t.key ? "on" : ""}`}
-                  onClick={() => goTab(t.path)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </TabStrip>
-          )}
-          {/* Split chips: a SECOND strip, blue-tinted and one step lighter
-              than the black view pills, so which-mailbox-state and
-              which-kind-of-mail never read as one nine-item row. Inbox only,
-              hidden while searching. */}
+          {/* Mail categories stay here; mailbox views already live in the
+              sidebar, so repeating them in this drawer adds noise. */}
           {!searching && view === "all" && (
             <div className="split-strip">
               {(
@@ -543,7 +506,15 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         <PaneResizer cssVar="--list-w" storageKey="oi-list-w" min={280} max={620} fallback={368} />
       </section>
 
-      <section className="dash-read rise" key={threadId ?? "empty"}>
+      <section
+        className={`dash-read rise ${selectedThread ? "thread-selected" : ""}`}
+        key={threadId ?? "empty"}
+        style={
+          selectedThread
+            ? ({ "--thread-accent": selectedThread.account_color } as CSSProperties)
+            : undefined
+        }
+      >
         <ReadingPane threadId={threadId} onBack={closeThread} />
       </section>
 
@@ -562,91 +533,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     </>
   );
 }
-
-/** The view tabs, which have to survive the list pane being dragged narrow.
- *  They scroll sideways rather than squashing, and once there is more strip
- *  than room, arrows appear at both ends. Both are rendered together (the one
- *  at the end you are already on just greys out) so the row does not shift
- *  sideways under the cursor as you page through it. */
-function TabStrip({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState({ overflowing: false, atStart: true, atEnd: false });
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => {
-      const max = el.scrollWidth - el.clientWidth;
-      setState({
-        overflowing: max > 1,
-        atStart: el.scrollLeft <= 1,
-        atEnd: el.scrollLeft >= max - 1,
-      });
-    };
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    // Catches the pane being resized, which is the whole reason this exists.
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", update);
-      ro.disconnect();
-    };
-  }, []);
-
-  const nudge = (dir: 1 | -1) => {
-    const el = ref.current;
-    if (el) el.scrollBy({ left: dir * Math.max(90, el.clientWidth * 0.6), behavior: "smooth" });
-  };
-
-  return (
-    <div className="list-tabs-wrap">
-      {state.overflowing && (
-        <button
-          type="button"
-          className="tab-arrow"
-          aria-label="Scroll tabs left"
-          disabled={state.atStart}
-          onClick={() => nudge(-1)}
-        >
-          <Chevron dir="left" />
-        </button>
-      )}
-      <div className="list-tabs" ref={ref}>
-        {children}
-      </div>
-      {state.overflowing && (
-        <button
-          type="button"
-          className="tab-arrow"
-          aria-label="Scroll tabs right"
-          disabled={state.atEnd}
-          onClick={() => nudge(1)}
-        >
-          <Chevron dir="right" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function Chevron({ dir }: { dir: "left" | "right" }) {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={dir === "left" ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
-    </svg>
-  );
-}
-
 
 // Scheduled sends, pinned above the Sent list: mail that exists only as an
 // outbox row until the worker delivers it. Cancel returns it to nowhere (a

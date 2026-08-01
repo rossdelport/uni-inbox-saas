@@ -38,6 +38,36 @@ export function useAccounts() {
   });
 }
 
+/** Ask every selected mailbox syncer to run now. The API nudge is quick, so
+ *  keep the pending state visible briefly: otherwise the spinner flashes too
+ *  fast to communicate that the click was received. */
+export function useSyncAccounts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (accountIds: string[]) => {
+      await Promise.all([
+        Promise.all(
+          accountIds.map((id) => api(`/api/accounts/${id}/sync`, { method: "POST" })),
+        ),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
+      return accountIds.length;
+    },
+    onSuccess: () => {
+      const refresh = () => {
+        void qc.invalidateQueries({ queryKey: ["inbox"] });
+        void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+        void qc.invalidateQueries({ queryKey: ["accounts"] });
+      };
+      refresh();
+      // The endpoint wakes the background syncer rather than waiting for an
+      // IMAP round trip. Follow up after it has had time to ingest new mail.
+      setTimeout(refresh, 2_500);
+      setTimeout(refresh, 6_000);
+    },
+  });
+}
+
 export function useBillingState() {
   return useQuery({
     queryKey: ["billing"],

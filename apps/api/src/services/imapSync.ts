@@ -74,6 +74,7 @@ export class AccountSyncer {
   private client: ImapFlow | null = null;
   private stopped = false;
   private wakeTimer: ReturnType<typeof setTimeout> | null = null;
+  private wakeResolve: (() => void) | null = null;
   /** A cycle is in flight. Server events fire safeCycle unconditionally, and
    *  the Sent pass selects a second mailbox on this connection: a re-entrant
    *  cycle mid-Sent would run INBOX UID commands against the Sent folder,
@@ -92,10 +93,20 @@ export class AccountSyncer {
 
   stop(): void {
     this.stopped = true;
-    if (this.wakeTimer) clearTimeout(this.wakeTimer);
+    this.wake();
     const c = this.client;
     this.client = null;
     if (c) void c.logout().catch(() => c.close());
+  }
+
+  /** Break the idle wait immediately. Used by the dashboard's Sync now
+   *  control and by stop(), so neither waits for the 45-second pump. */
+  wake(): void {
+    if (this.wakeTimer) clearTimeout(this.wakeTimer);
+    this.wakeTimer = null;
+    const resolve = this.wakeResolve;
+    this.wakeResolve = null;
+    resolve?.();
   }
 
   /** Main loop. Resolves when stopped; schedules backoff + resolves on error. */
@@ -124,7 +135,12 @@ export class AccountSyncer {
       const startedAt = Date.now();
       while (!this.stopped && this.client?.usable) {
         await new Promise<void>((resolve) => {
-          this.wakeTimer = setTimeout(resolve, 45_000);
+          this.wakeResolve = resolve;
+          this.wakeTimer = setTimeout(() => {
+            this.wakeTimer = null;
+            this.wakeResolve = null;
+            resolve();
+          }, 45_000);
         });
         if (this.stopped) break;
         // The cycle itself gets a hard deadline. A dead socket can leave a
@@ -835,9 +851,13 @@ export async function superviseTick(): Promise<void> {
 
 /** Nudge an account to sync ASAP (e.g. after the user flips a flag). */
 export async function wakeAccount(accountId: string): Promise<void> {
-  // If a syncer is live its 45s interval picks the op up; otherwise make the
+  // A live syncer can break out of IDLE immediately. Otherwise make the
   // account due so the next supervisor tick (30s) starts one.
-  if (running.has(accountId)) return;
+  const syncer = running.get(accountId);
+  if (syncer) {
+    syncer.wake();
+    return;
+  }
   await supabase
     .from("email_accounts")
     .update({ next_sync_at: new Date().toISOString() })

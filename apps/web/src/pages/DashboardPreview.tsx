@@ -126,6 +126,7 @@ export function DashboardPreview() {
   const [selectedId, setSelectedId] = useState(MESSAGES[0]!.id);
   const [filter, setFilter] = useState<"all" | "starred">("all");
   const [query, setQuery] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const selected = MESSAGES.find((message) => message.id === selectedId) ?? MESSAGES[0]!;
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -151,9 +152,21 @@ export function DashboardPreview() {
           <kbd>/</kbd>
         </label>
         <div className="preview-top-actions">
-          <span className="preview-sync"><i /> Synced just now</span>
-          <button className="top-icon-btn" aria-label="Notifications">
-            <Icon><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></Icon>
+          <button
+            className="sync-now-btn"
+            disabled={syncing}
+            onClick={() => {
+              setSyncing(true);
+              setTimeout(() => setSyncing(false), 1_200);
+            }}
+          >
+            <svg className={syncing ? "is-spinning" : ""} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M6.1 9A7 7 0 0 1 18.5 6.5L20 8" /><path d="M17.9 15A7 7 0 0 1 5.5 17.5L4 16" />
+            </svg>
+            <span>{syncing ? "Syncing…" : "Sync now"}</span>
+          </button>
+          <button className="top-icon-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">
+            ?
           </button>
           <button className="dash-avatar" aria-label="Open account menu">R</button>
         </div>
@@ -213,7 +226,7 @@ export function DashboardPreview() {
           </div>
         </section>
 
-        <main className="dash-read">
+        <main className="dash-read thread-selected" style={{ "--thread-accent": selected.color } as React.CSSProperties}>
           <div className="preview-reader-toolbar">
             <div><button aria-label="Archive"><Icon><path d="M3 5h18v4H3z" /><path d="M5 9v11h14V9M10 13h4" /></Icon></button><button aria-label="Snooze"><Icon><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Icon></button><button aria-label="Delete"><Icon><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></Icon></button></div>
             <div><span>1 of {MESSAGES.length}</span><button aria-label="Previous"><Icon><path d="m15 18-6-6 6-6" /></Icon></button><button aria-label="Next"><Icon><path d="m9 18 6-6-6-6" /></Icon></button></div>
