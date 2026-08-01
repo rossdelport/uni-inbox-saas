@@ -1,5 +1,6 @@
-// Brand assets, hotlinked from the same host the marketing site uses.
-export const LOGO_SRC = "https://framerusercontent.com/images/0vnhI1yuWUzr4ARVv8yIuY9jQgA.png";
+// Keep the app logo local so the dashboard branding does not depend on an
+// external image host. Vite serves public assets beneath the app's /app base.
+export const LOGO_SRC = "/app/logo.png";
 export const MAIL_SRC = "https://framerusercontent.com/images/OEgOgKnJfYyJzdDPysfJV8oaYI.png";
 
 // Provider dot colors (mirrors the marketing site's provider pills).
