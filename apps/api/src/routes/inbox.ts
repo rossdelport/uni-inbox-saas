@@ -67,7 +67,7 @@ inboxRouter.get("/", async (req, res) => {
   let query = supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, snooze_until, email_accounts!inner(label, color, email_address, created_at)",
+      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, snooze_until, snooze_woke_at, email_accounts!inner(label, color, email_address, created_at)",
     )
     .eq("owner_id", uid)
     .order(sortCol, { ascending: false })
@@ -224,7 +224,7 @@ inboxRouter.get("/", async (req, res) => {
       // opened, without having to reimplement the rule and drift from it.
       counts_unread:
         Boolean(t.unread) &&
-        String(t.last_inbound_at) >= String(acct.created_at),
+        (String(t.last_inbound_at) >= String(acct.created_at) || Boolean(t.snooze_woke_at)),
     };
   });
 
@@ -484,7 +484,7 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
       : op === "unarchive"
         ? { archived: false }
         : op === "read"
-          ? { unread: false }
+          ? { unread: false, snooze_woke_at: null }
           : op === "unread"
             ? { unread: true }
             : op === "star"
