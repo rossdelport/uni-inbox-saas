@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BrandMark } from "@/components/BrandMark";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
@@ -54,16 +55,15 @@ export default function SignIn() {
   const canSubmit = email.trim().length > 3 && password.length > 0 && !busy;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: "#EAF3FF" }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.wrap}>
-          <Text style={[styles.brand, { color: t.text }]}>ONEINBOX</Text>
-          <Text style={[styles.tagline, { color: t.sub }]}>
-            Every project inbox, one quiet list.
-          </Text>
+        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.line }]}>
+          <BrandMark size={48} />
+          <Text style={[styles.heading, { color: t.text }]}>Welcome back</Text>
+          <Text style={[styles.tagline, { color: t.sub }]}>Every inbox, one calm place.</Text>
 
           <View style={styles.form}>
             <TextInput
@@ -113,8 +113,13 @@ export default function SignIn() {
             </Pressable>
           </View>
 
+          <View style={[styles.privacy, { backgroundColor: "#F0FAF4", borderColor: "#C5E8D0" }]}>
+            <Text style={[styles.privacyTitle, { color: "#0A2540" }]}>Your mail stays private</Text>
+            <Text style={[styles.privacyBody, { color: t.sub }]}>We encrypt your mailbox details and never sell your mail.</Text>
+          </View>
+
           <Text style={[styles.footer, { color: t.faint }]}>
-            New to OneInbox? Create your account on the web first.
+            Use the same OneInbox account you use on the web.
           </Text>
         </View>
       </KeyboardAvoidingView>
@@ -124,26 +129,45 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  flex: { flex: 1 },
-  wrap: { flex: 1, justifyContent: "center", padding: 28, gap: 8 },
-  brand: { fontSize: 24, fontWeight: "800", letterSpacing: 5, textAlign: "center" },
-  tagline: { fontSize: 14, textAlign: "center", marginBottom: 24 },
-  form: { gap: 10 },
+  flex: { flex: 1, justifyContent: "center" },
+  card: {
+    margin: 20,
+    padding: 24,
+    borderRadius: 28,
+    borderWidth: 1,
+    alignItems: "stretch",
+    shadowColor: "#0C7DFF",
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 4,
+  },
+  heading: { fontSize: 32, fontWeight: "800", letterSpacing: -1, marginTop: 24 },
+  tagline: { fontSize: 15, marginTop: 5, marginBottom: 26 },
+  form: { gap: 11 },
   input: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 15,
     fontSize: 15,
   },
   error: { fontSize: 13, fontWeight: "500", paddingHorizontal: 2 },
   button: {
-    height: 48,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    marginTop: 6,
+    shadowColor: "#0C7DFF",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
   },
   buttonText: { fontSize: 16, fontWeight: "700" },
-  footer: { fontSize: 13, textAlign: "center", marginTop: 28 },
+  privacy: { borderRadius: 16, borderWidth: 1, padding: 14, marginTop: 22, gap: 4 },
+  privacyTitle: { fontSize: 14, fontWeight: "800" },
+  privacyBody: { fontSize: 12.5, lineHeight: 18 },
+  footer: { fontSize: 12.5, textAlign: "center", marginTop: 22, lineHeight: 18 },
 });

@@ -42,6 +42,31 @@ export default function ThreadScreen() {
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const messages = useMemo(() => data?.messages ?? [], [data]);
   const newestId = messages[messages.length - 1]?.id;
+  const latestIsOutbound = messages[messages.length - 1]?.direction === "outbound";
+  const replyingToId = latestIsOutbound ? messages[messages.length - 2]?.id : null;
+
+  // Replies are inserted optimistically by useReply. Scroll after that
+  // cache update paints so the new outgoing bubble is visible immediately,
+  // rather than waiting for SMTP and the server's thread roll-up.
+  useEffect(() => {
+    const newest = messages[messages.length - 1];
+    if (newest?.direction !== "outbound") return;
+    const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 40);
+    return () => clearTimeout(timer);
+  }, [newestId]);
+
+  // A newly sent reply becomes the newest message. Force the message it was
+  // replying to closed, even if the user had previously expanded/collapsed
+  // it manually, so the latest sent message is the one in focus.
+  useEffect(() => {
+    const newest = messages[messages.length - 1];
+    const previous = messages[messages.length - 2];
+    if (newest?.direction !== "outbound" || !previous) return;
+    setToggled((current) => {
+      if (current[previous.id] === false && current[newest.id] === false) return current;
+      return { ...current, [previous.id]: false, [newest.id]: false };
+    });
+  }, [newestId]);
 
   // Opening from the list already marked it read, but a thread can also be
   // reached with the list stale (realtime nudge mid-navigation); this is the
@@ -90,8 +115,8 @@ export default function ThreadScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]} edges={["top", "bottom"]}>
-      <View style={[styles.header, { borderBottomColor: t.line }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.card }]} edges={["top", "bottom"]}>
+      <View style={[styles.header, { backgroundColor: t.card, borderBottomColor: t.line }]}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={10}
@@ -129,7 +154,7 @@ export default function ThreadScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={[styles.flex, { backgroundColor: t.bg }]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {isError ? (
@@ -162,7 +187,7 @@ export default function ThreadScreen() {
                 // their height asynchronously and several times, so a blanket
                 // onContentSizeChange handler yanked the reader to the bottom
                 // of the thread every time they opened an older message.
-                const open = (m.id === newestId) !== Boolean(toggled[m.id]);
+                const open = m.id === replyingToId ? false : (m.id === newestId) !== Boolean(toggled[m.id]);
                 return (
                   <MessageCard
                     key={m.id}
@@ -201,9 +226,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    shadowColor: "#0A2540",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   headerBtn: { paddingHorizontal: 6, paddingVertical: 2 },
   back: { fontSize: 30, fontWeight: "600", marginTop: -4 },
@@ -223,5 +253,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   retryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  messages: { padding: 12, gap: 10 },
+  messages: { padding: 14, gap: 10, paddingBottom: 20 },
 });

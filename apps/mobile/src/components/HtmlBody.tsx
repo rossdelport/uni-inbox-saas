@@ -87,7 +87,10 @@ function buildDoc(bodyHtml: string, loadImages: boolean): { doc: string; hadRemo
 
 export function HtmlBody({ bodyHtml }: { bodyHtml: string }) {
   const t = useTheme();
-  const [loadImages, setLoadImages] = useState(false);
+  // Match the web reader: remote images are shown on open. The user can still
+  // keep them blocked by not opening untrusted mail, but normal newsletters
+  // should not look broken by default.
+  const [loadImages, setLoadImages] = useState(true);
   const [height, setHeight] = useState(140);
   const { doc, hadRemote } = useMemo(() => buildDoc(bodyHtml, loadImages), [bodyHtml, loadImages]);
 
@@ -154,7 +157,7 @@ export function HtmlBody({ bodyHtml }: { bodyHtml: string }) {
 const styles = StyleSheet.create({
   imgBtn: {
     alignSelf: "flex-start",
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginBottom: 8,

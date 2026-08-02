@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from "react";
+import { forwardRef, useState, type ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { ACCOUNT_COLORS } from "@/lib/colors";
 import { useTheme } from "@/lib/theme";
@@ -25,10 +25,11 @@ export function Field({
   );
 }
 
-export function Input(props: ComponentProps<typeof TextInput>) {
+export const Input = forwardRef<TextInput, ComponentProps<typeof TextInput>>(function Input(props, ref) {
   const t = useTheme();
   return (
     <TextInput
+      ref={ref}
       placeholderTextColor={t.faint}
       {...props}
       style={[
@@ -38,7 +39,8 @@ export function Input(props: ComponentProps<typeof TextInput>) {
       ]}
     />
   );
-}
+});
+Input.displayName = "Input";
 
 /** Password field with a show/hide toggle, mirroring the web PasswordInput.
  *  App passwords are long random strings and typing one blind is miserable. */
@@ -80,7 +82,13 @@ export function Button({
 }) {
   const t = useTheme();
   const bg =
-    variant === "primary" ? (disabled ? t.chipBg : t.accent) : variant === "danger" ? "transparent" : t.chipBg;
+    variant === "primary"
+      ? disabled
+        ? t.chipBg
+        : t.accent
+      : variant === "danger"
+        ? "#FFF1F0"
+        : "#FFFFFF";
   const fg =
     variant === "primary"
       ? disabled
@@ -97,9 +105,10 @@ export function Button({
         styles.button,
         {
           backgroundColor: bg,
-          borderWidth: variant === "danger" ? StyleSheet.hairlineWidth : 0,
-          borderColor: t.danger,
-          opacity: pressed || busy ? 0.75 : 1,
+          borderWidth: variant === "primary" ? 0 : StyleSheet.hairlineWidth,
+          borderColor: variant === "danger" ? "#F4B9B4" : t.line,
+          opacity: pressed || busy ? 0.78 : 1,
+          shadowOpacity: variant === "primary" && !disabled ? 0.16 : 0,
         },
       ]}
     >
@@ -131,26 +140,30 @@ export function ColorDots({ value, onChange }: { value?: string; onChange: (c: s
 
 const styles = StyleSheet.create({
   field: { gap: 6 },
-  label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.2 },
+  label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   hint: { fontSize: 12, lineHeight: 17 },
   input: {
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    minHeight: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
     fontSize: 15,
   },
   reveal: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" },
   revealText: { fontSize: 13, fontWeight: "700" },
   button: {
-    minHeight: 46,
-    borderRadius: 12,
+    minHeight: 48,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
+    shadowColor: "#0C7DFF",
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
-  buttonText: { fontSize: 15, fontWeight: "700" },
+  buttonText: { fontSize: 15, fontWeight: "700", letterSpacing: -0.1 },
   dots: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   dot: { width: 28, height: 28, borderRadius: 14, borderWidth: 2.5 },
 });

@@ -22,7 +22,11 @@ export function Chip({
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
-        { backgroundColor: active ? t.chipActiveBg : t.chipBg, opacity: pressed ? 0.7 : 1 },
+        {
+          backgroundColor: active ? t.chipActiveBg : "#FFFFFF",
+          borderColor: active ? "#B8D6FF" : t.line,
+          opacity: pressed ? 0.7 : 1,
+        },
       ]}
     >
       {dotColor ? <View style={[styles.dot, { backgroundColor: dotColor }]} /> : null}
@@ -45,12 +49,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  label: { fontSize: 13, fontWeight: "600", maxWidth: 140 },
+  label: { fontSize: 13, fontWeight: "700", maxWidth: 150 },
   count: {
     minWidth: 20,
     height: 18,

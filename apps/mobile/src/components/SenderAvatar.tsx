@@ -7,12 +7,17 @@ export function SenderAvatar({
   label,
   color,
   size = 38,
+  solid = false,
 }: {
   label: string;
   color: string;
   size?: number;
+  /** Solid blue-and-white treatment for the signed-in user. */
+  solid?: boolean;
 }) {
-  const t = tint(color);
+  const t = solid
+    ? { backgroundColor: color, borderColor: color, fg: "#FFFFFF" }
+    : tint(color);
   const initial = (label.trim()[0] ?? "?").toUpperCase();
   return (
     <View

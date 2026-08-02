@@ -11,6 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { User } from "@supabase/supabase-js";
+import { BrandMark } from "@/components/BrandMark";
 import { Button, ColorDots, Field, Input, PasswordField } from "@/components/Field";
 import { ConnectAccountSheet } from "@/components/ConnectAccountSheet";
 import {
@@ -54,7 +55,10 @@ export default function SettingsScreen() {
         >
           <Text style={[styles.back, { color: t.accent }]}>‹</Text>
         </Pressable>
-        <Text style={[styles.title, { color: t.text }]}>Settings</Text>
+        <View style={styles.headerCenter}>
+          <BrandMark size={28} />
+          <Text style={[styles.title, { color: t.text }]}>Settings</Text>
+        </View>
         <View style={styles.backBtn} />
       </View>
 
@@ -67,6 +71,7 @@ export default function SettingsScreen() {
               styles.tab,
               {
                 backgroundColor: pane === p.key ? t.chipActiveBg : t.chipBg,
+                borderColor: pane === p.key ? "#B8D6FF" : t.line,
                 opacity: pressed ? 0.8 : 1,
               },
             ]}
@@ -421,19 +426,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
   },
   backBtn: { width: 44, paddingVertical: 2 },
   back: { fontSize: 30, fontWeight: "600", marginTop: -4 },
-  title: { flex: 1, fontSize: 20, fontWeight: "800", textAlign: "center" },
-  tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
-  tab: { flex: 1, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  headerCenter: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+  title: { fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
+  tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 14 },
+  tab: { flex: 1, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   tabText: { fontSize: 13, fontWeight: "700" },
-  body: { padding: 16, paddingBottom: 48, gap: 14 },
-  card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 12 },
-  cardTitle: { fontSize: 15, fontWeight: "700" },
+  body: { padding: 16, paddingBottom: 52, gap: 16 },
+  card: { borderRadius: 20, borderWidth: 1, padding: 17, gap: 13, shadowColor: "#0A2540", shadowOpacity: 0.045, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
+  cardTitle: { fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
   mail: { fontSize: 13 },
   note: { fontSize: 13, lineHeight: 19 },
   accHead: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -442,7 +448,7 @@ const styles = StyleSheet.create({
   accLabel: { fontSize: 15, fontWeight: "700" },
   accMail: { fontSize: 12.5 },
   accActs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  mini: { height: 32, borderRadius: 8, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  mini: { height: 34, borderRadius: 10, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#DFE7F1" },
   miniText: { fontSize: 12.5, fontWeight: "700" },
   sub: { gap: 12, marginTop: 4 },
   planTier: { fontSize: 22, fontWeight: "800" },

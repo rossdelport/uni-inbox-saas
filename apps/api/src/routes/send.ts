@@ -12,7 +12,6 @@ import {
   smtpSend,
   type SendAccount,
 } from "../services/smtpSend.js";
-import { enqueueSend } from "../services/outbox.js";
 
 export const sendRouter = Router();
 
@@ -174,24 +173,6 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
   const sendAtErr = checkSendAt(parsed.data.send_at);
   if (sendAtErr) return res.status(400).json({ error: sendAtErr });
 
-  if (env.OUTBOX_ENABLED === "1") {
-    try {
-      const queued = await enqueueSend({
-        uid,
-        account: account as SendAccount,
-        threadId: thread.id as string,
-        kind: "reply",
-        input,
-        clientToken: parsed.data.client_token,
-        sendAt: parsed.data.send_at ?? null,
-      });
-      return res.json({ ok: true, queued: true, ...queued });
-    } catch (err) {
-      logger.error({ err, uid, threadId: thread.id }, "reply enqueue failed");
-      return res.status(502).json({ error: "Could not queue the send. Try again." });
-    }
-  }
-
   try {
     const sent = await smtpSend(account as SendAccount, input);
     await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
@@ -288,24 +269,6 @@ sendRouter.post("/threads/:id/forward", async (req, res) => {
   const fwdSendAtErr = checkSendAt(parsed.data.send_at);
   if (fwdSendAtErr) return res.status(400).json({ error: fwdSendAtErr });
 
-  if (env.OUTBOX_ENABLED === "1") {
-    try {
-      const queued = await enqueueSend({
-        uid,
-        account: account as SendAccount,
-        threadId: thread.id as string,
-        kind: "forward",
-        input,
-        clientToken: parsed.data.client_token,
-        sendAt: parsed.data.send_at ?? null,
-      });
-      return res.json({ ok: true, queued: true, ...queued });
-    } catch (err) {
-      logger.error({ err, uid, threadId: thread.id }, "forward enqueue failed");
-      return res.status(502).json({ error: "Could not queue the send. Try again." });
-    }
-  }
-
   try {
     const sent = await smtpSend(account as SendAccount, input);
     await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
@@ -366,27 +329,6 @@ sendRouter.post("/messages/send", async (req, res) => {
 
   const newSendAtErr = checkSendAt(parsed.data.send_at);
   if (newSendAtErr) return res.status(400).json({ error: newSendAtErr });
-
-  if (env.OUTBOX_ENABLED === "1") {
-    try {
-      // No thread yet: the drain creates it at delivery time, exactly as the
-      // synchronous path did, so a cancelled send never leaves a phantom
-      // thread behind.
-      const queued = await enqueueSend({
-        uid,
-        account: account as SendAccount,
-        threadId: null,
-        kind: "new",
-        input,
-        clientToken: parsed.data.client_token,
-        sendAt: parsed.data.send_at ?? null,
-      });
-      return res.json({ ok: true, queued: true, ...queued });
-    } catch (err) {
-      logger.error({ err, uid }, "compose enqueue failed");
-      return res.status(502).json({ error: "Could not queue the send. Try again." });
-    }
-  }
 
   try {
     const sent = await smtpSend(account as SendAccount, input);

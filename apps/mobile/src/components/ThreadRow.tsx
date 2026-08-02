@@ -28,7 +28,12 @@ export const ThreadRow = memo(function ThreadRow({
       onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: pressed ? t.chipBg : t.card, borderBottomColor: t.line },
+        {
+          backgroundColor: pressed ? "#F1F6FF" : t.card,
+          borderColor: t.line,
+          borderLeftColor: thread.account_color,
+          borderLeftWidth: thread.unread ? 3 : StyleSheet.hairlineWidth,
+        },
       ]}
     >
       <View style={styles.leading}>
@@ -83,18 +88,26 @@ export const ThreadRow = memo(function ThreadRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    paddingVertical: 12,
-    paddingRight: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingVertical: 14,
+    paddingRight: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#0A2540",
+    shadowOpacity: 0.045,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   leading: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 4,
+    paddingLeft: 12,
     paddingRight: 10,
   },
   unreadDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 5 },
-  body: { flex: 1, gap: 2 },
+  body: { flex: 1, gap: 3 },
   topLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   sender: { flex: 1, fontSize: 15 },
   star: { fontSize: 12 },

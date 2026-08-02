@@ -10,6 +10,7 @@ import type {
   DiscoverResult,
   EmailAccount,
   InboxPage,
+  Message,
   TestResult,
   ThreadDetail,
 } from "./types";
@@ -37,6 +38,36 @@ export function useAccounts() {
     queryKey: ["accounts"],
     queryFn: () => api<EmailAccount[]>("/api/accounts"),
     refetchInterval: 30_000,
+  });
+}
+
+/** Wake every active mailbox's background syncer. The endpoint returns as
+ * soon as the nudge is accepted, so keep the pending state visible briefly
+ * and refresh the inbox again while the new messages arrive. */
+export function useSyncAccounts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (accountIds: string[]) => {
+      await Promise.all([
+        Promise.all(
+          accountIds.map((id) => api(`/api/accounts/${id}/sync`, { method: "POST" })),
+        ),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
+      return accountIds.length;
+    },
+    onSuccess: () => {
+      const refresh = () => {
+        void qc.invalidateQueries({ queryKey: ["inbox"] });
+        void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+        void qc.invalidateQueries({ queryKey: ["accounts"] });
+      };
+      refresh();
+      // The nudge wakes the worker rather than waiting for the IMAP round
+      // trip, so follow up after it has had time to ingest new mail.
+      setTimeout(refresh, 2_500);
+      setTimeout(refresh, 6_000);
+    },
   });
 }
 
@@ -70,6 +101,89 @@ export interface InboxView {
   q?: string;
 }
 
+interface PendingReply {
+  message: Message;
+  state: "sending" | "sent";
+}
+
+const pendingReplyKey = (threadId: string) => ["pending-replies", threadId] as const;
+
+const comparableBody = (body: string | null) =>
+  (body ?? "").replace(/\r\n/g, "\n").trim();
+
+/** Merge locally sent replies into a fresh server thread without ever
+ * allowing a briefly stale response to erase them. Once the matching server
+ * row appears, it takes over atomically while keeping the optimistic id for
+ * that render, so MessageCard remains mounted through Sending -> Sent. */
+function mergePendingReplies(detail: ThreadDetail, pending: PendingReply[]) {
+  if (pending.length === 0) {
+    return { detail, matchedIds: [] as string[] };
+  }
+
+  const messages = detail.messages.map((message) => ({ ...message }));
+  const claimedServerIndexes = new Set<number>();
+  const matchedIds: string[] = [];
+  const unmatched: PendingReply[] = [];
+
+  for (const reply of pending) {
+    const sentAt = Date.parse(reply.message.date);
+    let matchIndex = -1;
+    let closest = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < messages.length; index += 1) {
+      if (claimedServerIndexes.has(index)) continue;
+      const candidate = messages[index];
+      if (candidate.direction !== "outbound") continue;
+      if (comparableBody(candidate.body_text) !== comparableBody(reply.message.body_text)) continue;
+      if (candidate.from_address.toLowerCase() !== reply.message.from_address.toLowerCase()) continue;
+
+      const candidateAt = Date.parse(candidate.date);
+      const delta = Math.abs(candidateAt - sentAt);
+      // SMTP plus provider ingestion can take a while, but a same-body email
+      // outside this window is an older reply and must not consume this one.
+      if (!Number.isFinite(delta) || delta > 10 * 60_000) continue;
+      if (delta < closest) {
+        closest = delta;
+        matchIndex = index;
+      }
+    }
+
+    if (matchIndex >= 0) {
+      claimedServerIndexes.add(matchIndex);
+      matchedIds.push(reply.message.id);
+      messages[matchIndex] = {
+        ...messages[matchIndex],
+        // Preserve the React key for this handover. There is never a render
+        // in which the outgoing card is absent or the prior email reopens.
+        id: reply.message.id,
+        client_delivery_state: "sent",
+      };
+    } else {
+      unmatched.push(reply);
+      messages.push({
+        ...reply.message,
+        client_delivery_state: reply.state,
+      });
+    }
+  }
+
+  messages.sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+  const newest = messages[messages.length - 1];
+  return {
+    matchedIds,
+    detail: {
+      ...detail,
+      thread: {
+        ...detail.thread,
+        message_count: detail.thread.message_count + unmatched.length,
+        last_message_at: newest?.date ?? detail.thread.last_message_at,
+        snippet: newest?.snippet ?? detail.thread.snippet,
+      },
+      messages,
+    },
+  };
+}
+
 export function useInbox(view: InboxView) {
   const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, q = "" } = view;
   return useInfiniteQuery({
@@ -96,9 +210,23 @@ export function useInbox(view: InboxView) {
 }
 
 export function useThread(threadId: string | null) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ["thread", threadId],
-    queryFn: () => api<ThreadDetail>(`/api/threads/${threadId}`),
+    queryFn: async () => {
+      if (!threadId) throw new Error("thread id is required");
+      const remote = await api<ThreadDetail>(`/api/threads/${threadId}`);
+      const key = pendingReplyKey(threadId);
+      const pending = qc.getQueryData<PendingReply[]>(key) ?? [];
+      const merged = mergePendingReplies(remote, pending);
+      if (merged.matchedIds.length > 0) {
+        const matched = new Set(merged.matchedIds);
+        qc.setQueryData<PendingReply[]>(key, (current = []) =>
+          current.filter((reply) => !matched.has(reply.message.id)),
+        );
+      }
+      return merged.detail;
+    },
     enabled: Boolean(threadId),
   });
 }
@@ -214,10 +342,15 @@ export function useThreadOp() {
       // quietly one lower than the truth until the next refetch.
       if (ctx?.countsBefore) qc.setQueryData(["unread-counts"], ctx.countsBefore);
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
-      void qc.invalidateQueries({ queryKey: ["thread"] });
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+      // Marking a message read does not change its contents. Avoid a second
+      // thread fetch here so it cannot race an optimistic reply and briefly
+      // remove the new outgoing bubble while the send is settling.
+      if (variables?.op !== "read") {
+        void qc.invalidateQueries({ queryKey: ["thread"] });
+      }
     },
   });
 }
@@ -355,7 +488,7 @@ export function useCompose() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string }) =>
-      api<{ thread_id: string }>("/api/messages/send", {
+      api<{ thread_id?: string; queued?: boolean; outbox_id?: string }>("/api/messages/send", {
         method: "POST",
         body: JSON.stringify(input),
       }),
@@ -373,13 +506,113 @@ export function useReply() {
       threadId: string;
       body_text: string;
     }) =>
-      api(`/api/threads/${threadId}/reply`, {
+      api<{ queued?: boolean; message_id?: string }>(`/api/threads/${threadId}/reply`, {
         method: "POST",
         body: JSON.stringify({ body_text }),
       }),
-    onSuccess: (_data, { threadId }) => {
-      void qc.invalidateQueries({ queryKey: ["thread", threadId] });
+    onMutate: async ({ threadId, body_text }) => {
+      await qc.cancelQueries({ queryKey: ["thread", threadId] });
+      const previous = qc.getQueryData<ThreadDetail>(["thread", threadId]);
+      if (!previous) return { previous, optimisticId: null };
+
+      const now = new Date().toISOString();
+      const optimistic: Message = {
+        id: `optimistic-${Date.now()}`,
+        thread_id: threadId,
+        account_id: previous.thread.account_id,
+        from_name: null,
+        from_address: previous.thread.account_email,
+        to_addresses: [],
+        cc_addresses: [],
+        subject: previous.thread.subject,
+        date: now,
+        body_text,
+        body_html: null,
+        snippet: body_text.replace(/\s+/g, " ").trim().slice(0, 140),
+        seen: true,
+        direction: "outbound",
+        attachments: [],
+        client_delivery_state: "sending",
+      };
+      qc.setQueryData<PendingReply[]>(pendingReplyKey(threadId), (current = []) => [
+        ...current,
+        { message: optimistic, state: "sending" },
+      ]);
+      qc.setQueryData<ThreadDetail>(["thread", threadId], {
+        ...previous,
+        thread: {
+          ...previous.thread,
+          last_message_at: now,
+          message_count: previous.thread.message_count + 1,
+          snippet: optimistic.snippet,
+        },
+        messages: [...previous.messages, optimistic],
+      });
+      return { previous, optimisticId: optimistic.id };
+    },
+    onError: (_error, { threadId }, context) => {
+      if (context?.optimisticId) {
+        qc.setQueryData<PendingReply[]>(pendingReplyKey(threadId), (current = []) =>
+          current.filter((reply) => reply.message.id !== context.optimisticId),
+        );
+      }
+      if (context?.previous) qc.setQueryData(["thread", threadId], context.previous);
+    },
+    onSuccess: (data, { threadId }, context) => {
+      const optimisticId = context?.optimisticId;
+
+      // A non-queued response means SMTP accepted the message. Change only
+      // the delivery label here; keep the same card and React key in place.
+      if (optimisticId && !data.queued) {
+        qc.setQueryData<PendingReply[]>(pendingReplyKey(threadId), (current = []) =>
+          current.map((reply) =>
+            reply.message.id === optimisticId ? { ...reply, state: "sent" } : reply,
+          ),
+        );
+        qc.setQueryData<ThreadDetail>(["thread", threadId], (current) =>
+          current
+            ? {
+                ...current,
+                messages: current.messages.map((message) =>
+                  message.id === optimisticId
+                    ? { ...message, client_delivery_state: "sent" }
+                    : message,
+                ),
+              }
+            : current,
+        );
+      }
+
       void qc.invalidateQueries({ queryKey: ["inbox"] });
+      if (!optimisticId) return;
+
+      // Poll only while this exact optimistic reply still needs its server
+      // row. useThread merges each response with pendingReplies first, so a
+      // stale response can never make the card disappear. The faster cadence
+      // is for immediate sends; queued responses allow the worker more time.
+      const delays = data.queued
+        ? [800, 1_500, 3_000, 6_000, 10_000, 15_000, 30_000]
+        : [200, 600, 1_200, 2_500, 5_000, 10_000];
+
+      const reconcile = (attempt: number) => {
+        if (attempt >= delays.length) return;
+        const stillPending = () =>
+          (qc.getQueryData<PendingReply[]>(pendingReplyKey(threadId)) ?? []).some(
+            (reply) => reply.message.id === optimisticId,
+          );
+        if (!stillPending()) return;
+
+        setTimeout(() => {
+          if (!stillPending()) return;
+          void qc
+            .refetchQueries({ queryKey: ["thread", threadId], exact: true, type: "active" })
+            .then(
+              () => reconcile(attempt + 1),
+              () => reconcile(attempt + 1),
+            );
+        }, delays[attempt]);
+      };
+      reconcile(0);
     },
   });
 }

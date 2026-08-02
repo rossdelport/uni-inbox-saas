@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
+import { BrandMark } from "./BrandMark";
 
 // Shown instead of the app when the signed-in user has no active plan.
 // Deliberately NOT the web dashboard's paywall: Apple Guideline 3.1.1 forbids
@@ -22,26 +23,28 @@ export function PlanGate({ email }: { email: string }) {
 
   return (
     <View style={[styles.wrap, { backgroundColor: t.bg }]}>
-      <Text style={[styles.brand, { color: t.text }]}>ONEINBOX</Text>
-      <Text style={[styles.title, { color: t.text }]}>Your plan is not active</Text>
-      <Text style={[styles.body, { color: t.sub }]}>
-        You are signed in as {email}, but this account does not have an active OneInbox plan.
-        If you recently made a change, tap Check again.
-      </Text>
-      <Pressable
-        onPress={recheck}
-        disabled={checking}
-        style={({ pressed }) => [styles.recheck, { opacity: pressed || checking ? 0.6 : 1 }]}
-      >
-        {checking ? (
-          <ActivityIndicator size="small" color={t.sub} />
-        ) : (
-          <Text style={[styles.recheckText, { color: t.accent }]}>Check again</Text>
-        )}
-      </Pressable>
-      <Pressable onPress={() => void supabase.auth.signOut()} style={styles.signOut}>
-        <Text style={[styles.signOutText, { color: t.sub }]}>Sign out</Text>
-      </Pressable>
+      <View style={[styles.card, { backgroundColor: t.card, borderColor: t.line }]}>
+        <BrandMark size={42} />
+        <Text style={[styles.title, { color: t.text }]}>Your plan is not active</Text>
+        <Text style={[styles.body, { color: t.sub }]}>
+          You are signed in as {email}, but this account does not have an active OneInbox plan.
+          If you recently made a change, tap Check again.
+        </Text>
+        <Pressable
+          onPress={recheck}
+          disabled={checking}
+          style={({ pressed }) => [styles.recheck, { backgroundColor: t.accent, opacity: pressed || checking ? 0.6 : 1 }]}
+        >
+          {checking ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.recheckText}>Check again</Text>
+          )}
+        </Pressable>
+        <Pressable onPress={() => void supabase.auth.signOut()} style={styles.signOut}>
+          <Text style={[styles.signOutText, { color: t.sub }]}>Sign out</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -54,11 +57,11 @@ const styles = StyleSheet.create({
     padding: 32,
     gap: 12,
   },
-  brand: { fontSize: 18, fontWeight: "800", letterSpacing: 4, marginBottom: 16 },
-  title: { fontSize: 22, fontWeight: "700" },
+  card: { width: "100%", maxWidth: 420, borderRadius: 24, borderWidth: 1, padding: 24, gap: 14, shadowColor: "#0C7DFF", shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 3 },
+  title: { fontSize: 24, fontWeight: "800", letterSpacing: -0.5 },
   body: { fontSize: 15, lineHeight: 22, textAlign: "center" },
-  recheck: { paddingHorizontal: 16, paddingVertical: 10, minHeight: 38, justifyContent: "center" },
-  recheckText: { fontSize: 14, fontWeight: "600" },
-  signOut: { padding: 10 },
+  recheck: { paddingHorizontal: 16, paddingVertical: 13, minHeight: 46, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+  recheckText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  signOut: { padding: 10, alignItems: "center" },
   signOutText: { fontSize: 14, fontWeight: "500" },
 });

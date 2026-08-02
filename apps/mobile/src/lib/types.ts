@@ -67,6 +67,9 @@ export interface Message {
   seen: boolean;
   direction: "inbound" | "outbound";
   attachments: AttachmentMeta[];
+  /** Mobile-only optimistic delivery state. The API does not persist this;
+   * it lets an outgoing reply stay on screen while its server copy settles. */
+  client_delivery_state?: "sending" | "sent";
 }
 
 export interface ThreadDetail {

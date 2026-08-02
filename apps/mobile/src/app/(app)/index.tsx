@@ -10,11 +10,12 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ActionSheet, type SheetAction } from "@/components/ActionSheet";
+import { BrandMark } from "@/components/BrandMark";
 import { Chip } from "@/components/Chip";
 import { ComposeSheet } from "@/components/ComposeSheet";
-import { ConnectAccountSheet } from "@/components/ConnectAccountSheet";
 import { ThreadRow } from "@/components/ThreadRow";
 import { useSession } from "@/lib/auth";
 import {
@@ -22,6 +23,7 @@ import {
   useDeleteThread,
   useInbox,
   useReadAll,
+  useSyncAccounts,
   useThreadOp,
   useUnreadCounts,
   type InboxView,
@@ -37,7 +39,7 @@ import type { ThreadSummary } from "@/lib/types";
 type ViewKey = "inbox" | "starred" | "later" | "archived" | "sent" | "trash";
 
 const VIEWS: { key: ViewKey; label: string; view: InboxView; empty: string }[] = [
-  { key: "inbox", label: "Inbox", view: {}, empty: "Nothing here. Enjoy the quiet." },
+  { key: "inbox", label: "All inboxes", view: {}, empty: "Nothing here. Enjoy the quiet." },
   { key: "starred", label: "Starred", view: { starred: true }, empty: "No starred conversations." },
   { key: "later", label: "Later", view: { later: true }, empty: "Nothing saved for later." },
   { key: "archived", label: "Archived", view: { archived: true }, empty: "Nothing archived yet." },
@@ -48,12 +50,12 @@ const VIEWS: { key: ViewKey; label: string; view: InboxView; empty: string }[] =
 export default function InboxScreen() {
   const t = useTheme();
   const router = useRouter();
+  const qc = useQueryClient();
   const { session } = useSession();
   const [viewKey, setViewKey] = useState<ViewKey>("inbox");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ title?: string | null; actions: SheetAction[] } | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [connectOpen, setConnectOpen] = useState(false);
   // Pull-to-refresh has its own flag rather than reading isRefetching: that
   // is true for EVERY background refetch (the 15-60s poll, each realtime
   // nudge, every mutation's invalidation), and iOS reveals the spinner
@@ -70,18 +72,54 @@ export default function InboxScreen() {
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
   const readAll = useReadAll();
+  const syncAccounts = useSyncAccounts();
 
   const { refetch } = inbox;
+  const activeAccountIds = useMemo(
+    () => (accounts ?? []).filter((account) => account.status === "active").map((account) => account.id),
+    [accounts],
+  );
   const onPull = useCallback(() => {
     setPulling(true);
-    void refetch().finally(() => setPulling(false));
-  }, [refetch]);
+    if (activeAccountIds.length === 0) {
+      void refetch().finally(() => setPulling(false));
+      return;
+    }
+    syncAccounts.mutate(activeAccountIds, {
+      onSettled: () => void refetch().finally(() => setPulling(false)),
+    });
+  }, [activeAccountIds, refetch, syncAccounts]);
+
+  const selectAllInboxes = useCallback(() => {
+    // The first view chip is also the unified mailbox shortcut: reset the
+    // account filter so the All account chip below paints active immediately.
+    setViewKey("inbox");
+    setAccountId(null);
+    setPulling(true);
+    if (activeAccountIds.length === 0) {
+      void qc.invalidateQueries({ queryKey: ["inbox"] }).finally(() => setPulling(false));
+      return;
+    }
+    syncAccounts.mutate(activeAccountIds, {
+      onSettled: () => {
+        // State updates above make the all-mail query active before this
+        // callback runs (the sync nudge intentionally lasts 800ms).
+        void qc
+          .refetchQueries({ queryKey: ["inbox", "all"], type: "active" })
+          .finally(() => setPulling(false));
+      },
+    });
+  }, [activeAccountIds, qc, syncAccounts]);
 
   const threads = useMemo(
     () => inbox.data?.pages.flatMap((p) => p.threads) ?? [],
     [inbox.data],
   );
   const unreadHere = threads.some((th) => th.unread);
+  const hasMailboxWarning = (accounts ?? []).some(
+    (account) => account.status === "auth_failed" || account.status === "disabled",
+  );
+  const healthColor = inbox.isError ? "#D93025" : hasMailboxWarning ? "#F5A623" : "#00B050";
 
   const openThread = (th: ThreadSummary) => {
     if (th.unread) threadOp.mutate({ threadId: th.id, op: "read" });
@@ -106,34 +144,43 @@ export default function InboxScreen() {
     });
   };
 
-  // The + is the app's main navigation, so it holds the things that create
-  // something rather than act on what is already there.
-  const createMenu = () => {
-    setSheet({
-      title: null,
-      actions: [
-        { label: "New message", onPress: () => setComposeOpen(true) },
-        { label: "Connect an email account", onPress: () => setConnectOpen(true) },
-        { label: "Settings", onPress: () => router.push("/settings") },
-      ],
-    });
-  };
-
   const total = counts?.total ?? 0;
   const initial = (session?.user.email?.[0] ?? "?").toUpperCase();
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]} edges={["top"]}>
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: t.text }]}>{viewDef.label}</Text>
-          {total > 0 ? (
-            <View style={[styles.badge, { backgroundColor: t.accent }]}>
-              <Text style={styles.badgeText}>{total > 99 ? "99+" : total}</Text>
+        <View style={styles.brandRow}>
+          <BrandMark size={31} showWordmark={false} />
+          <View style={styles.heading}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: t.text }]}>{viewDef.label}</Text>
+              {total > 0 ? (
+                <View style={[styles.badge, { backgroundColor: t.accentSoft }]}>
+                  <Text style={[styles.badgeText, { color: t.accent }]}>{total > 99 ? "99+" : total}</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
+          </View>
         </View>
         <View style={styles.headerRight}>
+          <Pressable
+            onPress={onPull}
+            disabled={pulling}
+            style={({ pressed }) => [
+              styles.sync,
+              { backgroundColor: "#FFFFFF", borderColor: t.line, opacity: pressed || pulling ? 0.6 : 1 },
+            ]}
+          >
+            <View style={styles.syncContent}>
+              {pulling ? <ActivityIndicator size="small" color={t.sub} /> : <Text style={[styles.syncIcon, { color: t.sub }]}>↻</Text>}
+              <Text style={[styles.syncText, { color: t.sub }]}>{pulling ? "Syncing" : "Sync"}</Text>
+            </View>
+          </Pressable>
+          <View
+            accessibilityLabel={inbox.isError ? "Mailbox error" : hasMailboxWarning ? "Mailbox warning" : "Mailboxes healthy"}
+            style={[styles.healthDot, { backgroundColor: healthColor }]}
+          />
           {unreadHere && viewKey !== "sent" && viewKey !== "trash" ? (
             <Pressable
               onPress={() =>
@@ -147,7 +194,7 @@ export default function InboxScreen() {
               disabled={readAll.isPending}
               style={({ pressed }) => [
                 styles.readAll,
-                { backgroundColor: t.chipBg, opacity: pressed || readAll.isPending ? 0.6 : 1 },
+                { backgroundColor: "#FFFFFF", borderColor: t.line, opacity: pressed || readAll.isPending ? 0.6 : 1 },
               ]}
             >
               <Text style={[styles.readAllText, { color: t.sub }]}>Read all</Text>
@@ -158,15 +205,15 @@ export default function InboxScreen() {
             hitSlop={6}
             style={({ pressed }) => [
               styles.avatar,
-              { backgroundColor: t.chipActiveBg, opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: t.accent, opacity: pressed ? 0.8 : 1 },
             ]}
           >
-            <Text style={[styles.avatarText, { color: t.chipActiveText }]}>{initial}</Text>
+            <Text style={styles.avatarText}>{initial}</Text>
           </Pressable>
         </View>
       </View>
 
-      <View>
+      <View style={styles.filterWrap}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -177,7 +224,7 @@ export default function InboxScreen() {
               key={v.key}
               label={v.label}
               active={v.key === viewKey}
-              onPress={() => setViewKey(v.key)}
+              onPress={() => (v.key === "inbox" ? selectAllInboxes() : setViewKey(v.key))}
             />
           ))}
         </ScrollView>
@@ -245,7 +292,7 @@ export default function InboxScreen() {
               onLongPress={() => rowActions(item)}
             />
           )}
-          style={{ backgroundColor: t.card }}
+          style={styles.list}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={pulling} onRefresh={onPull} />}
           onEndReachedThreshold={0.4}
@@ -265,7 +312,7 @@ export default function InboxScreen() {
       {/* Main navigation. Sits above the list rather than in a bar so it
           never steals height from the mail itself. */}
       <Pressable
-        onPress={createMenu}
+        onPress={() => setComposeOpen(true)}
         style={({ pressed }) => [
           styles.fab,
           {
@@ -285,7 +332,6 @@ export default function InboxScreen() {
         onClose={() => setSheet(null)}
       />
       <ComposeSheet visible={composeOpen} onClose={() => setComposeOpen(false)} />
-      <ConnectAccountSheet visible={connectOpen} onClose={() => setConnectOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -297,14 +343,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    // Roomy on purpose. Sitting tight under the status bar with the tab row
-    // right beneath it read as cramped, and a mail app is mostly a wall of
-    // dense text, so the top of the screen is where the air has to come from.
-    paddingTop: 18,
-    paddingBottom: 18,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 11, flexShrink: 1 },
+  heading: { flexShrink: 1 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
+  title: { fontSize: 25, fontWeight: "800", letterSpacing: -0.6 },
   badge: {
     minWidth: 22,
     height: 22,
@@ -313,25 +358,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  readAll: {
-    height: 30,
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  readAllText: { fontSize: 12, fontWeight: "600" },
-  avatar: {
-    width: 34,
+  badgeText: { fontSize: 11, fontWeight: "800" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 7 },
+  sync: {
     height: 34,
-    borderRadius: 17,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { fontSize: 14, fontWeight: "700" },
-  chips: { gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  syncContent: { flexDirection: "row", alignItems: "center", gap: 5 },
+  syncIcon: { fontSize: 16, lineHeight: 16, fontWeight: "700" },
+  syncText: { fontSize: 11, fontWeight: "700" },
+  readAll: {
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  readAllText: { fontSize: 11, fontWeight: "700" },
+  healthDot: { width: 9, height: 9, borderRadius: 4.5, marginHorizontal: 1 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0C7DFF",
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  avatarText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  filterWrap: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 2,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#0A2540",
+    shadowOpacity: 0.035,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
+  chips: { gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
   emptyTitle: { fontSize: 17, fontWeight: "600", textAlign: "center" },
   emptyBody: { fontSize: 14, lineHeight: 20, textAlign: "center" },
@@ -345,21 +421,22 @@ const styles = StyleSheet.create({
   },
   retryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   // Enough tail room that the FAB never covers the last conversation.
-  listContent: { paddingBottom: 96 },
+  list: { backgroundColor: "transparent" },
+  listContent: { paddingTop: 4, paddingBottom: 104 },
   footer: { paddingVertical: 16 },
   fab: {
     position: "absolute",
     right: 20,
-    bottom: 32,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    bottom: 26,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: "center",
     justifyContent: "center",
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 7,
   },
   fabIcon: { color: "#fff", fontSize: 30, fontWeight: "300", marginTop: -3 },
 });

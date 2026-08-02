@@ -62,11 +62,10 @@ const schema = z.object({
   // Per-user daily outbound send cap (protects against runaway clients).
   SEND_DAILY_CAP: z.coerce.number().default(50),
 
-  // Outbox kill switch: "1" queues every send through the worker (which is
-  // what Undo Send and Send Later ride on); anything else reverts to the
-  // proven synchronous send path without a deploy. Compared against "1" for
-  // the same Boolean("0")-is-true reason as below.
-  OUTBOX_ENABLED: z.string().default("1"),
+  // Outbox is opt-in: "1" queues every send through the worker (which is
+  // what Undo Send and Send Later ride on); anything else uses the immediate
+  // send path so a successful send appears in the thread right away.
+  OUTBOX_ENABLED: z.string().default("0"),
   // Undo window: how long a send sits in the outbox before the worker may
   // pick it up.
   OUTBOX_UNDO_SECONDS: z.coerce.number().default(10),

@@ -1,7 +1,6 @@
-import { useColorScheme } from "react-native";
-
-// One place for the app's palette, light and dark. The dashboard look:
-// calm neutrals, one blue accent, hairline separators, no heavy chrome.
+// One place for the app's palette. OneInbox uses the same bright, navy-and-blue
+// surfaces as the web dashboard so the native companion feels like the same
+// product even when the phone itself is set to dark mode.
 
 export interface Theme {
   bg: string;
@@ -21,19 +20,19 @@ export interface Theme {
 }
 
 const light: Theme = {
-  bg: "#F6F7F9",
+  bg: "#F2F6FB",
   card: "#FFFFFF",
   text: "#0A2540",
-  sub: "#5B6B7B",
-  faint: "#93A0AD",
-  line: "#E8EBEF",
-  accent: "#0B6FE6",
-  accentSoft: "#0B6FE614",
+  sub: "#526581",
+  faint: "#8294AE",
+  line: "#DFE7F1",
+  accent: "#0C7DFF",
+  accentSoft: "#E7F1FF",
   danger: "#D92D20",
   star: "#F5A623",
-  chipBg: "#EDF0F3",
-  chipActiveBg: "#0A2540",
-  chipActiveText: "#FFFFFF",
+  chipBg: "#F4F7FB",
+  chipActiveBg: "#E7F1FF",
+  chipActiveText: "#0B6FE6",
   dark: false,
 };
 
@@ -55,5 +54,8 @@ const dark: Theme = {
 };
 
 export function useTheme(): Theme {
-  return useColorScheme() === "dark" ? dark : light;
+  // The web product is intentionally light and mail HTML is authored for a
+  // light canvas. Keep the app consistent instead of letting a device-wide
+  // dark-mode preference turn the companion into a different product.
+  return light;
 }

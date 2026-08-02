@@ -101,12 +101,20 @@ export function ActionSheet({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
-  sheetWrap: { padding: 10, gap: 8 },
-  group: { borderRadius: 14, overflow: "hidden" },
+  sheetWrap: { padding: 12, gap: 9 },
+  group: {
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: "#0A2540",
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
+  },
   titleRow: { paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-  title: { fontSize: 12, textAlign: "center" },
-  action: { paddingVertical: 15, alignItems: "center" },
-  actionText: { fontSize: 17, fontWeight: "500" },
-  cancel: { marginTop: 8, paddingVertical: 15, alignItems: "center" },
+  title: { fontSize: 12, textAlign: "center", fontWeight: "700" },
+  action: { paddingVertical: 16, alignItems: "center" },
+  actionText: { fontSize: 16, fontWeight: "600" },
+  cancel: { marginTop: 8, paddingVertical: 16, alignItems: "center" },
   cancelText: { fontSize: 17, fontWeight: "700" },
 });

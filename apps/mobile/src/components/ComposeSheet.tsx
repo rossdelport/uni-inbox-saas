@@ -1,5 +1,16 @@
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import {
+  InputAccessoryView,
+  Alert,
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Field, Input } from "./Field";
 import { Sheet } from "./Sheet";
@@ -22,6 +33,9 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const subjectRef = useRef<TextInput>(null);
+  const bodyRef = useRef<TextInput>(null);
+  const keyboardAccessoryId = "oneinbox-compose-keyboard";
 
   const fromId = accountId || active[0]?.id || "";
   const recipients = to
@@ -47,7 +61,17 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
         onSuccess: ({ thread_id }) => {
           reset();
           onClose();
-          router.push(`/thread/${thread_id}`);
+          // Older API deployments may still return a queued response without
+          // a thread id. Never navigate to /thread/undefined; the message
+          // will appear in Sent after that server finishes its queue pass.
+          if (!thread_id) {
+            Alert.alert("Message queued", "It will appear in Sent once the mail server finishes.");
+            return;
+          }
+          // Let the drawer finish its slide-down before opening the sent
+          // thread, so sending feels like a deliberate close rather than a
+          // route that abruptly replaces the composer.
+          setTimeout(() => router.push(`/thread/${thread_id}`), 220);
         },
         onError: (e) => setError(e instanceof Error ? e.message : "Could not send."),
       },
@@ -79,7 +103,13 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
       subtitle="Pick which address it sends from."
       onClose={onClose}
     >
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <Field label="From">
           <View style={styles.froms}>
             {active.map((a) => {
@@ -115,9 +145,12 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
 
         <Field label="To">
           <Input
+            inputAccessoryViewID={keyboardAccessoryId}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="next"
+            onSubmitEditing={() => subjectRef.current?.focus()}
             placeholder="name@example.com, other@example.com"
             value={to}
             onChangeText={setTo}
@@ -125,11 +158,21 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
         </Field>
 
         <Field label="Subject">
-          <Input value={subject} onChangeText={setSubject} placeholder="What it's about" />
+          <Input
+            ref={subjectRef}
+            inputAccessoryViewID={keyboardAccessoryId}
+            returnKeyType="next"
+            onSubmitEditing={() => bodyRef.current?.focus()}
+            value={subject}
+            onChangeText={setSubject}
+            placeholder="What it's about"
+          />
         </Field>
 
         <Field label="Message">
           <Input
+            ref={bodyRef}
+            inputAccessoryViewID={keyboardAccessoryId}
             multiline
             value={body}
             onChangeText={setBody}
@@ -147,19 +190,41 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
           onPress={send}
         />
       </ScrollView>
+      {Platform.OS === "ios" ? (
+        <InputAccessoryView nativeID={keyboardAccessoryId}>
+          <View style={[styles.keyboardAccessory, { borderTopColor: t.line, backgroundColor: t.card }]}>
+            <Pressable
+              onPress={() => Keyboard.dismiss()}
+              hitSlop={8}
+              style={({ pressed }) => [styles.keyboardDone, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Text style={[styles.keyboardDoneText, { color: t.accent }]}>Done</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { padding: 16, paddingBottom: 40, gap: 14 },
-  empty: { padding: 20 },
+  body: { padding: 18, paddingBottom: 44, gap: 16 },
+  empty: { padding: 22 },
   note: { fontSize: 13, lineHeight: 19 },
   froms: { gap: 8 },
-  from: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 12, padding: 12 },
+  from: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 16, padding: 14, shadowColor: "#0A2540", shadowOpacity: 0.035, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   fromText: { flex: 1 },
   fromLabel: { fontSize: 14, fontWeight: "700" },
   fromMail: { fontSize: 12 },
-  bodyInput: { minHeight: 160, textAlignVertical: "top" },
+  bodyInput: { minHeight: 170, textAlignVertical: "top" },
+  keyboardAccessory: {
+    height: 44,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  keyboardDone: { minWidth: 54, alignItems: "center", justifyContent: "center" },
+  keyboardDoneText: { fontSize: 15, fontWeight: "700" },
 });

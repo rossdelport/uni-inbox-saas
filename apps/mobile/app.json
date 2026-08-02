@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "oneinbox",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
