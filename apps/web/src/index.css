@@ -1021,10 +1021,10 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .pw-eye:active{background:rgba(var(--b1-rgb),.14)}
 
 /* ---- 13. Keyboard: list cursor + "?" cheat sheet ------------------
-   The cursor is an outline, never box-shadow: .mrow.sel already spends
-   its box-shadow on the inset accent lip, and the two must be able to
-   coexist on the same row (cursor sitting on the open conversation). */
-.mrow.cur{outline:2px solid rgba(var(--b1-rgb),.55);outline-offset:-2px}
+   Keep the cursor state semantic for keyboard navigation, but do not paint
+   an outline: the old blue rectangle flashed on mouse clicks before the
+   reading pane opened. The selected row already carries the account accent. */
+.mrow.cur{outline:none}
 .kbd-cols{display:grid;grid-template-columns:1fr 1fr;gap:2px 28px;margin-top:4px}
 .kbd-sec h4{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   color:var(--ink3);margin:14px 0 5px}
