@@ -1197,6 +1197,8 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .mrow .unread-dot{left:5px;top:18px;width:6px;height:6px}
 .mrow .acts{top:8px;right:8px;padding:3px;border-radius:9px;background:rgba(255,255,255,.96);box-shadow:0 5px 14px rgba(15,35,58,.10)}
 .act-btn{border:0;background:transparent;width:27px;height:27px}
+.act-btn.snooze-action svg{width:60%;height:60%}
+.act-btn.read-action{font-size:15.4px;line-height:1}
 
 .dash-read{background:#fff;min-width:0;position:relative}
 .dash-read.thread-selected{border-top:3px solid var(--thread-accent,var(--b1))}

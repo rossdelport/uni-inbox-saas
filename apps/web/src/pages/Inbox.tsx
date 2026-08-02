@@ -440,7 +440,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     ★
                   </button>
                   <button
-                    className={`act-btn ${t.snooze_until ? "on" : ""}`}
+                    className={`act-btn snooze-action ${t.snooze_until ? "on" : ""}`}
                     title={t.snooze_until ? "Change snooze time" : "Snooze"}
                     onClick={(e) =>
                       setSnoozePicker({ threadId: t.id, anchor: e.currentTarget.getBoundingClientRect() })
@@ -452,7 +452,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     </svg>
                   </button>
                   <button
-                    className="act-btn"
+                    className="act-btn read-action"
                     title={t.unread ? "Mark read" : "Mark unread"}
                     onClick={() => threadOp.mutate({ threadId: t.id, op: t.unread ? "read" : "unread" })}
                   >
