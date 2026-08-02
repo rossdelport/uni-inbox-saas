@@ -159,7 +159,7 @@ export function Layout() {
     : null;
 
   // Nothing in the sidebar means anything until a mailbox is connected:
-  // Starred, Archived and the rest can only ever be empty, and Compose has no
+  // Starred, Snoozed and the rest can only ever be empty, and Compose has no
   // address to send from. So while there are no accounts, every one of them
   // opens the connect modal instead of navigating to a dead end. Routed here
   // rather than on each link because Compose and the SideLinks all call go().
@@ -218,9 +218,8 @@ export function Layout() {
       "?": () => setShortcutsOpen(true),
       "g i": () => go("/"),
       "g s": () => go("/starred"),
-      "g h": () => go("/later"),
+      "g h": () => go("/snoozed"),
       "g t": () => go("/sent"),
-      "g e": () => go("/archived"),
       "g d": () => go("/deleted"),
     },
     { priority: KP.page },
@@ -234,10 +233,10 @@ export function Layout() {
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
-        <a className="logo-lock" href="/">
+        <div className="logo-lock" aria-label="OneInbox">
           <img src={LOGO_SRC} alt="OneInbox logo" />
           <span>oneinbox</span>
-        </a>
+        </div>
         <div className="dash-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
             <circle cx="11" cy="11" r="7" />
@@ -356,14 +355,11 @@ export function Layout() {
           <SideLink to="/starred" label="Starred" onGo={go}>
             <StarIcon />
           </SideLink>
-          <SideLink to="/later" label="Read later" onGo={go}>
-            <ClockIcon />
-          </SideLink>
           <SideLink to="/sent" label="Sent" onGo={go}>
             <SentIcon />
           </SideLink>
-          <SideLink to="/archived" label="Archived" onGo={go}>
-            <ArchiveIcon />
+          <SideLink to="/snoozed" label="Snoozed" onGo={go}>
+            <ClockIcon />
           </SideLink>
           <SideLink to="/deleted" label="Deleted" onGo={go}>
             <TrashIcon />

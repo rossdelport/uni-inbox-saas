@@ -186,7 +186,8 @@ export async function recordOutbound(
   // every open dashboard (threads has replica identity full).
   await supabase
     .from("threads")
-    .update({ split_class: "important" })
+    .update({ split_class: "important", split_reason: "Started or replied by you" })
     .eq("id", threadId)
+    .eq("split_manual", false)
     .neq("split_class", "important");
 }

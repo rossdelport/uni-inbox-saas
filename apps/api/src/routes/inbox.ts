@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase.js";
 import { wakeAccount } from "../services/imapSync.js";
 import { backfillOlder } from "../services/backfill.js";
 import { logger } from "../lib/logger.js";
+import { rememberSplitRule, senderDomain, normalizeSender } from "../services/splitRules.js";
 
 export const inboxRouter = Router();
 
@@ -67,7 +68,7 @@ inboxRouter.get("/", async (req, res) => {
   let query = supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, snooze_until, snooze_woke_at, email_accounts!inner(label, color, email_address, created_at)",
+      "id, account_id, subject_norm, snippet, last_message_at, last_inbound_at, message_count, unread, archived, starred, read_later, snooze_until, snooze_woke_at, split_class, split_reason, split_manual, email_accounts!inner(label, color, email_address, created_at)",
     )
     .eq("owner_id", uid)
     .order(sortCol, { ascending: false })
@@ -215,6 +216,9 @@ inboxRouter.get("/", async (req, res) => {
       archived: t.archived,
       starred: t.starred,
       read_later: t.read_later,
+      split_class: t.split_class,
+      split_reason: t.split_reason,
+      split_manual: t.split_manual,
       // Epoch sentinel means "not snoozed"; clients only ever see a real
       // wake time or null.
       snooze_until: String(t.snooze_until) > SNOOZE_NONE ? t.snooze_until : null,
@@ -237,6 +241,91 @@ inboxRouter.get("/", async (req, res) => {
         ? encodeCursor(last[sortCol] as string, last.id as string)
         : null,
   });
+});
+
+// POST /api/inbox/threads/:id/split — correct the category for this thread,
+// optionally remembering the choice for this sender or domain in this inbox.
+// This route is deliberately before /threads/:id/:op below: "split" is a
+// classifier action, not an IMAP flag operation.
+const splitInput = z.object({
+  split_class: z.enum(["important", "newsletter", "other"]),
+  remember: z.enum(["thread", "sender", "domain"]).default("thread"),
+});
+
+inboxRouter.post("/threads/:id/split", async (req, res) => {
+  const uid = userId(res);
+  const parsed = splitInput.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: "invalid category" });
+  const { split_class, remember } = parsed.data;
+
+  const { data: thread } = await supabase
+    .from("threads")
+    .select("id, account_id")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (!thread) return res.status(404).json({ error: "thread not found" });
+
+  const { data: inbound } = await supabase
+    .from("messages")
+    .select("from_address, from_name")
+    .eq("thread_id", thread.id)
+    .eq("direction", "inbound")
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const fromAddress = normalizeSender(String(inbound?.from_address ?? ""));
+  const domain = senderDomain(fromAddress);
+  const reason = remember === "thread"
+    ? "You chose this category"
+    : remember === "sender"
+      ? "Your rule for this sender"
+      : "Your rule for this domain";
+
+  const { error: updateError } = await supabase
+    .from("threads")
+    .update({ split_class, split_reason: reason, split_manual: true })
+    .eq("id", thread.id)
+    .eq("owner_id", uid);
+  if (updateError) {
+    logger.warn({ err: updateError, threadId: thread.id }, "thread category update failed");
+    return res.status(500).json({ error: "could not update category" });
+  }
+
+  if (remember !== "thread") {
+    const value = remember === "sender" ? fromAddress : domain;
+    if (!value) return res.status(400).json({ error: "This conversation has no sender address to remember." });
+    try {
+      await rememberSplitRule(uid, thread.account_id as string, remember, value, split_class);
+    } catch (error) {
+      logger.warn({ err: error, threadId: thread.id }, "split rule save failed");
+      return res.status(500).json({ error: "category saved, but the future-mail rule could not be saved" });
+    }
+
+    // Apply a new sender/domain rule to existing matching conversations too.
+    // Marking those rows manual keeps a future personal reply from undoing a
+    // choice the user explicitly said should always apply.
+    let matchQuery = supabase
+      .from("messages")
+      .select("thread_id")
+      .eq("owner_id", uid)
+      .eq("account_id", thread.account_id)
+      .eq("direction", "inbound");
+    matchQuery = remember === "sender"
+      ? matchQuery.eq("from_address", fromAddress)
+      : matchQuery.ilike("from_address", `%@${domain}`);
+    const { data: matches } = await matchQuery.limit(2000);
+    const ids = [...new Set((matches ?? []).map((row) => row.thread_id as string))];
+    if (ids.length > 0) {
+      await supabase
+        .from("threads")
+        .update({ split_class, split_reason: reason, split_manual: true })
+        .in("id", ids)
+        .eq("owner_id", uid);
+    }
+  }
+
+  res.json({ ok: true, split_class, split_reason: reason, remember });
 });
 
 // POST /api/inbox/backfill?account=<id>

@@ -23,6 +23,7 @@ import { composerDirty } from "../lib/composerIntent.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
 import { PaneResizer } from "../components/PaneResizer.js";
 import { SnoozePicker } from "../components/SnoozePicker.js";
+import { SplitPicker } from "../components/SplitPicker.js";
 import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
 import { ReadingPane } from "./ThreadView.js";
 import { MAIL_SRC } from "../lib/assets.js";
@@ -34,7 +35,7 @@ export type InboxViewName = "all" | "starred" | "later" | "archived" | "deleted"
 const VIEW_TITLES: Record<InboxViewName, string> = {
   all: "All inboxes",
   starred: "Starred",
-  later: "Read later",
+  later: "Snoozed",
   archived: "Archived",
   deleted: "Deleted",
   sent: "Sent",
@@ -147,9 +148,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const [cur, setCur] = useState(-1);
   const rowEls = useRef<Array<HTMLDivElement | null>>([]);
   const [snoozePicker, setSnoozePicker] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
+  const [splitPicker, setSplitPicker] = useState<{
+    threadId: string;
+    sender: string | null;
+    reason: string | null;
+    anchor: DOMRect;
+  } | null>(null);
   useEffect(() => {
     setCur(-1);
     setSnoozePicker(null);
+    setSplitPicker(null);
   }, [view, account, split, searching]);
   // Archive and delete remove their row optimistically, so the next row
   // slides into the cursor index by itself; this only catches the end.
@@ -371,7 +379,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     : view === "starred"
                       ? "No starred messages yet."
                       : view === "later"
-                        ? "Nothing saved for later."
+                        ? "Nothing snoozed. Emails you snooze will stay here until they wake."
                         : view === "deleted"
                           ? "Trash is empty. Deleted conversations stay here for 30 days."
                           : view === "sent"
@@ -433,6 +441,20 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   ) : (
                   <>
                   <button
+                    className="act-btn split-action"
+                    title={`Category: ${t.split_class}`}
+                    onClick={(e) =>
+                      setSplitPicker({
+                        threadId: t.id,
+                        sender: t.from_address,
+                        reason: t.split_reason,
+                        anchor: e.currentTarget.getBoundingClientRect(),
+                      })
+                    }
+                  >
+                    <span className={`split-dot ${t.split_class}`} />
+                  </button>
+                  <button
                     className={`act-btn ${t.starred ? "on" : ""}`}
                     title={t.starred ? "Unstar" : "Star"}
                     onClick={() => threadOp.mutate({ threadId: t.id, op: t.starred ? "unstar" : "star" })}
@@ -458,11 +480,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   >
                     {t.unread ? "✓" : "●"}
                   </button>
-                  {view === "archived" && (
+                  {view === "later" && (
                     <button
                       className="act-btn"
-                      title="Move to inbox"
-                      onClick={() => threadOp.mutate({ threadId: t.id, op: "unarchive" })}
+                      title="Unsnooze — move to inbox now"
+                      onClick={() =>
+                        threadOp.mutate(
+                          { threadId: t.id, op: "unlater" },
+                          { onSuccess: () => toast("Moved back to inbox", "success") },
+                        )
+                      }
                     >
                       ↩
                     </button>
@@ -535,6 +562,15 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           threadId={snoozePicker.threadId}
           anchor={snoozePicker.anchor}
           onClose={() => setSnoozePicker(null)}
+        />
+      )}
+      {splitPicker && (
+        <SplitPicker
+          threadId={splitPicker.threadId}
+          sender={splitPicker.sender}
+          reason={splitPicker.reason}
+          anchor={splitPicker.anchor}
+          onClose={() => setSplitPicker(null)}
         />
       )}
     </>

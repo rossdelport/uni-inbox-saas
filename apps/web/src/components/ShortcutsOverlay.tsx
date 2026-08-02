@@ -33,7 +33,6 @@ export function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
           <Row label="Starred" keys={["G", "S"]} />
           <Row label="Snoozed" keys={["G", "H"]} />
           <Row label="Sent" keys={["G", "T"]} />
-          <Row label="Archived" keys={["G", "E"]} />
           <Row label="Deleted" keys={["G", "D"]} />
         </div>
         <div className="kbd-sec">

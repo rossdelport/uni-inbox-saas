@@ -33,6 +33,8 @@ export interface IncomingMeta {
   /** Split verdict for the message creating this thread. Optional so the
    *  send path (which is always personal mail) can omit it. */
   splitClass?: "important" | "newsletter" | "other";
+  splitReason?: string;
+  splitManual?: boolean;
 }
 
 /** Find the thread this message belongs to, or create one. Returns thread id. */
@@ -96,6 +98,11 @@ export async function resolveThread(meta: IncomingMeta): Promise<string> {
       // A thread born from a message we SENT is by definition a person
       // thread; inbound threads take the classifier's verdict.
       split_class: meta.direction === "outbound" ? "important" : (meta.splitClass ?? "important"),
+      split_reason:
+        meta.direction === "outbound"
+          ? "Started by you"
+          : (meta.splitReason ?? "No bulk or automated signals"),
+      split_manual: meta.splitManual ?? false,
       message_count: 0, // bumped by touchThread below
       unread: !meta.seen,
       snippet: meta.snippet,

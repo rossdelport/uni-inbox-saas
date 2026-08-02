@@ -18,6 +18,7 @@ import { ContactAutocompleteInput } from "../components/ContactAutocompleteInput
 import { SenderAvatar } from "../components/SenderAvatar.js";
 import { ReplyComposer } from "../components/ReplyComposer.js";
 import { SnoozePicker } from "../components/SnoozePicker.js";
+import { SplitPicker } from "../components/SplitPicker.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import { toast } from "../lib/toast.js";
 import type { Message } from "../lib/types.js";
@@ -35,6 +36,8 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const [forwardOpen, setForwardOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const snoozeChipRef = useRef<HTMLButtonElement>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const splitChipRef = useRef<HTMLButtonElement>(null);
 
   // Keys for the open conversation. Above the list's priority: with a thread
   // showing, "e" archives THIS thread and goes back, not the cursor row.
@@ -143,6 +146,24 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
           via {thread.account_label}
         </span>
         <span className="chip">to {thread.account_email}</span>
+        <button
+          ref={splitChipRef}
+          className="chip split-chip"
+          title={thread.split_reason ?? "Category reason unavailable"}
+          onClick={() => setSplitOpen((open) => !open)}
+        >
+          <span className={`split-dot ${thread.split_class}`} />
+          {thread.split_class === "newsletter" ? "Newsletter" : thread.split_class === "other" ? "Other" : "Important"}
+        </button>
+        {splitOpen && splitChipRef.current && (
+          <SplitPicker
+            threadId={thread.id}
+            sender={thread.from_address}
+            reason={thread.split_reason}
+            anchor={splitChipRef.current.getBoundingClientRect()}
+            onClose={() => setSplitOpen(false)}
+          />
+        )}
         <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button className="chip" onClick={() => setForwardOpen((v) => !v)}>
             ↪ Forward

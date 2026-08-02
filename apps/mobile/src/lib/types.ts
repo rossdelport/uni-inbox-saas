@@ -7,6 +7,7 @@ export type PlanId = "trial" | "monthly" | "lifetime";
 export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 
 export type AccountStatus = "active" | "auth_failed" | "disabled";
+export type SplitClass = "important" | "newsletter" | "other";
 
 /** A connected mailbox, as exposed to clients. Never includes creds. */
 export interface EmailAccount {
@@ -46,6 +47,10 @@ export interface ThreadSummary {
   archived: boolean;
   starred: boolean;
   read_later: boolean;
+  snooze_until: string | null;
+  split_class: SplitClass;
+  split_reason: string | null;
+  split_manual: boolean;
   /** True when this thread is part of the badge count: unread AND arrived
    *  after its account was connected. Sent by the server so the badge can
    *  drop the instant a thread is opened, without the client reimplementing

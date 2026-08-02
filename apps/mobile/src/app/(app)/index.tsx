@@ -16,6 +16,8 @@ import { ActionSheet, type SheetAction } from "@/components/ActionSheet";
 import { BrandMark } from "@/components/BrandMark";
 import { Chip } from "@/components/Chip";
 import { ComposeSheet } from "@/components/ComposeSheet";
+import { SnoozeSheet } from "@/components/SnoozeSheet";
+import { SplitSheet } from "@/components/SplitSheet";
 import { ThreadRow } from "@/components/ThreadRow";
 import { useSession } from "@/lib/auth";
 import {
@@ -23,26 +25,26 @@ import {
   useDeleteThread,
   useInbox,
   useReadAll,
+  useSplitThread,
   useSyncAccounts,
   useThreadOp,
   useUnreadCounts,
   type InboxView,
 } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
-import type { ThreadSummary } from "@/lib/types";
+import type { SplitClass, ThreadSummary } from "@/lib/types";
 
 // The unified inbox. View tabs mirror the web sidebar (Inbox, Starred,
-// Later, Archived, Sent, Trash); the account row appears once there is more
+// Snoozed, Sent, Trash); the account row appears once there is more
 // than one mailbox. Tapping a row marks it read on the way in, exactly like
 // the web list, so the badge moves on the tap.
 
-type ViewKey = "inbox" | "starred" | "later" | "archived" | "sent" | "trash";
+type ViewKey = "inbox" | "starred" | "later" | "sent" | "trash";
 
 const VIEWS: { key: ViewKey; label: string; view: InboxView; empty: string }[] = [
   { key: "inbox", label: "All inboxes", view: {}, empty: "Nothing here. Enjoy the quiet." },
   { key: "starred", label: "Starred", view: { starred: true }, empty: "No starred conversations." },
-  { key: "later", label: "Later", view: { later: true }, empty: "Nothing saved for later." },
-  { key: "archived", label: "Archived", view: { archived: true }, empty: "Nothing archived yet." },
+  { key: "later", label: "Snoozed", view: { later: true }, empty: "Nothing snoozed. Emails you snooze will stay here until they wake." },
   { key: "sent", label: "Sent", view: { sent: true }, empty: "No sent mail yet." },
   { key: "trash", label: "Trash", view: { deleted: true }, empty: "Trash is empty." },
 ];
@@ -54,7 +56,10 @@ export default function InboxScreen() {
   const { session } = useSession();
   const [viewKey, setViewKey] = useState<ViewKey>("inbox");
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [splitClass, setSplitClass] = useState<SplitClass | null>(null);
   const [sheet, setSheet] = useState<{ title?: string | null; actions: SheetAction[] } | null>(null);
+  const [splitTarget, setSplitTarget] = useState<ThreadSummary | null>(null);
+  const [snoozeTarget, setSnoozeTarget] = useState<ThreadSummary | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   // Pull-to-refresh has its own flag rather than reading isRefetching: that
   // is true for EVERY background refetch (the 15-60s poll, each realtime
@@ -64,13 +69,18 @@ export default function InboxScreen() {
   const [pulling, setPulling] = useState(false);
 
   const viewDef = VIEWS.find((v) => v.key === viewKey)!;
-  const view: InboxView = { ...viewDef.view, account: accountId };
+  const view: InboxView = {
+    ...viewDef.view,
+    account: accountId,
+    split: viewKey === "inbox" ? splitClass : null,
+  };
 
   const inbox = useInbox(view);
   const { data: accounts } = useAccounts();
   const { data: counts } = useUnreadCounts();
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
+  const splitThread = useSplitThread();
   const readAll = useReadAll();
   const syncAccounts = useSyncAccounts();
 
@@ -95,6 +105,7 @@ export default function InboxScreen() {
     // account filter so the All account chip below paints active immediately.
     setViewKey("inbox");
     setAccountId(null);
+    setSplitClass(null);
     setPulling(true);
     if (activeAccountIds.length === 0) {
       void qc.invalidateQueries({ queryKey: ["inbox"] }).finally(() => setPulling(false));
@@ -116,13 +127,16 @@ export default function InboxScreen() {
       // Tapping the already-selected account is a quick way out of a
       // Starred/Later/etc. view. Keep that mailbox selected, clear the view
       // filter, and let the account-scoped inbox query show every message.
-      if (accountId === nextAccountId && viewKey !== "inbox") {
-        setViewKey("inbox");
+      if (accountId === nextAccountId) {
+        if (viewKey !== "inbox" || splitClass !== null) {
+          setViewKey("inbox");
+          setSplitClass(null);
+        }
         return;
       }
       setAccountId(nextAccountId);
     },
-    [accountId, viewKey],
+    [accountId, splitClass, viewKey],
   );
 
   const threads = useMemo(
@@ -148,9 +162,12 @@ export default function InboxScreen() {
     setSheet({
       title: th.subject ?? null,
       actions: [
-        th.archived ? op("Move to inbox", "unarchive") : op("Archive", "archive"),
         th.starred ? op("Unstar", "unstar") : op("Star", "star"),
-        th.read_later ? op("Remove from Later", "unlater") : op("Read later", "later"),
+        {
+          label: th.snooze_until || th.read_later ? "Change snooze / unsnooze" : "Snooze",
+          onPress: () => setSnoozeTarget(th),
+        },
+        { label: "Change category", onPress: () => setSplitTarget(th) },
         th.unread ? op("Mark read", "read") : op("Mark unread", "unread"),
         ...(viewKey === "trash" ? [op("Restore", "restore")] : []),
         { label: "Delete", destructive: true, onPress: () => deleteThread.mutate(th.id) },
@@ -200,9 +217,9 @@ export default function InboxScreen() {
               onPress={() =>
                 readAll.mutate({
                   account: accountId,
-                  archived: viewKey === "archived",
                   starred: viewKey === "starred",
                   later: viewKey === "later",
+                  split: splitClass,
                 })
               }
               disabled={readAll.isPending}
@@ -231,6 +248,7 @@ export default function InboxScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
           contentContainerStyle={styles.chips}
         >
           {VIEWS.map((v) => (
@@ -238,14 +256,43 @@ export default function InboxScreen() {
               key={v.key}
               label={v.label}
               active={v.key === viewKey}
-              onPress={() => (v.key === "inbox" ? selectAllInboxes() : setViewKey(v.key))}
+              onPress={() => {
+                if (v.key === "inbox") selectAllInboxes();
+                else {
+                  setViewKey(v.key);
+                  setSplitClass(null);
+                }
+              }}
             />
           ))}
         </ScrollView>
+        {viewKey === "inbox" ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipScroll}
+            contentContainerStyle={styles.chips}
+          >
+            {([
+              [null, "All"],
+              ["important", "Important"],
+              ["newsletter", "Newsletters"],
+              ["other", "Other"],
+            ] as Array<[SplitClass | null, string]>).map(([value, label]) => (
+              <Chip
+                key={label}
+                label={label}
+                active={splitClass === value}
+                onPress={() => setSplitClass(value)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
         {(accounts?.length ?? 0) > 1 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.chipScroll}
             contentContainerStyle={styles.chips}
           >
             <Chip label="All" active={accountId === null} onPress={() => setAccountId(null)} />
@@ -345,6 +392,24 @@ export default function InboxScreen() {
         actions={sheet?.actions ?? []}
         onClose={() => setSheet(null)}
       />
+      <SnoozeSheet
+        visible={snoozeTarget !== null}
+        thread={snoozeTarget}
+        onClose={() => setSnoozeTarget(null)}
+        onUnsnooze={() => {
+          if (snoozeTarget) threadOp.mutate({ threadId: snoozeTarget.id, op: "unlater" });
+        }}
+      />
+      <SplitSheet
+        visible={splitTarget !== null}
+        thread={splitTarget}
+        onClose={() => setSplitTarget(null)}
+        onApply={(next, remember) => {
+          if (splitTarget) {
+            splitThread.mutate({ threadId: splitTarget.id, splitClass: next, remember });
+          }
+        }}
+      />
       <ComposeSheet visible={composeOpen} onClose={() => setComposeOpen(false)} />
     </SafeAreaView>
   );
@@ -421,7 +486,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 1,
   },
-  chips: { gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
+  // Keep every horizontal filter row inset from the rounded white surface.
+  // The first row used to begin at the edge on iOS because ScrollView's
+  // content inset was being swallowed by the parent shadow container.
+  chipScroll: { paddingHorizontal: 12 },
+  chips: { gap: 8, paddingBottom: 10 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
   emptyTitle: { fontSize: 17, fontWeight: "600", textAlign: "center" },
   emptyBody: { fontSize: 14, lineHeight: 20, textAlign: "center" },

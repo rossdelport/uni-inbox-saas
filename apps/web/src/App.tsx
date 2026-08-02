@@ -59,8 +59,10 @@ const router = createBrowserRouter(
         <Route index element={<Inbox />} />
         <Route path="/starred" element={<Inbox view="starred" />} />
         <Route path="/later" element={<Inbox view="later" />} />
+        <Route path="/snoozed" element={<Inbox view="later" />} />
         <Route path="/sent" element={<Inbox view="sent" />} />
-        <Route path="/archived" element={<Inbox view="archived" />} />
+        {/* Keep old bookmarks useful after Archived was replaced by Snoozed. */}
+        <Route path="/archived" element={<Navigate to="/snoozed" replace />} />
         <Route path="/deleted" element={<Inbox view="deleted" />} />
         <Route path="/users" element={<Users />} />
         <Route path="/t/:threadId" element={<ThreadRedirect />} />

@@ -14,6 +14,7 @@ import type {
   Message,
   TestResult,
   ThreadDetail,
+  SplitClass,
 } from "./types";
 import { api } from "./api";
 import { realtimeHealthy } from "./realtime";
@@ -111,6 +112,7 @@ export interface InboxView {
   starred?: boolean;
   later?: boolean;
   deleted?: boolean;
+  split?: SplitClass | null;
   /** Threads this user has replied to or started. */
   sent?: boolean;
   /** Search across every mailbox at once (server-side; other filters ignored). */
@@ -201,9 +203,9 @@ function mergePendingReplies(detail: ThreadDetail, pending: PendingReply[]) {
 }
 
 export function useInbox(view: InboxView) {
-  const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, q = "" } = view;
+  const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, split = null, q = "" } = view;
   return useInfiniteQuery({
-    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, sent, q],
+    queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, sent, split ?? "all", q],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set("cursor", pageParam);
@@ -214,6 +216,7 @@ export function useInbox(view: InboxView) {
       if (archived) params.set("archived", "1");
       if (starred) params.set("starred", "1");
       if (later) params.set("later", "1");
+      if (split) params.set("split", split);
       return api<InboxPage>(`/api/inbox?${params.toString()}`);
     },
     initialPageParam: "",
@@ -267,6 +270,7 @@ export interface ReadAllScope {
   archived?: boolean;
   starred?: boolean;
   later?: boolean;
+  split?: SplitClass | null;
 }
 
 /** Clear unread across the current view. Scoped server-side by the same
@@ -344,8 +348,14 @@ export function useThreadOp() {
                   : t,
               )
               // Archive/unarchive/restore removes the row from the current view.
+              // Unsnoozing also removes it from the Snoozed (later) view right
+              // away; the next refetch places it back in Inbox.
               .filter((t) =>
-                op === "archive" || op === "unarchive" || op === "restore" ? t.id !== threadId : true,
+                op === "archive" || op === "unarchive" || op === "restore"
+                  ? t.id !== threadId
+                  : op === "unlater" && Array.isArray(key) && key[0] === "inbox" && key[4] === true
+                    ? t.id !== threadId
+                    : true,
               ),
           })),
         });
@@ -367,6 +377,47 @@ export function useThreadOp() {
       if (variables?.op !== "read") {
         void qc.invalidateQueries({ queryKey: ["thread"] });
       }
+    },
+  });
+}
+
+export function useSplitThread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      splitClass,
+      remember = "thread",
+    }: {
+      threadId: string;
+      splitClass: SplitClass;
+      remember?: "thread" | "sender" | "domain";
+    }) =>
+      api<{ ok: boolean; split_class: SplitClass; split_reason: string; remember: string }>(
+        `/api/inbox/threads/${threadId}/split`,
+        {
+          method: "POST",
+          body: JSON.stringify({ split_class: splitClass, remember }),
+        },
+      ),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["thread", variables.threadId] });
+    },
+  });
+}
+
+export function useSnooze() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, until }: { threadId: string; until: string }) =>
+      api<{ ok: boolean; snooze_until: string }>(`/api/inbox/threads/${threadId}/snooze`, {
+        method: "POST",
+        body: JSON.stringify({ until }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
     },
   });
 }

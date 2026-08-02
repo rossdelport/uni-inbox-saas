@@ -5,6 +5,12 @@ import { formatWhen, senderLabel } from "@/lib/format";
 import { useTheme } from "@/lib/theme";
 import { SenderAvatar } from "./SenderAvatar";
 
+const SPLIT_COLORS = {
+  important: "#1769D5",
+  newsletter: "#A855F7",
+  other: "#E88A00",
+} as const;
+
 // One conversation in the list. Unread rows lead with an accent dot and a
 // bold sender, mirroring the web list. The account chip only appears in the
 // All view, where rows from different mailboxes interleave.
@@ -65,6 +71,11 @@ export const ThreadRow = memo(function ThreadRow({
           {thread.subject || "(no subject)"}
         </Text>
         <View style={styles.bottomLine}>
+          <View
+            accessible
+            accessibilityLabel={`${thread.split_class} category${thread.split_reason ? `. ${thread.split_reason}` : ""}`}
+            style={[styles.splitDot, { backgroundColor: SPLIT_COLORS[thread.split_class] }]}
+          />
           <Text numberOfLines={1} style={[styles.snippet, { color: t.sub }]}>
             {thread.snippet ?? ""}
           </Text>
@@ -114,6 +125,7 @@ const styles = StyleSheet.create({
   when: { fontSize: 12, fontWeight: "500" },
   subject: { fontSize: 14 },
   bottomLine: { flexDirection: "row", alignItems: "center", gap: 8 },
+  splitDot: { width: 6, height: 6, borderRadius: 3 },
   snippet: { flex: 1, fontSize: 13, lineHeight: 17 },
   count: { fontSize: 11, fontWeight: "600" },
   accountLine: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 },

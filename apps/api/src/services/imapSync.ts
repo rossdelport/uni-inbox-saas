@@ -6,7 +6,8 @@ import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 import { buildImap, findSpecialUse, findSentMailbox, isAuthError } from "./imapClient.js";
 import { resolveThread, touchThread } from "./threading.js";
-import { bulkSignals, classifyFromSignals } from "./splitClassify.js";
+import { bulkSignals, classifyWithReason } from "./splitClassify.js";
+import { findSplitRule } from "./splitRules.js";
 
 // Per-account sync engine. One AccountSyncer = one long-lived IMAP connection
 // that (a) backfills + incrementally ingests INBOX by UID, (b) reconciles
@@ -946,9 +947,17 @@ export async function ingestMessage(
               return v == null ? null : String(v);
             },
             fromAddrForSignals,
+            parsed.subject ?? null,
+            bodyText,
+            bodyHtml,
           )
         : [];
-    const splitClass = classifyFromSignals(signals);
+    const rule = direction === "inbound"
+      ? await findSplitRule(account.owner_id, account.id, fromAddrForSignals)
+      : null;
+    const classification = rule ?? classifyWithReason(signals);
+    const splitClass = classification.splitClass;
+    const splitReason = classification.reason;
     const snippet = toSnippet(bodyText ?? (parsed.html || null));
     // Fall back to the server's INTERNALDATE (when the message actually landed
     // in the mailbox) before ever reaching for the clock. Plenty of senders
@@ -989,6 +998,8 @@ export async function ingestMessage(
       seen,
       direction,
       splitClass,
+      splitReason,
+      splitManual: Boolean(rule),
     });
 
     const { error } = await supabase.from("messages").upsert(
@@ -1035,11 +1046,24 @@ export async function ingestMessage(
     // matches a row pushes an event to every open dashboard and invalidates
     // the inbox list under the reader. With .neq an already-important thread
     // matches zero rows, writes no WAL, and fires nothing.
-    if (direction === "inbound" && splitClass === "important") {
+    if (direction === "inbound" && rule) {
+      const { data: current } = await supabase
+        .from("threads")
+        .select("split_class, split_manual")
+        .eq("id", threadId)
+        .maybeSingle();
+      if (current && (current.split_class !== splitClass || current.split_manual !== true)) {
+        await supabase
+          .from("threads")
+          .update({ split_class: splitClass, split_reason: splitReason, split_manual: true })
+          .eq("id", threadId);
+      }
+    } else if (direction === "inbound" && splitClass === "important") {
       await supabase
         .from("threads")
-        .update({ split_class: "important" })
+        .update({ split_class: "important", split_reason: splitReason })
         .eq("id", threadId)
+        .eq("split_manual", false)
         .neq("split_class", "important");
     }
 }

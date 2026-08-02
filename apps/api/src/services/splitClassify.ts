@@ -8,16 +8,22 @@ export type SplitClass = "important" | "newsletter" | "other";
 // messages.bulk_signals, so renaming one invalidates every stored row. Add
 // new slugs freely; never repurpose an old one.
 
-// A machine sent it via an ESP relay. Presence of any of these headers.
+// A machine sent it via an ESP relay. Presence of any of these headers. They
+// are useful evidence, but an ESP header on its own is not enough to hide a
+// human conversation: newsletter/content evidence wins only when present.
 const ESP_HEADERS = [
   "feedback-id",
   "x-ses-outgoing",
   "x-mailgun-sid",
   "x-sg-eid",
+  "x-sg-id",
   "x-mandrill-user",
   "x-postmark-account",
   "x-campaign-id",
   "x-campaignid",
+  "x-campaign",
+  "x-newsletter",
+  "x-bulkmail",
   "x-report-abuse",
 ];
 
@@ -27,7 +33,19 @@ const ESP_HEADERS = [
 // reply in a robot pile is the expensive mistake. Do not "improve" this
 // regex with them.
 const NOREPLY_RE =
-  /^(no-?reply|do-?not-?reply|donotreply|mailer-daemon|postmaster|bounces?|notifications?|alerts?|automated|auto-?reply)([+._-].*)?$/;
+  /^(no-?reply|do-?not-?reply|donotreply|mailer-daemon|postmaster|bounces?|notifications?|alerts?|automated|auto-?reply|receipts?|orders?|shipping|delivery|tracking|invoices?|transactions?|security|verify|verification|password)([+._-].*)?$/;
+
+// These are intentionally separate from NOREPLY_RE. A sender called
+// "updates" or "news" is only a newsletter when the message also looks like
+// a digest/broadcast; otherwise a human at updates@ should remain Important.
+const NEWSLETTER_SENDER_RE =
+  /^(news(?:letter)?|digest|updates?|marketing|campaigns?|offers?|deals?|promotions?)([+._-].*)?$/;
+
+const NEWSLETTER_SUBJECT_RE =
+  /\b(newsletter|weekly digest|monthly digest|email digest|unsubscribe|manage (?:your )?preferences|view (?:this )?in (?:your )?browser)\b/i;
+
+const NEWSLETTER_BODY_RE =
+  /\b(unsubscribe|manage (?:your )?(?:email )?preferences|email preferences|update subscription|view (?:this )?in (?:your )?browser|no longer wish to receive)\b/i;
 
 /**
  * Evidence found in one message's headers and sender.
@@ -41,6 +59,9 @@ export function bulkSignals(
   headerKeys: Set<string>,
   headerValue: (k: string) => string | null,
   fromAddress: string,
+  subject?: string | null,
+  bodyText?: string | null,
+  bodyHtml?: string | null,
 ): string[] {
   const signals: string[] = [];
 
@@ -70,15 +91,53 @@ export function bulkSignals(
     signals.push("noreply_sender");
   }
 
+  const subjectText = subject ?? "";
+  const body = `${bodyText ?? ""}\n${bodyHtml ?? ""}`;
+  if (NEWSLETTER_SUBJECT_RE.test(subjectText)) signals.push("newsletter_subject");
+  if (NEWSLETTER_BODY_RE.test(body)) signals.push("newsletter_body");
+  if (NEWSLETTER_SENDER_RE.test(localPart)) signals.push("newsletter_sender");
+
   return signals;
 }
 
 /** LIST beats ROBOT on purpose: an unsubscribable blast that also went
  *  through SendGrid is a newsletter you can leave, not a dead-end robot. */
 export function classifyFromSignals(signals: readonly string[]): SplitClass {
-  if (signals.includes("list_unsubscribe") || signals.includes("list_id") || signals.includes("precedence_bulk")) {
+  const hasListHeader =
+    signals.includes("list_unsubscribe") ||
+    signals.includes("list_id") ||
+    signals.includes("precedence_bulk");
+  const hasNewsletterContent =
+    signals.includes("newsletter_body") || signals.includes("newsletter_subject");
+  const hasNewsletterSender = signals.includes("newsletter_sender");
+  const hasBulkRelay = signals.includes("esp_header");
+
+  if (hasListHeader || signals.includes("newsletter_body") || (hasNewsletterSender && (hasNewsletterContent || hasBulkRelay))) {
     return "newsletter";
   }
   if (signals.length > 0) return "other";
   return "important";
+}
+
+/** Short explanation shown beside the user's manual classifier controls. */
+export function reasonFromSignals(signals: readonly string[]): string {
+  if (signals.includes("list_unsubscribe") || signals.includes("list_id") || signals.includes("precedence_bulk")) {
+    return "Mailing-list headers";
+  }
+  if (signals.includes("newsletter_body")) return "Contains newsletter controls";
+  if (signals.includes("newsletter_subject")) return "Newsletter-style subject";
+  if (signals.includes("newsletter_sender") && signals.includes("esp_header")) {
+    return "Newsletter sender and bulk-mail service";
+  }
+  if (signals.includes("noreply_sender")) return "Automated sender address";
+  if (signals.includes("auto_submitted")) return "Automated mail headers";
+  if (signals.includes("esp_header")) return "Bulk-mail service header";
+  return "No bulk or automated signals";
+}
+
+export function classifyWithReason(signals: readonly string[]): {
+  splitClass: SplitClass;
+  reason: string;
+} {
+  return { splitClass: classifyFromSignals(signals), reason: reasonFromSignals(signals) };
 }

@@ -14,7 +14,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ActionSheet, type SheetAction } from "@/components/ActionSheet";
 import { MessageCard } from "@/components/MessageCard";
 import { ReplyBar } from "@/components/ReplyBar";
-import { useDeleteThread, useThread, useThreadOp } from "@/lib/queries";
+import { SnoozeSheet } from "@/components/SnoozeSheet";
+import { SplitSheet } from "@/components/SplitSheet";
+import { useDeleteThread, useSplitThread, useThread, useThreadOp } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
 
 // One conversation. Older messages collapse to a line, the newest stays
@@ -32,8 +34,11 @@ export default function ThreadScreen() {
   const { data, isPending, isError, error, refetch } = useThread(threadId);
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
+  const splitThread = useSplitThread();
   const scrollRef = useRef<ScrollView>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   // Which messages the user has toggled AWAY from their default. The newest
   // message is open by default and that default is recomputed every render,
@@ -92,9 +97,12 @@ export default function ThreadScreen() {
         },
       },
       {
-        label: thread.read_later ? "Remove from Later" : "Read later",
-        onPress: () =>
-          threadOp.mutate({ threadId: thread.id, op: thread.read_later ? "unlater" : "later" }),
+        label: thread.snooze_until || thread.read_later ? "Change snooze / unsnooze" : "Snooze",
+        onPress: () => setSnoozeOpen(true),
+      },
+      {
+        label: "Change category",
+        onPress: () => setSplitOpen(true),
       },
       {
         label: "Mark unread",
@@ -214,6 +222,22 @@ export default function ThreadScreen() {
         title={thread?.subject ?? null}
         actions={moreActions()}
         onClose={() => setSheetOpen(false)}
+      />
+      <SnoozeSheet
+        visible={snoozeOpen}
+        thread={thread ?? null}
+        onClose={() => setSnoozeOpen(false)}
+        onUnsnooze={() => {
+          if (thread) threadOp.mutate({ threadId: thread.id, op: "unlater" });
+        }}
+      />
+      <SplitSheet
+        visible={splitOpen}
+        thread={thread ?? null}
+        onClose={() => setSplitOpen(false)}
+        onApply={(splitClass, remember) => {
+          if (thread) splitThread.mutate({ threadId: thread.id, splitClass, remember });
+        }}
       />
     </SafeAreaView>
   );

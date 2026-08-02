@@ -6,6 +6,7 @@ export type PlanId = "trial" | "monthly" | "lifetime";
 export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 
 export type AccountStatus = "active" | "auth_failed" | "disabled";
+export type SplitClass = "important" | "newsletter" | "other";
 
 /** A connected mailbox, as exposed to the dashboard. Never includes creds. */
 export interface EmailAccount {
@@ -45,6 +46,9 @@ export interface ThreadSummary {
   archived: boolean;
   starred: boolean;
   read_later: boolean;
+  split_class: SplitClass;
+  split_reason: string | null;
+  split_manual: boolean;
   /** Wake time when snoozed, else null. The Snoozed list shows it; the Inbox
    *  simply does not contain snoozed threads. */
   snooze_until: string | null;

@@ -12,7 +12,7 @@ messagesRouter.get("/threads/:id", async (req, res) => {
   const { data: thread } = await supabase
     .from("threads")
     .select(
-      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, snooze_until, email_accounts!inner(label, color, email_address)",
+      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, snooze_until, split_class, split_reason, split_manual, email_accounts!inner(label, color, email_address)",
     )
     .eq("id", req.params.id)
     .eq("owner_id", uid)
@@ -56,6 +56,9 @@ messagesRouter.get("/threads/:id", async (req, res) => {
       // conversation was impossible.
       starred: thread.starred,
       read_later: thread.read_later,
+      split_class: thread.split_class,
+      split_reason: thread.split_reason,
+      split_manual: thread.split_manual,
       // Same epoch-sentinel mapping as the list: clients see a wake time or
       // null, never the sentinel.
       snooze_until:

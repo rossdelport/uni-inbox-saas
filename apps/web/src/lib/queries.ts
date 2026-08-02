@@ -14,6 +14,7 @@ import type {
   Message,
   TestResult,
   ThreadDetail,
+  SplitClass,
 } from "./types.js";
 import { api } from "./api.js";
 import { realtimeHealthy } from "./realtime.js";
@@ -366,8 +367,14 @@ export function useThreadOp() {
                   : t,
               )
               // Archive/unarchive/restore removes the row from the current view.
+              // Unsnoozing also removes it from the Snoozed (later) view right
+              // away; it will reappear in the Inbox after the server refresh.
               .filter((t) =>
-                op === "archive" || op === "unarchive" || op === "restore" ? t.id !== threadId : true,
+                op === "archive" || op === "unarchive" || op === "restore"
+                  ? t.id !== threadId
+                  : op === "unlater" && Array.isArray(key) && key[0] === "inbox" && key[4] === true
+                    ? t.id !== threadId
+                    : true,
               ),
           })),
         });
@@ -392,6 +399,61 @@ export function useThreadOp() {
       if (variables?.op !== "read") {
         void qc.invalidateQueries({ queryKey: ["thread"] });
       }
+    },
+  });
+}
+
+/** Move one conversation into a split and optionally remember the choice for
+ * the sender/domain that delivered it. */
+export function useSplitThread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      splitClass,
+      remember = "thread",
+    }: {
+      threadId: string;
+      splitClass: SplitClass;
+      remember?: "thread" | "sender" | "domain";
+    }) =>
+      api<{ ok: boolean; split_class: SplitClass; split_reason: string; remember: string }>(
+        `/api/inbox/threads/${threadId}/split`,
+        {
+          method: "POST",
+          body: JSON.stringify({ split_class: splitClass, remember }),
+        },
+      ),
+    onMutate: async ({ threadId, splitClass, remember }) => {
+      await qc.cancelQueries({ queryKey: ["inbox"] });
+      const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      const reason = remember === "thread"
+        ? "You chose this category"
+        : remember === "sender"
+          ? "Your rule for this sender"
+          : "Your rule for this domain";
+      for (const [key, data] of snapshots) {
+        if (!data) continue;
+        qc.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            threads: page.threads.map((thread) =>
+              thread.id === threadId
+                ? { ...thread, split_class: splitClass, split_reason: reason, split_manual: true }
+                : thread,
+            ),
+          })),
+        });
+      }
+      return { snapshots };
+    },
+    onError: (_error, _variables, context) => {
+      for (const [key, data] of context?.snapshots ?? []) qc.setQueryData(key, data);
+    },
+    onSettled: (_data, _error, variables) => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["thread", variables?.threadId] });
     },
   });
 }
