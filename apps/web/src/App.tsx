@@ -20,6 +20,7 @@ import { Billing } from "./pages/Billing.js";
 import { Settings } from "./pages/Settings.js";
 import { ResetPassword } from "./pages/ResetPassword.js";
 import { Users } from "./pages/Users.js";
+import { Waitlist } from "./pages/Waitlist.js";
 import { DashboardPreview } from "./pages/DashboardPreview.js";
 
 function RouteError() {
@@ -65,6 +66,7 @@ const router = createBrowserRouter(
         <Route path="/archived" element={<Navigate to="/snoozed" replace />} />
         <Route path="/deleted" element={<Inbox view="deleted" />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/waitlist" element={<Waitlist />} />
         <Route path="/t/:threadId" element={<ThreadRedirect />} />
         <Route path="/compose" element={<Compose />} />
         <Route path="/accounts" element={<Accounts />} />

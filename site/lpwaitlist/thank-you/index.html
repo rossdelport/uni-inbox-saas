@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OneInbox | You’re on the list</title><link rel="icon" href="/assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#0a2540;--muted:#627492;--blue:#0c7dff}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#86d5ef,#2f8cf6 54%,#8bdaf0);font-family:Inter,system-ui,sans-serif;color:var(--ink)}.card{width:min(690px,100%);padding:50px 56px;border-radius:38px;background:rgba(255,255,255,.97);box-shadow:0 25px 70px rgba(0,52,125,.22);text-align:center}.brand{display:flex;align-items:center;justify-content:center;gap:10px;font:800 22px "M PLUS Rounded 1c",Inter,sans-serif;letter-spacing:-.04em}.brand img{width:43px;height:43px;border-radius:12px}.tick{width:78px;height:78px;margin:32px auto 20px;display:grid;place-items:center;border-radius:50%;background:#e0f8ea;color:#00a957;font-size:42px;font-weight:800}.card h1{margin:0;font:800 clamp(31px,5vw,48px)/1.04 "M PLUS Rounded 1c",Inter,sans-serif;letter-spacing:-.045em}.card>p{margin:18px auto 0;max-width:530px;color:var(--muted);font-size:16px;line-height:1.65}.feedback{margin:30px auto 0;text-align:left;padding-top:25px;border-top:1px solid #e1e8f0}.feedback label{display:block;margin-bottom:8px;font-size:14px;font-weight:800}.feedback textarea{display:block;width:100%;min-height:105px;resize:vertical;padding:13px;border:1px solid #d8e1eb;border-radius:13px;font:500 14px/1.5 Inter,system-ui,sans-serif;outline:none}.feedback textarea:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(12,125,255,.12)}.feedback button{width:100%;height:48px;margin-top:10px;border:0;border-radius:13px;background:#111;color:#fff;font-weight:800;box-shadow:0 3px 0 #9da5ad;cursor:pointer}.status{min-height:20px;margin:9px 0 0;color:var(--muted);font-size:12px}.back{display:inline-block;margin-top:22px;color:var(--blue);font-size:13px;font-weight:800}.fine{margin-top:24px!important;font-size:12px!important}@media(max-width:560px){.card{padding:36px 22px;border-radius:27px}}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><img src="/assets/logo.png" alt=""><span>oneinbox</span></div>
+    <div class="tick" aria-hidden="true">✓</div>
+    <h1>Thank you for joining the waitlist.</h1>
+    <p id="welcome">We are launching VERY soon and can’t wait for you to join. In the email we just sent you is a code for your first month FREE!</p>
+    <form class="feedback" id="feedback-form"><label for="feedback">What made you sign up?</label><textarea id="feedback" name="feedback" maxlength="5000" placeholder="Tell us what you’re hoping OneInbox will help with."></textarea><button type="submit">Send your note</button><p class="status" id="status" aria-live="polite"></p></form>
+    <a class="back" href="/lpwaitlist/">Back to OneInbox</a>
+    <p class="fine">Questions? Email <a href="mailto:ross@tryoneinbox.co" style="color:var(--blue);font-weight:700">ross@tryoneinbox.co</a></p>
+  </main>
+  <script>
+    (function(){var key="oi-waitlist-session",session=null;try{session=JSON.parse(sessionStorage.getItem(key)||"null")}catch(e){}var welcome=document.getElementById("welcome");if(session&&!session.email_sent)welcome.textContent="We are launching VERY soon and can’t wait for you to join. We’ll email your first-month-free code as soon as launch access is ready.";var form=document.getElementById("feedback-form"),status=document.getElementById("status");form.addEventListener("submit",async function(event){event.preventDefault();var message=document.getElementById("feedback").value.trim();if(!message){status.textContent="Write a short note first, if you’d like.";return}if(!session||!session.signup_id||!session.feedback_token){status.textContent="Your note could not be linked. Please email ross@tryoneinbox.co instead.";return}var button=form.querySelector("button");button.disabled=true;status.textContent="Sending…";try{var r=await fetch("/api/waitlist/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({signup_id:session.signup_id,feedback_token:session.feedback_token,message:message})});var data=await r.json().catch(function(){return {}});if(!r.ok)throw new Error(data.error||"Could not send your note.");status.textContent="Thanks, your note is with Ross.";document.getElementById("feedback").value=""}catch(error){status.textContent=error.message||"Could not send your note. Please email ross@tryoneinbox.co.";button.disabled=false}})})();
+  </script>
+</body>
+</html>

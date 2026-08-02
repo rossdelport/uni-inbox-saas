@@ -108,6 +108,9 @@ const schema = z.object({
   // returns 503 instead of blocking boot.
   RESEND_API_KEY: z.string().optional(),
   CONTACT_TO_EMAIL: z.string().email().default("rossdelport1998@gmail.com"),
+  // Waitlist notes and replies should reach the public OneInbox contact
+  // address, while the older contact form can continue using CONTACT_TO_EMAIL.
+  WAITLIST_CONTACT_EMAIL: z.string().email().default("ross@tryoneinbox.co"),
   // Sender must be on a Resend-verified domain (trynoisy.com is verified).
   CONTACT_FROM_EMAIL: z.string().default("OneInbox contact form <oneinbox@trynoisy.com>"),
 });

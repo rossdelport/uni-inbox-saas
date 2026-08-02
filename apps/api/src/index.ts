@@ -22,6 +22,7 @@ import { metricsRouter } from "./routes/metrics.js";
 import { adminRouter } from "./routes/admin.js";
 import { accountRouter } from "./routes/account.js";
 import { contactsRouter } from "./routes/contacts.js";
+import { waitlistRouter } from "./routes/waitlist.js";
 
 const app = express();
 // Railway terminates TLS at its proxy; trust exactly one hop so req.ip is the
@@ -119,6 +120,10 @@ app.get("/health", async (req, res) => {
 
 // Public: marketing-site contact form (rate limited inside the router).
 app.use("/api/contact", contactRouter);
+
+// Public: waitlist signup + post-signup feedback. Both are validated and
+// rate-limited inside the router; database credentials remain server-only.
+app.use("/api/waitlist", waitlistRouter);
 
 // Public: cookie-less page-view beacon from the marketing site.
 app.post("/api/metrics/view", (req, res) => {

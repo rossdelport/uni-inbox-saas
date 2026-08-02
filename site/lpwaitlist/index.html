@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="OneInbox brings every mailbox into one calm, private dashboard. Join the launch waitlist.">
+  <title>OneInbox | Join the waitlist</title>
+  <link rel="icon" href="/assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#0a2540;--muted:#627492;--blue:#0c7dff;--blue-dark:#0865d8;--pale:#f9f9f9;--line:#e3e9f1}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--pale);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(1160px,calc(100% - 40px));margin:0 auto}
+    .nav{position:sticky;top:14px;z-index:20;width:min(1160px,calc(100% - 32px));margin:14px auto 0;display:flex;align-items:center;gap:28px;padding:12px 16px;background:rgba(255,255,255,.94);border-radius:18px;box-shadow:0 8px 24px rgba(13,46,91,.10);backdrop-filter:blur(14px)}
+    .brand{display:flex;align-items:center;gap:10px;font-family:"M PLUS Rounded 1c",Inter,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.04em;margin-right:auto}
+    .brand img{width:38px;height:38px;border-radius:11px;box-shadow:0 5px 12px rgba(12,125,255,.25)}
+    .nav-links{display:flex;align-items:center;gap:24px;color:#5a6b84;font-size:13px;font-weight:700}
+    .nav-links a{transition:color .18s ease}.nav-links a:hover{color:var(--blue)}
+    button,.button{font:inherit;border:0;cursor:pointer}
+    .nav-cta,.join button{border-radius:13px;background:#111;color:#fff;font-weight:800;box-shadow:0 3px 0 #9da5ad,inset 0 5px 14px rgba(255,255,255,.24);transition:transform .16s ease,box-shadow .16s ease}
+    .nav-cta{padding:12px 17px;font-size:12px;white-space:nowrap}.nav-cta:hover,.join button:hover{transform:translateY(-2px);box-shadow:0 5px 0 #9da5ad,inset 0 5px 14px rgba(255,255,255,.24)}
+    .hero{position:relative;overflow:hidden;margin:24px auto 0;width:min(1440px,calc(100% - 32px));min-height:650px;border-radius:42px;background:linear-gradient(135deg,#86d5ef 0%,#2f8cf6 52%,#8bdaf0 100%);display:flex;align-items:center}
+    .hero:before,.hero:after{content:"";position:absolute;border:1px solid rgba(255,255,255,.24);border-radius:50%;pointer-events:none}.hero:before{width:820px;height:820px;left:-260px;top:-420px}.hero:after{width:760px;height:760px;right:-360px;bottom:-470px}
+    .hero-inner{position:relative;z-index:1;width:min(1160px,calc(100% - 64px));margin:0 auto;padding:74px 0 82px}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.42);color:#fff;font-size:11px;font-weight:800;letter-spacing:.10em;text-transform:uppercase}
+    .eyebrow i{width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.16)}
+    h1,h2,h3{font-family:"M PLUS Rounded 1c",Inter,sans-serif;letter-spacing:-.045em}
+    h1{max-width:820px;margin:24px 0 18px;color:#fff;font-size:clamp(45px,7vw,82px);line-height:.99;font-weight:800}
+    .hero-copy{max-width:670px;color:rgba(255,255,255,.88);font-size:20px;line-height:1.55}
+    .hero .join{margin-top:30px;max-width:580px}
+    .join{display:flex;gap:9px;align-items:stretch}
+    .join input{flex:1;min-width:0;height:54px;border:1px solid rgba(255,255,255,.65);border-radius:15px;padding:0 17px;background:#fff;color:var(--ink);font:600 15px Inter,system-ui,sans-serif;outline:none;box-shadow:0 5px 18px rgba(0,54,130,.14)}
+    .join input:focus{border-color:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.24),0 5px 18px rgba(0,54,130,.14)}
+    .join button{height:54px;padding:0 21px;font-size:14px;white-space:nowrap}
+    .form-status{min-height:20px;margin:9px 3px 0;color:rgba(255,255,255,.9);font-size:12px;font-weight:600}.form-status.error{color:#fff1ed}
+    .envelope{position:absolute;z-index:0;width:245px;height:175px;border-radius:20px;background:linear-gradient(145deg,#fff,#dceaf7);box-shadow:0 24px 35px rgba(0,46,109,.15);transform:rotate(-13deg);right:9%;bottom:13%;opacity:.94}.envelope:before,.envelope:after{content:"";position:absolute;inset:18px;border-top:3px solid rgba(107,153,197,.22);transform:rotate(29deg)}.envelope:after{transform:rotate(-29deg)}.envelope.two{width:145px;height:103px;right:25%;bottom:51%;transform:rotate(11deg);opacity:.78}.pin{position:absolute;right:17%;top:25%;width:25px;height:25px;border-radius:50%;background:#08b6f2;box-shadow:0 0 0 7px rgba(255,255,255,.14)}
+    section{padding:104px 0}section.alt{background:#fff}
+    .section-head{text-align:center;max-width:720px;margin:0 auto 46px}.section-head h2{margin:14px 0 13px;font-size:clamp(32px,4.2vw,53px);line-height:1.04}.section-head p{margin:0;color:var(--muted);font-size:17px;line-height:1.6}
+    .ink-eyebrow{color:var(--blue);font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{padding:30px;border-radius:28px;background:#fff;border:1px solid rgba(10,37,64,.07);box-shadow:0 10px 28px rgba(10,37,64,.06)}.alt .card{background:var(--pale)}.card-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;color:#fff;background:linear-gradient(150deg,#45a6ff,#0c7dff);box-shadow:0 8px 16px rgba(12,125,255,.23);font-size:22px}.card h3{margin:22px 0 9px;font-size:22px;line-height:1.15}.card p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}.security-copy h2{margin:13px 0;font-size:clamp(32px,4vw,50px);line-height:1.03}.security-copy p{max-width:520px;color:var(--muted);font-size:17px;line-height:1.65}.checks{display:grid;gap:12px;margin-top:25px}.check{display:flex;gap:11px;align-items:flex-start;color:var(--ink);font-size:14px;font-weight:700}.check i{width:21px;height:21px;flex:none;display:grid;place-items:center;border-radius:50%;background:#dff7e9;color:#00a957;font-size:13px}.security-panel{padding:34px;border-radius:34px;background:linear-gradient(145deg,#eef6ff,#fff);border:1px solid #d9e8fa;box-shadow:0 16px 35px rgba(16,86,164,.10)}.security-panel .shield{font-size:38px}.security-panel h3{margin:17px 0 9px;font-size:26px}.security-panel p{margin:0;color:var(--muted);line-height:1.6;font-size:14px}
+    .pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.price-card{position:relative;padding:28px;border-radius:28px;background:#fff;border:1px solid var(--line);box-shadow:0 10px 28px rgba(10,37,64,.05)}.price-card.featured{border:2px solid var(--blue);transform:translateY(-8px);box-shadow:0 18px 35px rgba(12,125,255,.15)}.price-card .tag{position:absolute;right:18px;top:18px;padding:5px 9px;border-radius:999px;background:#e7f1ff;color:var(--blue);font-size:10px;font-weight:800;text-transform:uppercase}.price-card h3{margin:0;font-size:25px}.price{margin:17px 0 8px;font-size:34px;font-weight:800;letter-spacing:-.05em}.price small{font-size:13px;color:var(--muted);font-weight:600;letter-spacing:0}.price-card p{min-height:45px;margin:0;color:var(--muted);font-size:13px;line-height:1.55}.price-card ul{display:grid;gap:10px;margin:22px 0 24px;padding:0;list-style:none;color:#41546f;font-size:13px}.price-card li:before{content:"✓";display:inline-block;margin-right:8px;color:#00a957;font-weight:800}
+    .faq{max-width:820px;margin:0 auto}.faq details{border-bottom:1px solid var(--line);padding:20px 0}.faq summary{cursor:pointer;list-style:none;font-family:"M PLUS Rounded 1c",Inter,sans-serif;font-size:18px;font-weight:700}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:"+";float:right;color:var(--blue);font-size:25px;font-weight:400}.faq details[open] summary:after{content:"−"}.faq p{max-width:710px;margin:13px 0 0;color:var(--muted);font-size:14px;line-height:1.65}
+    .final{position:relative;overflow:hidden;margin:0 auto 65px;width:min(1160px,calc(100% - 40px));padding:78px 30px;text-align:center;border-radius:36px;background:linear-gradient(135deg,#87d5ed,#2f8cf6 54%,#85d8ed);color:#fff}.final h2{position:relative;z-index:1;margin:0 auto 13px;font-size:clamp(32px,4.5vw,52px)}.final p{position:relative;z-index:1;margin:0 auto;color:rgba(255,255,255,.88);font-size:16px}.final .join{position:relative;z-index:1;max-width:590px;margin:27px auto 0;text-align:left}.final .form-status{text-align:left}.footer{padding:0 0 35px;text-align:center;color:#8291a8;font-size:12px}.footer .brand{justify-content:center;margin:0 0 12px;font-size:18px}.footer .brand img{width:30px;height:30px;border-radius:9px}.footer a{color:var(--blue);font-weight:700}
+    .confetti{position:fixed;inset:0;z-index:100;pointer-events:none;overflow:hidden}.confetti i{position:absolute;top:-18px;width:9px;height:15px;border-radius:2px;animation:fall 1.3s cubic-bezier(.2,.75,.35,1) forwards;animation-delay:var(--d);background:var(--c);transform:rotate(var(--r))}.confetti i:nth-child(3n){border-radius:50%;width:10px;height:10px}@keyframes fall{to{top:105vh;transform:translateX(var(--x)) rotate(650deg);opacity:.9}}
+    @media(max-width:800px){.nav{gap:12px}.nav-links{display:none}.hero{min-height:650px;border-radius:30px}.hero-inner{width:min(100% - 40px,600px);padding:70px 0}.envelope{right:-55px;bottom:7%;opacity:.45}.envelope.two{right:7%;bottom:42%;opacity:.45}.grid,.pricing,.split{grid-template-columns:1fr}.split{gap:40px}.price-card.featured{transform:none}.wrap{width:min(100% - 32px,600px)}section{padding:76px 0}.final{width:calc(100% - 32px);margin-bottom:45px;border-radius:29px}.join{flex-direction:column}.join input,.join button{width:100%}.hero-copy{font-size:17px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.confetti i{animation:none;display:none}}
+  </style>
+</head>
+<body>
+  <header class="nav" aria-label="Main navigation">
+    <a class="brand" href="#top" aria-label="OneInbox home"><img src="/assets/logo.png" alt=""><span>oneinbox</span></a>
+    <nav class="nav-links">
+      <a href="#features">Features</a><a href="#security">Security</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+    </nav>
+    <button class="nav-cta" type="button" data-open-waitlist data-source="nav">Join waitlist</button>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-inner">
+        <span class="eyebrow"><i></i>Launching soon</span>
+        <h1 id="hero-title">One Inbox, Endless Possibilities</h1>
+        <p class="hero-copy">Every mailbox you own in one clean dashboard, with replies that always come from the right address.</p>
+        <form class="join" data-waitlist data-source="hero">
+          <input name="email" type="email" autocomplete="email" placeholder="Your email address" aria-label="Email address" required>
+          <button type="submit">Join waitlist</button>
+        </form>
+        <p class="form-status" aria-live="polite"></p>
+      </div>
+      <span class="pin" aria-hidden="true"></span><span class="envelope" aria-hidden="true"></span><span class="envelope two" aria-hidden="true"></span>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head"><span class="ink-eyebrow">One calm place</span><h2>Less switching. More doing.</h2><p>OneInbox gives every project and business a clear place in your day.</p></div>
+        <div class="grid">
+          <article class="card"><div class="card-icon">✦</div><h3>All inboxes together</h3><p>See Gmail, Outlook, and your custom mailboxes in one fast, focused view.</p></article>
+          <article class="card"><div class="card-icon">⌕</div><h3>Find anything fast</h3><p>Search across every account at once, without remembering where a message landed.</p></article>
+          <article class="card"><div class="card-icon">↗</div><h3>Reply from the right place</h3><p>Your replies always send from the address that received the conversation.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="alt">
+      <div class="wrap split">
+        <div class="security-copy"><span class="ink-eyebrow">Security</span><h2>Your mail stays yours.</h2><p>Your passwords are encrypted before they are stored. Your mail is kept for your inbox, never sold, and never used to train AI.</p><div class="checks"><div class="check"><i>✓</i><span>AES-256 encryption for saved passwords</span></div><div class="check"><i>✓</i><span>TLS connections to your mail providers</span></div><div class="check"><i>✓</i><span>Private to your account</span></div></div></div>
+        <div class="security-panel"><div class="shield">🛡️</div><h3>Clear, honest privacy</h3><p>We tell you what happens to your mailbox data in plain language. Read the <a href="/privacy" style="color:var(--blue);font-weight:700">privacy policy</a> before you join.</p></div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <div class="wrap"><div class="section-head"><span class="ink-eyebrow">Simple plans</span><h2>Pick the plan that fits your inboxes.</h2><p>Join the waitlist now and get a first-month-free code when we launch.</p></div><div class="pricing">
+        <article class="price-card"><h3>Free trial</h3><div class="price">3 <small>days</small></div><p>Try the full inbox experience before launch.</p><ul><li>All core inbox features</li><li>Connect your mailboxes</li><li>One simple dashboard</li></ul><button class="nav-cta" type="button" data-open-waitlist data-source="pricing-trial">Join waitlist</button></article>
+        <article class="price-card featured"><span class="tag">Most popular</span><h3>Monthly</h3><div class="price">$5 <small>/month</small></div><p>For people running several projects and businesses.</p><ul><li>Up to 5 inboxes included</li><li>Search every mailbox</li><li>Reply from the right account</li></ul><button class="nav-cta" type="button" data-open-waitlist data-source="pricing-monthly">Join waitlist</button></article>
+        <article class="price-card"><h3>Lifetime</h3><div class="price">$99 <small>once</small></div><p>Pay once and keep your calm inbox for good.</p><ul><li>Up to 10 inboxes</li><li>Future updates included</li><li>No monthly bill</li></ul><button class="nav-cta" type="button" data-open-waitlist data-source="pricing-lifetime">Join waitlist</button></article>
+      </div></div>
+    </section>
+
+    <section id="faq" class="alt"><div class="wrap"><div class="section-head"><span class="ink-eyebrow">Questions</span><h2>Good to know.</h2></div><div class="faq"><details><summary>Which email providers can I connect?</summary><p>Gmail, Outlook, Yahoo, iCloud, and custom mailboxes that support IMAP and SMTP. Proton Mail, Tuta, and HEY Mail cannot be connected because they block third-party IMAP and SMTP access.</p></details><details><summary>Is OneInbox safe?</summary><p>Your password is encrypted before it is saved. We keep your mailbox data private and do not sell it or use it to train AI.</p></details><details><summary>When are you launching?</summary><p>Very soon. Join the waitlist and we will email you as soon as the doors open.</p></details></div></div></section>
+
+    <section class="final"><h2>Ready for a calmer inbox?</h2><p>Join the launch list and be first through the door.</p><form class="join" data-waitlist data-source="final-cta"><input name="email" type="email" autocomplete="email" placeholder="Your email address" aria-label="Email address" required><button type="submit">Join waitlist</button></form><p class="form-status" aria-live="polite"></p></section>
+  </main>
+
+  <footer class="footer"><div class="brand"><img src="/assets/logo.png" alt=""><span>oneinbox</span></div><p>One clutter-free inbox for every project you run.</p><p><a href="/privacy">Privacy</a> · <a href="/service">Terms</a> · <a href="mailto:ross@tryoneinbox.co">Contact</a></p></footer>
+
+  <script>
+    (function(){
+      var sessionKey = "oi-waitlist-session";
+      function focusWaitlist(source){
+        var form = document.querySelector('[data-waitlist][data-source="hero"]') || document.querySelector('[data-waitlist]');
+        if (!form) return;
+        form.dataset.source = source || "nav";
+        form.scrollIntoView({behavior:"smooth",block:"center"});
+        var input = form.querySelector('input[name="email"]');
+        if (input) setTimeout(function(){ input.focus(); }, 380);
+      }
+      document.querySelectorAll("[data-open-waitlist]").forEach(function(button){
+        button.addEventListener("click", function(){ focusWaitlist(button.dataset.source); });
+      });
+      function confetti(){
+        var layer=document.createElement("div");layer.className="confetti";
+        var colors=["#0c7dff","#00b050","#ffad0a","#ec55a6","#fff"];
+        for(var i=0;i<72;i++){var bit=document.createElement("i");bit.style.left=(Math.random()*100)+"%";bit.style.setProperty("--x",((Math.random()-.5)*220)+"px");bit.style.setProperty("--d",(Math.random()*.32)+"s");bit.style.setProperty("--r",(Math.random()*90-45)+"deg");bit.style.setProperty("--c",colors[i%colors.length]);layer.appendChild(bit)}
+        document.body.appendChild(layer);setTimeout(function(){layer.remove()},1900);
+      }
+      function params(){
+        var p=new URLSearchParams(location.search), out={};
+        ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){if(p.get(k))out[k]=p.get(k).slice(0,160)});
+        return out;
+      }
+      document.querySelectorAll("[data-waitlist]").forEach(function(form){
+        form.addEventListener("submit", async function(event){
+          event.preventDefault();
+          var input=form.querySelector('input[name="email"]'), button=form.querySelector("button"), status=form.nextElementSibling;
+          if(!input || !input.value.trim()) return;
+          button.disabled=true;status.classList.remove("error");status.textContent="Saving your place…";
+          try{
+            var response=await fetch("/api/waitlist",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({email:input.value.trim(),source:form.dataset.source||"unknown",page_path:location.pathname},params()))});
+            var data=await response.json().catch(function(){return {}});if(!response.ok)throw new Error(data.error||"Could not join the waitlist.");
+            sessionStorage.setItem(sessionKey,JSON.stringify({signup_id:data.signup_id,feedback_token:data.feedback_token,email_sent:Boolean(data.email_sent)}));
+            confetti();status.textContent="You’re on the list!";setTimeout(function(){location.href="/lpwaitlist/thank-you/"},850);
+          }catch(error){status.classList.add("error");status.textContent=error.message||"Could not join the waitlist. Please try again.";button.disabled=false}
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

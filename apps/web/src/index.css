@@ -720,6 +720,20 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .adm-num{font-variant-numeric:tabular-nums}
 .adm-dim{color:var(--ink3)}
 
+/* Waitlist dashboard: these are founder-only launch numbers, but they share
+   the same restrained table/card language as the main analytics page. */
+.wait-note{margin:12px 2px 0;max-width:780px;font-size:11.5px;line-height:1.55;color:var(--ink3)}
+.wait-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.wait-controls input,.wait-controls select{height:34px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:12px;padding:0 10px}
+.wait-controls input{min-width:230px;flex:1;max-width:360px}
+.wait-controls select{min-width:150px}
+.wait-source{display:inline-block;padding:2.5px 8px;border-radius:999px;background:rgba(var(--b1-rgb),.09);color:var(--b1-ink);font-size:10.8px;font-weight:700}
+.wait-code{display:inline-block;padding:2.5px 6px;border-radius:5px;background:#f1f4f8;color:var(--ink2);font-size:10.5px;white-space:nowrap}
+.wait-feedback{min-width:230px;max-width:360px;white-space:normal!important;line-height:1.42}
+.wait-feedback>span:first-child{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.wait-insight p{margin:4px 0 0;font-size:12px;line-height:1.55;color:var(--ink2)}
+@media(max-width:640px){.wait-controls input{min-width:100%;max-width:none}.wait-controls select{flex:1}.wait-table th,.wait-table td{padding-left:11px;padding-right:11px}}
+
 /* Colour picker dots */
 .cdots{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 2px}
 .cdot{width:24px;height:24px;border-radius:50%;border:none;padding:0;cursor:pointer;transition:transform .12s ease}

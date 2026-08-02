@@ -314,14 +314,24 @@ export function Layout() {
                 <StarIcon /> Plans &amp; billing
               </button>
               {user?.email?.toLowerCase() === "rossdelport1998@gmail.com" && (
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigate("/users");
-                  }}
-                >
-                  <UsersIcon /> Users
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/waitlist");
+                    }}
+                  >
+                    <WaitlistIcon /> Waitlist
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/users");
+                    }}
+                  >
+                    <UsersIcon /> Users
+                  </button>
+                </>
               )}
               <button
                 onClick={() => {
@@ -669,6 +679,15 @@ function UsersIcon() {
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+function WaitlistIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...S} width="16" height="16">
+      <path d="M9 5h6" />
+      <path d="M9 3h6a2 2 0 0 1 2 2v16H7V5a2 2 0 0 1 2-2Z" />
+      <path d="M10 10h4M10 14h4M10 18h2" />
     </svg>
   );
 }

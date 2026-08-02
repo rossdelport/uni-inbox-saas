@@ -24,6 +24,11 @@ adminRouter.use((req, res, next) => {
 const DAY_MS = 24 * 3600 * 1000;
 /** Traffic rows scanned per refresh. Bounds the payload on a busy month. */
 const VIEW_SCAN_LIMIT = 20_000;
+/** Keep the owner table fast even after a successful ad campaign. */
+const WAITLIST_TABLE_LIMIT = 1_000;
+// Express keeps a trailing slash when a visitor loads the directory form of
+// the page, so both forms need to count as the same landing page.
+const WAITLIST_PATHS = ["/lpwaitlist", "/lpwaitlist/"];
 
 function monthlyMrr(quantity: number | null | undefined): number {
   const qty = Math.max(PRICING.monthlyIncluded, quantity ?? PRICING.monthlyIncluded);
@@ -255,6 +260,168 @@ adminRouter.get("/users", async (_req, res) => {
     },
     attention,
     users,
+  });
+});
+
+// Founder-only waitlist dashboard. The public landing page writes sign-ups
+// through /api/waitlist; this endpoint is deliberately separate and inherits
+// the owner-email + admin-password gate above. No browser client ever reads
+// the waitlist tables directly.
+adminRouter.get("/waitlist", async (_req, res) => {
+  const now = Date.now();
+  const since30 = new Date(now - 30 * DAY_MS).toISOString();
+  const since7 = new Date(now - 7 * DAY_MS).toISOString();
+
+  const [signupsResult, signups7Result, feedbackCountResult, allViewsResult, views30Result] = await Promise.all([
+    supabase
+      .from("waitlist_signups")
+      .select(
+        "id, email, source, page_path, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, promo_code, email_sent_at, created_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .limit(WAITLIST_TABLE_LIMIT),
+    supabase
+      .from("waitlist_signups")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since7),
+    supabase.from("waitlist_feedback").select("id", { count: "exact", head: true }),
+    supabase.from("page_views").select("id", { count: "exact", head: true }).in("path", WAITLIST_PATHS),
+    supabase
+      .from("page_views")
+      .select("created_at, referrer", { count: "exact" })
+      .in("path", WAITLIST_PATHS)
+      .gte("created_at", since30)
+      .order("created_at", { ascending: false })
+      .limit(VIEW_SCAN_LIMIT),
+  ]);
+
+  if (signupsResult.error) {
+    logger.error({ err: signupsResult.error }, "admin waitlist signups query failed");
+    // This is the friendly failure mode for a deploy that reaches Railway
+    // before its matching Supabase migration is run.
+    return res.status(503).json({ error: "Waitlist data is not ready yet. Run the latest Supabase migration first." });
+  }
+  if (signups7Result.error) logger.warn({ err: signups7Result.error }, "admin waitlist weekly count failed");
+  if (feedbackCountResult.error) logger.warn({ err: feedbackCountResult.error }, "admin waitlist feedback count failed");
+  if (allViewsResult.error) logger.warn({ err: allViewsResult.error }, "admin waitlist all-time views failed");
+  if (views30Result.error) logger.warn({ err: views30Result.error }, "admin waitlist traffic query failed");
+
+  type WaitlistSignupRow = {
+    id: string;
+    email: string;
+    source: string | null;
+    page_path: string | null;
+    referrer: string | null;
+    utm_source: string | null;
+    utm_medium: string | null;
+    utm_campaign: string | null;
+    utm_content: string | null;
+    utm_term: string | null;
+    promo_code: string | null;
+    email_sent_at: string | null;
+    created_at: string;
+  };
+  type WaitlistFeedbackRow = {
+    waitlist_signup_id: string;
+    message: string;
+    created_at: string;
+  };
+
+  const signups = (signupsResult.data ?? []) as WaitlistSignupRow[];
+  let feedbackRows: WaitlistFeedbackRow[] = [];
+  if (signups.length > 0) {
+    const { data, error } = await supabase
+      .from("waitlist_feedback")
+      .select("waitlist_signup_id, message, created_at")
+      .in(
+        "waitlist_signup_id",
+        signups.map((signup) => signup.id),
+      )
+      .order("created_at", { ascending: false });
+    if (error) logger.warn({ err: error }, "admin waitlist feedback query failed");
+    else feedbackRows = (data ?? []) as WaitlistFeedbackRow[];
+  }
+
+  // Keep only the latest message per person in the table. It is the one that
+  // needs a reply; historical feedback remains safely stored in Postgres.
+  const feedbackBySignup = new Map<string, WaitlistFeedbackRow>();
+  for (const feedback of feedbackRows) {
+    if (!feedbackBySignup.has(feedback.waitlist_signup_id)) {
+      feedbackBySignup.set(feedback.waitlist_signup_id, feedback);
+    }
+  }
+
+  const bySource = new Map<string, number>();
+  for (const signup of signups) {
+    const source = signup.source?.trim() || "unknown";
+    bySource.set(source, (bySource.get(source) ?? 0) + 1);
+  }
+  const sources = [...bySource.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([source, signups]) => ({ source, signups }));
+
+  const views = views30Result.data ?? [];
+  const byDay = new Map<string, number>();
+  const byReferrer = new Map<string, number>();
+  let views7 = 0;
+  for (const view of views) {
+    const createdAt = String(view.created_at);
+    const day = createdAt.slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + 1);
+    if (new Date(createdAt).getTime() >= new Date(since7).getTime()) views7++;
+    const referrer = view.referrer as string | null;
+    if (!referrer) continue;
+    let key = referrer;
+    if (!referrer.startsWith("campaign:")) {
+      try {
+        key = new URL(referrer).hostname;
+      } catch {
+        key = referrer.slice(0, 60);
+      }
+    }
+    if (!key.includes("tryoneinbox")) byReferrer.set(key, (byReferrer.get(key) ?? 0) + 1);
+  }
+  const byDaySeries: Array<{ day: string; views: number }> = [];
+  for (let i = 29; i >= 0; i--) {
+    const day = new Date(now - i * DAY_MS).toISOString().slice(0, 10);
+    byDaySeries.push({ day, views: byDay.get(day) ?? 0 });
+  }
+  const topReferrers = [...byReferrer.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([key, views]) => ({ key, views }));
+
+  const totalSignups = signupsResult.count ?? signups.length;
+  const landingViews = allViewsResult.count ?? 0;
+  const views30 = views30Result.count ?? views.length;
+  res.json({
+    totals: {
+      landing_views: landingViews,
+      waitlist_signups: totalSignups,
+      conversion_percent: landingViews > 0 ? (totalSignups / landingViews) * 100 : 0,
+      views_7d: views7,
+      views_30d: views30,
+      signups_7d: signups7Result.count ?? 0,
+      feedback_count: feedbackCountResult.count ?? feedbackRows.length,
+    },
+    traffic: {
+      by_day: byDaySeries,
+      top_referrers: topReferrers,
+      // The graph reflects a bounded 30-day query. Make a very large launch
+      // transparent instead of silently drawing a partial chart as complete.
+      truncated: views.length >= VIEW_SCAN_LIMIT,
+    },
+    sources,
+    signups: signups.map((signup) => {
+      const feedback = feedbackBySignup.get(signup.id);
+      return {
+        ...signup,
+        feedback: feedback?.message ?? null,
+        feedback_at: feedback?.created_at ?? null,
+      };
+    }),
+    table_truncated: totalSignups > signups.length,
   });
 });
 
