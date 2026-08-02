@@ -1,53 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useSnooze } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { KP, useHotkeys } from "../lib/keyboard.js";
 
-// Snooze menu, portalled to <body>. A portal because both intended anchors
-// live inside overflow-clipped containers (.dash-side hides x-overflow, list
-// rows clip), the same trap SecurityBadge already solved the same way.
-
-const DAY = 24 * 3600 * 1000;
-
-function at(base: Date, hour: number): Date {
-  const d = new Date(base);
-  d.setHours(hour, 0, 0, 0);
-  return d;
-}
-
-/** Preset wake times, computed from "now" at open. Anything already past is
- *  dropped rather than shown disabled: a dead option is noise. */
-function presets(): Array<{ label: string; when: Date }> {
-  const now = new Date();
-  const list: Array<{ label: string; when: Date }> = [];
-
-  const laterToday = new Date(now.getTime() + 3 * 3600 * 1000);
-  if (laterToday.getDate() === now.getDate()) {
-    list.push({ label: "Later today", when: laterToday });
-  }
-  const evening = at(now, 18);
-  if (evening.getTime() > now.getTime() + 30 * 60_000) {
-    list.push({ label: "This evening", when: evening });
-  }
-  list.push({ label: "Tomorrow morning", when: at(new Date(now.getTime() + DAY), 8) });
-
-  // Next Saturday, skipping "today is Saturday" (that is what Later today is
-  // for) by always moving at least one day forward.
-  const sat = new Date(now.getTime() + DAY);
-  while (sat.getDay() !== 6) sat.setTime(sat.getTime() + DAY);
-  list.push({ label: "This weekend", when: at(sat, 8) });
-
-  const mon = new Date(now.getTime() + DAY);
-  while (mon.getDay() !== 1) mon.setTime(mon.getTime() + DAY);
-  list.push({ label: "Next week", when: at(mon, 8) });
-
-  return list;
-}
+// Snooze menu, portalled to <body>. A portal keeps the menu visible when the
+// row or reading pane sits inside an overflow-clipped panel.
 
 function fmt(d: Date): string {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return `${days[d.getDay()]} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 export function SnoozePicker({
@@ -62,7 +23,9 @@ export function SnoozePicker({
   onSnoozed?: () => void;
 }) {
   const snooze = useSnooze();
-  const [custom, setCustom] = useState("");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customHours, setCustomHours] = useState("");
+  const [customMinutes, setCustomMinutes] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,16 +35,17 @@ export function SnoozePicker({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [onClose]);
+
   // Overlay priority: Escape closes only the picker, never the thread or
-  // modal underneath, and the catch-all stops "h"/"e" acting behind it.
+  // modal underneath, and the catch-all stops list shortcuts behind it.
   useHotkeys({ Escape: () => onClose(), "*": () => {} }, { priority: KP.overlay });
 
-  function pick(when: Date) {
+  function pick(when: Date, label: string) {
     snooze.mutate(
       { threadId, until: when.toISOString() },
       {
         onSuccess: () => {
-          toast(`Snoozed until ${fmt(when)}`, "success");
+          toast(`Snoozed for ${label} · back at ${fmt(when)}`, "success");
           onSnoozed?.();
           onClose();
         },
@@ -90,41 +54,93 @@ export function SnoozePicker({
     );
   }
 
-  // Clamp to the viewport: the anchor chip can sit near the right edge.
-  const width = 232;
-  const left = Math.min(anchor.left, window.innerWidth - width - 12);
-  const top = anchor.bottom + 6;
+  function pickDuration(hours: number, minutes: number, label: string) {
+    const duration = (hours * 60 + minutes) * 60_000;
+    if (!Number.isFinite(duration) || duration <= 0) {
+      toast("Choose a time longer than zero.", "warn");
+      return;
+    }
+    if (duration > 366 * 24 * 3600_000) {
+      toast("Snooze is limited to one year.", "warn");
+      return;
+    }
+    pick(new Date(Date.now() + duration), label);
+  }
+
+  function submitCustom(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const hours = Number.parseInt(customHours, 10) || 0;
+    const minutes = Number.parseInt(customMinutes, 10) || 0;
+    if (hours < 0 || minutes < 0 || minutes > 59) {
+      toast("Enter valid hours and minutes.", "warn");
+      return;
+    }
+    const label = [hours ? `${hours}h` : "", minutes ? `${minutes}m` : ""].filter(Boolean).join(" ");
+    pickDuration(hours, minutes, label || "0m");
+  }
+
+  // Clamp to the viewport: the anchor can sit near the right or bottom edge.
+  const width = 224;
+  const left = Math.max(12, Math.min(anchor.left, window.innerWidth - width - 12));
+  const menuHeight = customOpen ? 194 : 142;
+  const top = Math.min(anchor.bottom + 6, Math.max(12, window.innerHeight - menuHeight - 12));
 
   return createPortal(
-    <div ref={popRef} className="snz-pop" style={{ top, left, width }} role="menu">
-      {presets().map((p) => (
-        <button key={p.label} className="snz-item" disabled={snooze.isPending} onClick={() => pick(p.when)}>
-          <span>{p.label}</span>
-          <i>{fmt(p.when)}</i>
-        </button>
-      ))}
-      <div className="snz-custom">
-        <input
-          type="datetime-local"
-          value={custom}
-          min={new Date(Date.now() + 10 * 60_000).toISOString().slice(0, 16)}
-          onChange={(e) => setCustom(e.target.value)}
-        />
-        <button
-          className="btn-mini"
-          disabled={!custom || snooze.isPending}
-          onClick={() => {
-            const when = new Date(custom);
-            if (Number.isNaN(when.getTime()) || when.getTime() < Date.now()) {
-              toast("Pick a time in the future.", "warn");
-              return;
-            }
-            pick(when);
-          }}
-        >
-          Set
-        </button>
-      </div>
+    <div
+      ref={popRef}
+      className="snz-pop"
+      style={{ top, left, width }}
+      role="menu"
+      aria-label="Snooze duration"
+    >
+      <div className="snz-title">Snooze for</div>
+      <button className="snz-item" disabled={snooze.isPending} onClick={() => pickDuration(1, 0, "1 hour")}>
+        <span>1 hour</span>
+        <i>quick break</i>
+      </button>
+      <button className="snz-item" disabled={snooze.isPending} onClick={() => pickDuration(6, 0, "6 hours")}>
+        <span>6 hours</span>
+        <i>later today</i>
+      </button>
+      <button
+        className={`snz-item snz-custom-toggle ${customOpen ? "active" : ""}`}
+        disabled={snooze.isPending}
+        aria-expanded={customOpen}
+        onClick={() => setCustomOpen((open) => !open)}
+      >
+        <span>Custom</span>
+        <i>{customOpen ? "Close" : "Set time"}</i>
+      </button>
+      {customOpen && (
+        <form className="snz-custom" onSubmit={submitCustom}>
+          <label>
+            <span>Hours</span>
+            <input
+              type="number"
+              min="0"
+              max="8784"
+              inputMode="numeric"
+              value={customHours}
+              onChange={(e) => setCustomHours(e.target.value)}
+              autoFocus
+            />
+          </label>
+          <label>
+            <span>Minutes</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              inputMode="numeric"
+              value={customMinutes}
+              onChange={(e) => setCustomMinutes(e.target.value)}
+            />
+          </label>
+          <button className="btn-mini" type="submit" disabled={snooze.isPending}>
+            Set
+          </button>
+        </form>
+      )}
     </div>,
     document.body,
   );

@@ -146,8 +146,11 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const selectedThread = threads.find((thread) => thread.id === threadId);
   const [cur, setCur] = useState(-1);
   const rowEls = useRef<Array<HTMLDivElement | null>>([]);
-  const [kbSnooze, setKbSnooze] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
-  useEffect(() => setCur(-1), [view, account, split, searching]);
+  const [snoozePicker, setSnoozePicker] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
+  useEffect(() => {
+    setCur(-1);
+    setSnoozePicker(null);
+  }, [view, account, split, searching]);
   // Archive and delete remove their row optimistically, so the next row
   // slides into the cursor index by itself; this only catches the end.
   useEffect(() => {
@@ -209,8 +212,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         withCursor((t) => threadOp.mutate({ threadId: t.id, op: t.starred ? "unstar" : "star" })),
       h: () =>
         withCursor((t, el) => {
-          if (t.read_later || t.snooze_until) threadOp.mutate({ threadId: t.id, op: "unlater" });
-          else if (el) setKbSnooze({ threadId: t.id, anchor: el.getBoundingClientRect() });
+          if (el) setSnoozePicker({ threadId: t.id, anchor: el.getBoundingClientRect() });
         }),
       "#": () => {
         // Deleted view offers Restore only; "#" matching the rows it sits on.
@@ -438,11 +440,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                     ★
                   </button>
                   <button
-                    className={`act-btn ${t.read_later ? "on" : ""}`}
-                    title={t.read_later ? "Remove from read later" : "Read later"}
-                    onClick={() => threadOp.mutate({ threadId: t.id, op: t.read_later ? "unlater" : "later" })}
+                    className={`act-btn ${t.snooze_until ? "on" : ""}`}
+                    title={t.snooze_until ? "Change snooze time" : "Snooze"}
+                    onClick={(e) =>
+                      setSnoozePicker({ threadId: t.id, anchor: e.currentTarget.getBoundingClientRect() })
+                    }
                   >
-                    ◷
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="8.5" />
+                      <path d="M12 7.5v5l3.25 2" />
+                    </svg>
                   </button>
                   <button
                     className="act-btn"
@@ -451,15 +458,15 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   >
                     {t.unread ? "✓" : "●"}
                   </button>
-                  <button
-                    className="act-btn"
-                    title={t.archived ? "Move to inbox" : "Archive"}
-                    onClick={() =>
-                      threadOp.mutate({ threadId: t.id, op: t.archived ? "unarchive" : "archive" })
-                    }
-                  >
-                    {t.archived ? "↩" : "🗂"}
-                  </button>
+                  {view === "archived" && (
+                    <button
+                      className="act-btn"
+                      title="Move to inbox"
+                      onClick={() => threadOp.mutate({ threadId: t.id, op: "unarchive" })}
+                    >
+                      ↩
+                    </button>
+                  )}
                   <button
                     className="act-btn"
                     title="Delete from OneInbox"
@@ -522,12 +529,12 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           first-run branch above unmounts the moment accounts exist). */}
       {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
 
-      {/* Snooze picker for the keyboard cursor ("h"), anchored to its row. */}
-      {kbSnooze && (
+      {/* Snooze picker for a row action or the keyboard cursor ("h"). */}
+      {snoozePicker && (
         <SnoozePicker
-          threadId={kbSnooze.threadId}
-          anchor={kbSnooze.anchor}
-          onClose={() => setKbSnooze(null)}
+          threadId={snoozePicker.threadId}
+          anchor={snoozePicker.anchor}
+          onClose={() => setSnoozePicker(null)}
         />
       )}
     </>

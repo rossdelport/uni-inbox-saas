@@ -770,13 +770,20 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 /* Snooze picker: portalled menu, fixed-positioned from the anchor chip. */
 .snz-pop{position:fixed;z-index:80;background:#fff;border-radius:14px;padding:6px;
   box-shadow:var(--sh-float);border:1px solid var(--line)}
+.snz-title{padding:5px 10px 4px;font-size:10.5px;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink3)}
 .snz-item{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
   padding:7.5px 10px;border-radius:9px;font-size:12.6px;font-weight:600;color:var(--ink);text-align:left}
 .snz-item:hover{background:rgba(var(--b1-rgb),.07)}
+.snz-item:disabled{cursor:wait;opacity:.55}
 .snz-item i{font-style:normal;font-size:11px;color:var(--ink3);white-space:nowrap}
-.snz-custom{display:flex;gap:6px;margin-top:4px;padding:6px 4px 2px;border-top:1px solid var(--line)}
-.snz-custom input{flex:1;min-width:0;height:28px;border:1.5px solid var(--line);border-radius:8px;
+.snz-custom-toggle.active{background:rgba(var(--b1-rgb),.09);color:var(--b1-ink)}
+.snz-custom{display:flex;align-items:flex-end;gap:6px;margin-top:4px;padding:8px 4px 2px;border-top:1px solid var(--line)}
+.snz-custom label{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.snz-custom label span{font-size:9.5px;font-weight:700;color:var(--ink3)}
+.snz-custom input{width:54px;min-width:0;height:28px;border:1.5px solid var(--line);border-radius:8px;
   padding:0 8px;font-size:11.5px;color:var(--ink)}
+.snz-custom .btn-mini{height:28px;padding:0 9px;flex:none}
 .snz-when{color:var(--b1-ink);font-weight:600}
 
 /* AI summaries. Blue is the only accent in this app, and the summary strip
@@ -1163,7 +1170,14 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
   border:1px solid transparent;border-bottom-color:rgba(15,35,58,.065);
   border-radius:0;background:#fff;box-shadow:none;text-align:left;transition:background .14s,border-color .14s}
 .mrow:first-child{border-top-color:rgba(15,35,58,.065)}
-.mrow:hover{background:#f7faff;border-color:rgba(15,35,58,.065);border-radius:12px;box-shadow:none;transform:none}
+.mrow:hover{
+  /* Keep the hover cue tied to the inbox this message came from. The tint is
+     intentionally very light so sender text stays readable while the account
+     colour remains useful at a glance in the unified inbox. */
+  background:color-mix(in srgb,var(--acc,var(--b1)) 7%,#fff);
+  border-color:color-mix(in srgb,var(--acc,var(--b1)) 20%,#fff);
+  border-radius:12px;box-shadow:none;transform:none
+}
 .mrow.before-sel{border-bottom-color:transparent}
 .mrow.sel{
   margin:0 0 5px;border-color:transparent;border-radius:12px;
