@@ -67,16 +67,24 @@ export function appOrigin(): string {
 // ---- signed state for the authorize round-trip ----
 const STATE_KEY = Buffer.from(env.CREDENTIALS_KEY, "base64");
 
-export function signState(uid: string, provider: OauthProvider): string {
+export type OauthClient = "web" | "mobile";
+
+export function signState(
+  uid: string,
+  provider: OauthProvider,
+  client: OauthClient = "web",
+): string {
   const payload = Buffer.from(
-    JSON.stringify({ uid, provider, ts: Date.now(), n: randomBytes(8).toString("hex") }),
+    JSON.stringify({ uid, provider, client, ts: Date.now(), n: randomBytes(8).toString("hex") }),
     "utf8",
   ).toString("base64url");
   const mac = createHmac("sha256", STATE_KEY).update(payload).digest("base64url");
   return `${payload}.${mac}`;
 }
 
-export function verifyState(state: string): { uid: string; provider: OauthProvider } | null {
+export function verifyState(
+  state: string,
+): { uid: string; provider: OauthProvider; client: OauthClient } | null {
   const [payload, mac] = state.split(".");
   if (!payload || !mac) return null;
   const expect = createHmac("sha256", STATE_KEY).update(payload).digest("base64url");
@@ -87,11 +95,13 @@ export function verifyState(state: string): { uid: string; provider: OauthProvid
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
       uid: string;
       provider: OauthProvider;
+      client?: OauthClient;
       ts: number;
     };
     if (Date.now() - data.ts > 15 * 60_000) return null; // stale
     if (data.provider !== "google" && data.provider !== "microsoft") return null;
-    return { uid: data.uid, provider: data.provider };
+    if (data.client && data.client !== "web" && data.client !== "mobile") return null;
+    return { uid: data.uid, provider: data.provider, client: data.client ?? "web" };
   } catch {
     return null;
   }

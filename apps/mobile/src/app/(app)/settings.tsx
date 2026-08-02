@@ -13,10 +13,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { User } from "@supabase/supabase-js";
 import { Button, ColorDots, Field, Input, PasswordField } from "@/components/Field";
 import { ConnectAccountSheet } from "@/components/ConnectAccountSheet";
-import { WEB_URL } from "@/lib/config";
 import {
   useAccounts,
   useBillingState,
+  useDeleteOwnAccount,
   useRemoveAccount,
   useUpdateAccount,
 } from "@/lib/queries";
@@ -29,7 +29,7 @@ import type { EmailAccount } from "@/lib/types";
 //
 // The Plan section is intentionally read-only. The web version sells here;
 // this one cannot, because Apple's Guideline 3.1.1 forbids offering a
-// digital subscription outside their IAP. It reports state and links out.
+// digital subscription outside their IAP. It reports state only.
 
 type Pane = "profile" | "accounts" | "plan";
 
@@ -95,6 +95,7 @@ function ProfilePane() {
   const [password2, setPassword2] = useState("");
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const deleteAccount = useDeleteOwnAccount();
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => {
@@ -122,6 +123,24 @@ function ProfilePane() {
     setPassword("");
     setPassword2("");
     setMsg({ text: "Password updated.", bad: false });
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      "Delete your OneInbox account?",
+      "This permanently deletes your OneInbox account, connected inbox copies, and settings. It does not delete mail from Gmail, Outlook, or your other providers.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete forever",
+          style: "destructive",
+          onPress: () =>
+            deleteAccount.mutate(undefined, {
+              onSuccess: () => void supabase.auth.signOut(),
+            }),
+        },
+      ],
+    );
   };
 
   return (
@@ -155,7 +174,30 @@ function ProfilePane() {
         <Text style={[styles.note, { color: msg.bad ? t.danger : t.accent }]}>{msg.text}</Text>
       ) : null}
 
+      <View style={[styles.card, { backgroundColor: t.card, borderColor: t.line }]}>
+        <Text style={[styles.cardTitle, { color: t.text }]}>Help and privacy</Text>
+        <Button
+          label="Privacy policy"
+          variant="ghost"
+          onPress={() => void Linking.openURL("https://tryoneinbox.co/privacy")}
+        />
+        <Button
+          label="Help and support"
+          variant="ghost"
+          onPress={() => void Linking.openURL("https://tryoneinbox.co/contacts/")}
+        />
+      </View>
+
       <Button label="Sign out" variant="danger" onPress={() => void supabase.auth.signOut()} />
+      <Button
+        label="Delete account"
+        variant="danger"
+        busy={deleteAccount.isPending}
+        onPress={confirmDelete}
+      />
+      {deleteAccount.error ? (
+        <Text style={[styles.note, { color: t.danger }]}>{deleteAccount.error.message}</Text>
+      ) : null}
     </ScrollView>
   );
 }
@@ -353,7 +395,7 @@ function PlanPane() {
               ? billing.trial_expired
                 ? "Trial ended"
                 : `Free trial, ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
-              : billing.price_label
+              : "Active"
             : ""}
         </Text>
 
@@ -369,11 +411,7 @@ function PlanPane() {
         ) : null}
       </View>
 
-      <Text style={[styles.note, { color: t.sub }]}>
-        Plans and billing are managed on the web. Open tryoneinbox.co to change your plan, update
-        your card or see invoices.
-      </Text>
-      <Button label="Open tryoneinbox.co" onPress={() => void Linking.openURL(WEB_URL)} />
+      <Text style={[styles.note, { color: t.sub }]}>Your current account status is shown here.</Text>
     </ScrollView>
   );
 }

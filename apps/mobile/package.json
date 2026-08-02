@@ -6,8 +6,9 @@
   "//react-dom": "Pinned even though nothing here renders to the DOM. expo-router declares react-dom as an optional peer, so with no pin npm installs the latest (19.2.8), which requires React ^19.2.8 and conflicts with the React 19.1.0 that SDK 54 needs. Newer npm refuses to install at all; older npm resolves it into a lockfile that only works by luck.",
   "scripts": {
     "start": "expo start",
-    "ios": "expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "android": "expo run:android"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

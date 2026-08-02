@@ -229,7 +229,7 @@ export default function InboxScreen() {
           </Text>
           {accounts && accounts.length === 0 ? (
             <Text style={[styles.emptyBody, { color: t.sub }]}>
-              Connect your mailboxes on the web at tryoneinbox.co, they'll show up here.
+              Open Settings, choose Accounts, then tap Add account.
             </Text>
           ) : null}
         </View>

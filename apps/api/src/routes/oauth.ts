@@ -38,6 +38,9 @@ oauthRouter.post("/:provider/start", (req, res) => {
   if (!oauthConfigured(provider)) {
     return res.status(503).json({ error: "This sign-in method is not set up yet." });
   }
+  // The only non-web return target is a fixed app scheme. Never accept an
+  // arbitrary URL here: signed state would otherwise become an open redirect.
+  const client = req.body?.client === "mobile" ? "mobile" : "web";
   const c = OAUTH_PROVIDERS[provider];
   const params = new URLSearchParams({
     client_id: c.clientId() ?? "",
@@ -45,7 +48,7 @@ oauthRouter.post("/:provider/start", (req, res) => {
     response_type: "code",
     response_mode: "query",
     scope: c.scope,
-    state: signState(userId(res), provider),
+    state: signState(userId(res), provider, client),
   });
   if (provider === "google") {
     params.set("access_type", "offline");
@@ -59,11 +62,15 @@ oauthRouter.post("/:provider/start", (req, res) => {
 /** Public callback (mounted before the auth gate in index.ts). */
 export async function oauthCallback(req: Request, res: Response) {
   const provider = req.params.provider as OauthProvider;
-  const back = (q: string) => res.redirect(`${env.DASHBOARD_URL}?${q}`);
-  if (provider !== "google" && provider !== "microsoft") return back("connect_error=unknown_provider");
+  const webBack = (q: string) => res.redirect(`${env.DASHBOARD_URL}?${q}`);
+  if (provider !== "google" && provider !== "microsoft") {
+    return webBack("connect_error=unknown_provider");
+  }
 
   const state = verifyState(String(req.query.state ?? ""));
-  if (!state || state.provider !== provider) return back("connect_error=bad_state");
+  if (!state || state.provider !== provider) return webBack("connect_error=bad_state");
+  const back = (q: string) =>
+    res.redirect(state.client === "mobile" ? `oneinbox://oauth?${q}` : `${env.DASHBOARD_URL}?${q}`);
   if (req.query.error) {
     const providerError = String(req.query.error);
     logger.warn(

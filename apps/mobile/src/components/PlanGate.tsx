@@ -1,16 +1,13 @@
 import { useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { WEB_URL } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 
 // Shown instead of the app when the signed-in user has no active plan.
 // Deliberately NOT the web dashboard's paywall: Apple Guideline 3.1.1 forbids
 // selling digital subscriptions outside IAP, so this screen never shows a
-// price or a checkout, it just points at the website for account management.
-// Revisit the "open website" button before App Store submission (external
-// purchase links need an entitlement); for the dev build it is a convenience.
+// price, checkout, external purchase link or call to action.
 export function PlanGate({ email }: { email: string }) {
   const t = useTheme();
   const qc = useQueryClient();
@@ -29,17 +26,8 @@ export function PlanGate({ email }: { email: string }) {
       <Text style={[styles.title, { color: t.text }]}>Your plan is not active</Text>
       <Text style={[styles.body, { color: t.sub }]}>
         You are signed in as {email}, but this account does not have an active OneInbox plan.
-        Manage your plan on the web at tryoneinbox.co, then come back here.
+        If you recently made a change, tap Check again.
       </Text>
-      <Pressable
-        onPress={() => void Linking.openURL(WEB_URL)}
-        style={({ pressed }) => [
-          styles.button,
-          { backgroundColor: t.accent, opacity: pressed ? 0.85 : 1 },
-        ]}
-      >
-        <Text style={styles.buttonText}>Open tryoneinbox.co</Text>
-      </Pressable>
       <Pressable
         onPress={recheck}
         disabled={checking}
@@ -69,15 +57,6 @@ const styles = StyleSheet.create({
   brand: { fontSize: 18, fontWeight: "800", letterSpacing: 4, marginBottom: 16 },
   title: { fontSize: 22, fontWeight: "700" },
   body: { fontSize: 15, lineHeight: 22, textAlign: "center" },
-  button: {
-    marginTop: 12,
-    height: 44,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   recheck: { paddingHorizontal: 16, paddingVertical: 10, minHeight: 38, justifyContent: "center" },
   recheckText: { fontSize: 14, fontWeight: "600" },
   signOut: { padding: 10 },

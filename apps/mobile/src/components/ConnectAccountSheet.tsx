@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, ColorDots, Field, Input, PasswordField } from "./Field";
 import { Sheet } from "./Sheet";
-import { WEB_URL } from "@/lib/config";
 import {
   useBillingState,
   useConnectAccount,
@@ -22,7 +21,7 @@ import type { AccountInput, DiscoverResult, TestResult } from "@/lib/types";
 // One deliberate difference. On the web, hitting the plan limit turns this
 // into the paywall with prices and a checkout button. That cannot ship on
 // iOS (Guideline 3.1.1 forbids selling a subscription outside Apple's IAP),
-// so the limit state here states the facts and points at the website.
+// so the limit state here states the facts without a purchase call to action.
 
 type ProviderKey = "gmail" | "icloud" | "outlook" | "custom";
 
@@ -58,7 +57,7 @@ export function ConnectAccountSheet({
       <Sheet
         visible={visible}
         title="Your plan is full"
-        subtitle="Manage your plan on the web to make room for another mailbox."
+        subtitle="Remove a mailbox you no longer need to make room for another."
         onClose={onClose}
         heightRatio={0.55}
       >
@@ -72,10 +71,9 @@ export function ConnectAccountSheet({
             </Text>
           </View>
           <Text style={[styles.note, { color: t.sub }]}>
-            You can change your plan, or remove an account you no longer need, at tryoneinbox.co.
-            Removing one here frees a slot too.
+            Close this window and remove an account from the Accounts screen. Your original mailbox
+            is never deleted.
           </Text>
-          <Button label="Open tryoneinbox.co" onPress={() => void Linking.openURL(WEB_URL)} />
         </ScrollView>
       </Sheet>
     );
@@ -182,10 +180,17 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
     setError(null);
     oauthStart.mutate(provider, {
       onSuccess: async ({ url }) => {
-        // The callback lands on the web dashboard and connects the account
-        // server-side, so there is nothing to deep-link back into. Open it,
-        // let them approve, and refresh the list when they return.
-        await WebBrowser.openAuthSessionAsync(url, `${WEB_URL}/app`);
+        // The provider returns to the API, which completes the connection and
+        // then redirects to this fixed app scheme. That closes the secure auth
+        // session back into OneInbox rather than stranding the user on the web.
+        const result = await WebBrowser.openAuthSessionAsync(url, "oneinbox://oauth");
+        if (result.type !== "success") return;
+        const callback = new URL(result.url);
+        const callbackError = callback.searchParams.get("connect_error");
+        if (callbackError) {
+          setError("That account could not be connected. Please try again.");
+          return;
+        }
         void qc.invalidateQueries({ queryKey: ["accounts"] });
         void qc.invalidateQueries({ queryKey: ["billing"] });
         void qc.invalidateQueries({ queryKey: ["inbox"] });

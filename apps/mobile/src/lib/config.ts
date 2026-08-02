@@ -11,7 +11,3 @@ export const SUPABASE_URL =
 export const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFma2drbWhzaGl0Zm9wZGRhZGJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MDA0MDEsImV4cCI6MjA5NjM3NjQwMX0.NojauhgcZGTH7KVvo6rCoNqkBYnfV_F34EcIEtwhyUU";
-
-/** Where account management and billing live. The app never sells anything
- *  (Apple Guideline 3.1.1); it points at the website instead. */
-export const WEB_URL = "https://tryoneinbox.co";

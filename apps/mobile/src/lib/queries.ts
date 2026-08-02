@@ -253,9 +253,8 @@ export function useDeleteThread() {
 }
 
 // Account management. Deliberately no useCheckout / useAddSeat here: those
-// start a purchase, and Apple's Guideline 3.1.1 forbids selling a digital
-// subscription anywhere but their own IAP. Everything money-shaped points at
-// the website instead.
+// start a purchase, and the iOS app is a read/write companion to an existing
+// OneInbox account rather than a purchase surface.
 
 export function useOauthProviders() {
   return useQuery({
@@ -266,10 +265,23 @@ export function useOauthProviders() {
   });
 }
 
+export function useDeleteOwnAccount() {
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>("/api/account", {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: "DELETE" }),
+      }),
+  });
+}
+
 export function useOauthStartUrl() {
   return useMutation({
     mutationFn: (provider: "google" | "microsoft") =>
-      api<{ url: string }>(`/api/oauth/${provider}/start`, { method: "POST" }),
+      api<{ url: string }>(`/api/oauth/${provider}/start`, {
+        method: "POST",
+        body: JSON.stringify({ client: "mobile" }),
+      }),
   });
 }
 
