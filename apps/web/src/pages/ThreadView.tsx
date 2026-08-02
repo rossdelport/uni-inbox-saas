@@ -14,6 +14,7 @@ import { formatWhen, senderLabel } from "../lib/format.js";
 import { KP, useHotkeys } from "../lib/keyboard.js";
 import { composerDirty, requestReply } from "../lib/composerIntent.js";
 import { MessageBody } from "../components/MessageBody.js";
+import { ContactAutocompleteInput } from "../components/ContactAutocompleteInput.js";
 import { SenderAvatar } from "../components/SenderAvatar.js";
 import { ReplyComposer } from "../components/ReplyComposer.js";
 import { SnoozePicker } from "../components/SnoozePicker.js";
@@ -406,11 +407,11 @@ function ForwardBox({
     <div className="read-reply" style={{ margin: "0 0 16px" }}>
       <div className="field" style={{ marginTop: 0 }}>
         <label>Forward to</label>
-        <input
+        <ContactAutocompleteInput
           autoFocus
           placeholder="name@example.com, other@example.com"
           value={to}
-          onChange={(e) => setTo(e.target.value)}
+          onChange={setTo}
         />
       </div>
       <div className="field">

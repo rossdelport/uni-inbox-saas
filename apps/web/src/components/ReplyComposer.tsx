@@ -9,6 +9,7 @@ import {
 import { toast } from "../lib/toast.js";
 import { KP, useHotkeys } from "../lib/keyboard.js";
 import { onComposerDirty, onReplyIntent } from "../lib/composerIntent.js";
+import { ContactAutocompleteInput } from "./ContactAutocompleteInput.js";
 
 const MAX_FILES = 5;
 const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
@@ -360,18 +361,18 @@ export function ReplyComposer({
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
           <div className="field" style={{ marginTop: 0 }}>
             <label>Cc</label>
-            <input
+            <ContactAutocompleteInput
               placeholder="name@example.com"
               value={cc}
-              onChange={(e) => setCc(e.target.value)}
+              onChange={setCc}
             />
           </div>
           <div className="field" style={{ marginTop: 0 }}>
             <label>Bcc</label>
-            <input
+            <ContactAutocompleteInput
               placeholder="name@example.com"
               value={bcc}
-              onChange={(e) => setBcc(e.target.value)}
+              onChange={setBcc}
             />
           </div>
         </div>

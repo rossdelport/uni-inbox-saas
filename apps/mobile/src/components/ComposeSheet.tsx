@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Field, Input } from "./Field";
+import { ContactAutocompleteInput } from "./ContactAutocompleteInput";
 import { Sheet } from "./Sheet";
 import { useAccounts, useCompose } from "@/lib/queries";
 import { useTheme } from "@/lib/theme";
@@ -144,7 +145,7 @@ export function ComposeSheet({ visible, onClose }: { visible: boolean; onClose: 
         </Field>
 
         <Field label="To">
-          <Input
+          <ContactAutocompleteInput
             inputAccessoryViewID={keyboardAccessoryId}
             keyboardType="email-address"
             autoCapitalize="none"

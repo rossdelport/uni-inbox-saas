@@ -8,6 +8,7 @@ import type {
   AccountInput,
   DiscoverResult,
   BillingState,
+  ContactSuggestion,
   EmailAccount,
   InboxPage,
   Message,
@@ -36,6 +37,21 @@ export function useAccounts() {
     queryKey: ["accounts"],
     queryFn: () => api<EmailAccount[]>("/api/accounts"),
     refetchInterval: 30_000,
+  });
+}
+
+export function useContacts(query: string, accountId?: string | null) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: ["contacts", accountId ?? "all", q],
+    queryFn: async () => {
+      const params = new URLSearchParams({ q, limit: "8" });
+      if (accountId) params.set("account", accountId);
+      return api<{ contacts: ContactSuggestion[] }>(`/api/contacts?${params.toString()}`);
+    },
+    enabled: q.length > 0,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 }
 

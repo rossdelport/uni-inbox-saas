@@ -20,6 +20,15 @@ export interface EmailAccount {
   created_at: string;
 }
 
+/** A recipient suggestion derived from this user's synced mail metadata. */
+export interface ContactSuggestion {
+  email: string;
+  display_name: string | null;
+  frequency: number;
+  last_seen_at: string;
+  account_ids: string[];
+}
+
 export interface ThreadSummary {
   id: string;
   account_id: string;

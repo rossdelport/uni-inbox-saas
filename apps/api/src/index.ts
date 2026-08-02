@@ -21,6 +21,7 @@ import { oauthRouter } from "./routes/oauth.js";
 import { metricsRouter } from "./routes/metrics.js";
 import { adminRouter } from "./routes/admin.js";
 import { accountRouter } from "./routes/account.js";
+import { contactsRouter } from "./routes/contacts.js";
 
 const app = express();
 // Railway terminates TLS at its proxy; trust exactly one hop so req.ip is the
@@ -151,6 +152,7 @@ app.use("/api/billing", billingRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/outbox", outboxRouter);
 app.use("/api/snippets", snippetsRouter);
+app.use("/api/contacts", contactsRouter);
 app.use("/api/accounts", accountsRouter);
 app.use("/api/inbox", inboxRouter);
 app.use("/api", messagesRouter); // /api/threads/:id, /api/messages/:id/attachments/:partId

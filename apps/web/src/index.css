@@ -599,6 +599,18 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .delivery-status.is-sent .delivery-sending{opacity:0;transform:translateY(12px) rotateX(-72deg)}
 .delivery-status.is-sent .delivery-sent{opacity:1;transform:translateY(0) rotateX(0deg)}
 @media(prefers-reduced-motion:reduce){.delivery-label{transition:none}}
+
+/* Recipient suggestions: the input remains a normal form control, while the
+   menu floats above the composer so selecting a person never shifts the form. */
+.contact-autocomplete{position:relative;width:100%}
+.contact-autocomplete>input{width:100%}
+.contact-suggestions{position:absolute;z-index:30;top:calc(100% + 6px);left:0;right:0;display:flex;flex-direction:column;padding:5px;border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:0 16px 34px rgba(12,37,64,.16)}
+.contact-suggestion{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;min-height:43px;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--ink);text-align:left;cursor:pointer}
+.contact-suggestion:hover,.contact-suggestion.active{background:rgba(2,20,50,.045)}
+.contact-suggestion-main{display:flex;min-width:0;flex-direction:column;gap:2px}
+.contact-suggestion-name{overflow:hidden;font-size:13px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.contact-suggestion-email{overflow:hidden;color:var(--ink3);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.contact-suggestion-count{flex:none;color:var(--ink3);font-size:11px}
 .gm-body{padding:0 0 16px 42px;font-size:13px;line-height:1.65;color:rgba(0,0,0,.78)}
 .gm-body p{margin-bottom:12px}
 .gm-older{display:block;margin:8px auto;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:11px;font-weight:600;color:var(--ink2);cursor:pointer}

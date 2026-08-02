@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAccounts, useCompose } from "../lib/queries.js";
 import { toast } from "../lib/toast.js";
 import { KP, useHotkeys } from "../lib/keyboard.js";
+import { ContactAutocompleteInput } from "../components/ContactAutocompleteInput.js";
 
 // Fresh compose: the ONE place where the from-account is an explicit choice.
 export function Compose() {
@@ -104,11 +105,11 @@ export function Compose() {
           </div>
           <div className="field">
             <label>To</label>
-            <input
+            <ContactAutocompleteInput
               required
               placeholder="name@example.com, other@example.com"
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={setTo}
             />
           </div>
           <div className="field">
