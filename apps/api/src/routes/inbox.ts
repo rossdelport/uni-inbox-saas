@@ -447,6 +447,7 @@ inboxRouter.post("/threads/:id/snooze", async (req, res) => {
     .update({
       snooze_until: until.toISOString(),
       snoozed_at: new Date().toISOString(),
+      snooze_woke_at: null,
       read_later: true,
     })
     .eq("id", thread.id);
@@ -491,13 +492,18 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
               : op === "unstar"
                 ? { starred: false }
                 : op === "later"
-                  ? { read_later: true }
+                  ? { read_later: true, snooze_woke_at: null }
                   : op === "unlater"
                     // Also clears any snooze: "remove from Later" is the only
                     // unsnooze the installed iOS build has, and without this a
                     // snoozed thread it removed would stay hidden from the
                     // Inbox until its wake time with no way to see why.
-                    ? { read_later: false, snooze_until: SNOOZE_NONE, snoozed_at: null }
+                    ? {
+                        read_later: false,
+                        snooze_until: SNOOZE_NONE,
+                        snoozed_at: null,
+                        snooze_woke_at: null,
+                      }
                     : { deleted_at: null }; // restore from trash
   await supabase.from("threads").update(local).eq("id", thread.id);
   if (op === "read" || op === "unread") {
