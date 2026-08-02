@@ -592,6 +592,13 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .gm-meta{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gm-when{margin-left:auto;font-size:10.6px;color:var(--ink3);flex:none;padding-left:10px}
 .gm-snip{font-size:11.8px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.delivery-status{position:relative;display:inline-block;width:66px;height:16px;overflow:hidden;vertical-align:middle;color:var(--b1);font-size:11px;font-weight:700;line-height:16px;white-space:nowrap;perspective:180px}
+.delivery-label{position:absolute;inset:0;display:block;transform-origin:50% 50%;transition:transform .34s cubic-bezier(.22,1,.36,1),opacity .24s ease}
+.delivery-sending{opacity:1;transform:translateY(0) rotateX(0deg)}
+.delivery-sent{opacity:0;transform:translateY(-12px) rotateX(72deg)}
+.delivery-status.is-sent .delivery-sending{opacity:0;transform:translateY(12px) rotateX(-72deg)}
+.delivery-status.is-sent .delivery-sent{opacity:1;transform:translateY(0) rotateX(0deg)}
+@media(prefers-reduced-motion:reduce){.delivery-label{transition:none}}
 .gm-body{padding:0 0 16px 42px;font-size:13px;line-height:1.65;color:rgba(0,0,0,.78)}
 .gm-body p{margin-bottom:12px}
 .gm-older{display:block;margin:8px auto;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:11px;font-weight:600;color:var(--ink2);cursor:pointer}

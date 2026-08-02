@@ -10,6 +10,7 @@ import type {
   BillingState,
   EmailAccount,
   InboxPage,
+  Message,
   TestResult,
   ThreadDetail,
 } from "./types.js";
@@ -92,6 +93,83 @@ export interface InboxView {
   q?: string;
 }
 
+interface PendingReply {
+  message: Message;
+  state: "sending" | "sent";
+}
+
+const pendingReplyKey = (threadId: string) => ["pending-replies", threadId] as const;
+
+const comparableBody = (body: string | null) =>
+  (body ?? "").replace(/\r\n/g, "\n").trim();
+
+/** Keep an optimistic reply in a fresh server response until the matching
+ * outbound row exists. This protects the open thread from a stale read
+ * during SMTP/IMAP reconciliation, just like the iOS client. */
+function mergePendingReplies(detail: ThreadDetail, pending: PendingReply[]) {
+  if (pending.length === 0) return { detail, matchedIds: [] as string[] };
+
+  const messages = detail.messages.map((message) => ({ ...message }));
+  const claimedServerIndexes = new Set<number>();
+  const matchedIds: string[] = [];
+  const unmatched: PendingReply[] = [];
+
+  for (const reply of pending) {
+    const sentAt = Date.parse(reply.message.date);
+    let matchIndex = -1;
+    let closest = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < messages.length; index += 1) {
+      if (claimedServerIndexes.has(index)) continue;
+      const candidate = messages[index];
+      if (!candidate) continue;
+      if (candidate.direction !== "outbound") continue;
+      if (comparableBody(candidate.body_text) !== comparableBody(reply.message.body_text)) continue;
+      if (candidate.from_address.toLowerCase() !== reply.message.from_address.toLowerCase()) continue;
+
+      const delta = Math.abs(Date.parse(candidate.date) - sentAt);
+      if (!Number.isFinite(delta) || delta > 10 * 60_000) continue;
+      if (delta < closest) {
+        closest = delta;
+        matchIndex = index;
+      }
+    }
+
+    if (matchIndex >= 0) {
+      const matched = messages[matchIndex];
+      if (!matched) continue;
+      claimedServerIndexes.add(matchIndex);
+      matchedIds.push(reply.message.id);
+      messages[matchIndex] = {
+        ...matched,
+        // Keep the optimistic id for this render so the card can animate its
+        // label instead of unmounting and letting the old message reopen.
+        id: reply.message.id,
+        client_delivery_state: "sent",
+      };
+    } else {
+      unmatched.push(reply);
+      messages.push({ ...reply.message, client_delivery_state: reply.state });
+    }
+  }
+
+  messages.sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+  const newest = messages[messages.length - 1];
+  return {
+    matchedIds,
+    detail: {
+      ...detail,
+      thread: {
+        ...detail.thread,
+        message_count: detail.thread.message_count + unmatched.length,
+        last_message_at: newest?.date ?? detail.thread.last_message_at,
+        snippet: newest?.snippet ?? detail.thread.snippet,
+      },
+      messages,
+    },
+  };
+}
+
 export function useInbox(view: InboxView) {
   const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, split = null, q = "" } = view;
   return useInfiniteQuery({
@@ -122,9 +200,23 @@ export function useInbox(view: InboxView) {
 }
 
 export function useThread(threadId: string | null) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ["thread", threadId],
-    queryFn: () => api<ThreadDetail>(`/api/threads/${threadId}`),
+    queryFn: async () => {
+      if (!threadId) throw new Error("thread id is required");
+      const remote = await api<ThreadDetail>(`/api/threads/${threadId}`);
+      const key = pendingReplyKey(threadId);
+      const pending = qc.getQueryData<PendingReply[]>(key) ?? [];
+      const merged = mergePendingReplies(remote, pending);
+      if (merged.matchedIds.length > 0) {
+        const matched = new Set(merged.matchedIds);
+        qc.setQueryData<PendingReply[]>(key, (current = []) =>
+          current.filter((reply) => !matched.has(reply.message.id)),
+        );
+      }
+      return merged.detail;
+    },
     enabled: Boolean(threadId),
   });
 }
@@ -272,14 +364,18 @@ export function useThreadOp() {
       // quietly one lower than the truth until the next refetch.
       if (ctx?.countsBefore) qc.setQueryData(["unread-counts"], ctx.countsBefore);
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
-      void qc.invalidateQueries({ queryKey: ["thread"] });
       // Opening a thread marks it read, and read/unread/archive all move the
       // badge. Without this the count is server-held and nothing tells it to
       // refetch, so it sat unchanged until the 60s poll: you clicked four
       // emails and the "4" stayed put.
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+      // Reading does not change the message body. Avoid fetching the open
+      // thread again while an optimistic reply may be settling.
+      if (variables?.op !== "read") {
+        void qc.invalidateQueries({ queryKey: ["thread"] });
+      }
     },
   });
 }
@@ -423,10 +519,118 @@ export function useReply() {
         // resolves to the same outbox row server-side.
         body: JSON.stringify({ body_text, body_html, attachments, cc, bcc, send_at, client_token: crypto.randomUUID() }),
       }),
-    onSuccess: (_data, { threadId }) => {
-      void qc.invalidateQueries({ queryKey: ["thread", threadId] });
+    onMutate: async ({ threadId, body_text, body_html, attachments, cc, send_at }) => {
+      await qc.cancelQueries({ queryKey: ["thread", threadId] });
+      const previous = qc.getQueryData<ThreadDetail>(["thread", threadId]);
+      // Send Later creates an outbox row but not a message yet. Keep the
+      // existing outbox-only UX for scheduled mail; immediate replies get
+      // the optimistic thread treatment below.
+      if (!previous || send_at) return { previous, optimisticId: null };
+
+      const now = new Date().toISOString();
+      const optimistic: Message = {
+        id: `optimistic-${Date.now()}`,
+        thread_id: threadId,
+        account_id: previous.thread.account_id,
+        from_name: null,
+        from_address: previous.thread.account_email,
+        to_addresses: [],
+        cc_addresses: cc ?? [],
+        subject: previous.thread.subject,
+        date: now,
+        body_text,
+        body_html: body_html ?? null,
+        snippet: body_text.replace(/\s+/g, " ").trim().slice(0, 140),
+        seen: true,
+        direction: "outbound",
+        // The server will add the real metadata during reconciliation. The
+        // visible reply itself is complete immediately, including rich HTML.
+        attachments: attachments?.map((attachment, index) => ({
+          partId: `optimistic-${index + 1}`,
+          filename: attachment.filename,
+          contentType: attachment.content_type ?? "application/octet-stream",
+          size: Math.floor((attachment.data_base64.length * 3) / 4),
+        })) ?? [],
+        client_delivery_state: "sending",
+      };
+      qc.setQueryData<PendingReply[]>(pendingReplyKey(threadId), (current = []) => [
+        ...current,
+        { message: optimistic, state: "sending" },
+      ]);
+      qc.setQueryData<ThreadDetail>(["thread", threadId], {
+        ...previous,
+        thread: {
+          ...previous.thread,
+          last_message_at: now,
+          message_count: previous.thread.message_count + 1,
+          snippet: optimistic.snippet,
+        },
+        messages: [...previous.messages, optimistic],
+      });
+      return { previous, optimisticId: optimistic.id };
+    },
+    onError: (_error, { threadId }, context) => {
+      if (context?.optimisticId) {
+        qc.setQueryData<PendingReply[]>(pendingReplyKey(threadId), (current = []) =>
+          current.filter((reply) => reply.message.id !== context.optimisticId),
+        );
+      }
+      if (context?.previous) qc.setQueryData(["thread", threadId], context.previous);
+    },
+    onSuccess: (data, { threadId }, context) => {
+      const optimisticId = context?.optimisticId;
+
+      // SMTP accepted an immediate send. Flip only the label; the reply card
+      // and its key stay mounted so the text can roll into Sent in place.
+      if (optimisticId && !data.queued) {
+        qc.setQueryData<PendingReply[]>(pendingReplyKey(threadId), (current = []) =>
+          current.map((reply) =>
+            reply.message.id === optimisticId ? { ...reply, state: "sent" } : reply,
+          ),
+        );
+        qc.setQueryData<ThreadDetail>(["thread", threadId], (current) =>
+          current
+            ? {
+                ...current,
+                messages: current.messages.map((message) =>
+                  message.id === optimisticId
+                    ? { ...message, client_delivery_state: "sent" }
+                    : message,
+                ),
+              }
+            : current,
+        );
+      }
+
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["outbox"] });
+      if (!optimisticId) return;
+
+      // Reconcile in the background, but only while this exact optimistic
+      // reply is still pending. useThread merges stale responses with it, so
+      // the message cannot disappear during the handover.
+      const delays = data.queued
+        ? [800, 1_500, 3_000, 6_000, 10_000, 15_000, 30_000]
+        : [200, 600, 1_200, 2_500, 5_000, 10_000];
+      const reconcile = (attempt: number) => {
+        if (attempt >= delays.length) return;
+        const stillPending = () =>
+          (qc.getQueryData<PendingReply[]>(pendingReplyKey(threadId)) ?? []).some(
+            (reply) => reply.message.id === optimisticId,
+          );
+        if (!stillPending()) return;
+
+        setTimeout(() => {
+          if (!stillPending()) return;
+          void qc
+            .refetchQueries({ queryKey: ["thread", threadId], exact: true, type: "active" })
+            .then(
+              () => reconcile(attempt + 1),
+              () => reconcile(attempt + 1),
+            );
+        }, delays[attempt]);
+      };
+      reconcile(0);
     },
   });
 }

@@ -111,6 +111,20 @@ export default function InboxScreen() {
     });
   }, [activeAccountIds, qc, syncAccounts]);
 
+  const selectAccount = useCallback(
+    (nextAccountId: string) => {
+      // Tapping the already-selected account is a quick way out of a
+      // Starred/Later/etc. view. Keep that mailbox selected, clear the view
+      // filter, and let the account-scoped inbox query show every message.
+      if (accountId === nextAccountId && viewKey !== "inbox") {
+        setViewKey("inbox");
+        return;
+      }
+      setAccountId(nextAccountId);
+    },
+    [accountId, viewKey],
+  );
+
   const threads = useMemo(
     () => inbox.data?.pages.flatMap((p) => p.threads) ?? [],
     [inbox.data],
@@ -240,7 +254,7 @@ export default function InboxScreen() {
                 key={a.id}
                 label={a.label}
                 active={accountId === a.id}
-                onPress={() => setAccountId(a.id)}
+                onPress={() => selectAccount(a.id)}
                 dotColor={a.color}
                 count={counts?.by_account[a.id] ?? 0}
               />

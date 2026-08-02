@@ -115,6 +115,14 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   const { thread, messages } = data;
   const lastIdx = messages.length - 1;
   const last = messages[lastIdx];
+  // Lock the older messages only during the live handoff. Once the reply is
+  // Sent, normal toggling returns so the user can reopen the email they just
+  // answered (the previous version kept it locked forever).
+  const replyHandoff =
+    last?.direction === "outbound" &&
+    (last.client_delivery_state === "sending" ||
+      (last.id.startsWith("optimistic-") && !last.client_delivery_state));
+  const replyingToId = replyHandoff ? messages[lastIdx - 1]?.id : null;
   const replyTo =
     last?.direction === "outbound" ? "them" : senderLabel(last?.from_name ?? null, last?.from_address ?? null);
 
@@ -217,7 +225,14 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
             );
           }
           const isLast = i === lastIdx;
-          const open = isLast !== toggled.has(m.id);
+          // A reply always closes the message it answers. Keeping this
+          // explicit means a stale refresh cannot reopen that message while
+          // the optimistic outgoing card is changing to Sent.
+          const open = replyHandoff
+            ? isLast
+            : m.id === replyingToId
+              ? false
+              : isLast !== toggled.has(m.id);
           return (
             <GmMessage
               key={m.id}
@@ -427,6 +442,23 @@ function ForwardBox({
   );
 }
 
+type DeliveryState = NonNullable<Message["client_delivery_state"]>;
+
+/** A small vertical text roll that keeps the outgoing row's height fixed. */
+function DeliveryStatus({ state }: { state: DeliveryState }) {
+  return (
+    <span
+      className={`delivery-status ${state === "sent" ? "is-sent" : ""}`}
+      role="status"
+      aria-live="polite"
+      aria-label={state === "sent" ? "Sent" : "Sending"}
+    >
+      <span className="delivery-label delivery-sending">Sending…</span>
+      <span className="delivery-label delivery-sent">Sent</span>
+    </span>
+  );
+}
+
 // One message in the Gmail-style thread: a clickable header row (avatar,
 // sender, snippet or recipients, date) with the body underneath when open.
 function GmMessage({
@@ -445,6 +477,8 @@ function GmMessage({
   onToggle: () => void;
 }) {
   const outbound = m.direction === "outbound";
+  const deliveryState =
+    m.client_delivery_state ?? (m.id.startsWith("optimistic-") ? "sending" : null);
   const sender = outbound ? "You" : senderLabel(m.from_name, m.from_address);
   const meta = outbound
     ? `to ${m.to_addresses.join(", ")}`
@@ -460,10 +494,15 @@ function GmMessage({
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="gm-top">
             <span className="gm-name">{sender}</span>
-            {open && <span className="gm-meta">{meta}</span>}
+            {open &&
+              (deliveryState ? <DeliveryStatus state={deliveryState} /> : <span className="gm-meta">{meta}</span>)}
             <span className="gm-when">{formatWhen(m.date)}</span>
           </div>
-          {!open && <div className="gm-snip">{m.snippet || meta}</div>}
+          {!open && (
+            <div className="gm-snip">
+              {deliveryState ? <DeliveryStatus state={deliveryState} /> : m.snippet || meta}
+            </div>
+          )}
         </div>
       </button>
       {open && (

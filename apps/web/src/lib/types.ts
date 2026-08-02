@@ -72,6 +72,8 @@ export interface Message {
   seen: boolean;
   direction: "inbound" | "outbound";
   attachments: AttachmentMeta[];
+  /** Client-only state for an optimistic outgoing reply. */
+  client_delivery_state?: "sending" | "sent";
 }
 
 export interface ThreadDetail {
