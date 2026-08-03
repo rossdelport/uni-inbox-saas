@@ -5,25 +5,32 @@
   window.__oneInboxPositioningRefresh = true;
 
   var isWaitlist = Boolean(window.__uniWaitlistPage);
-  var COPY_VERSION = "owner-operator-v2";
+  var COPY_VERSION = "owner-operator-v3";
 
   var TESTIMONIALS = [
     {
       quote: "I run three businesses and used to check seven inboxes before breakfast. One Inbox shows me what needs attention in one view, so I start the day calm.",
-      name: "Maya Thompson · owner of three service businesses"
+      name: "Maya Thompson"
     },
     {
       quote: "I stopped missing leads because I can see which business each message belongs to. I reply from the right account without thinking about it.",
-      name: "Daniel Brooks · founder of two online brands"
+      name: "Daniel Brooks"
     },
     {
       quote: "Every new business used to mean another tab and another password. Now I see replies and follow-ups together and get back to running the work.",
-      name: "Priya Shah · owner-operator"
+      name: "Priya Shah"
     },
     {
       quote: "One Inbox gives me control without moving my email or changing providers. I save hours every week and know nothing important is hiding.",
-      name: "Chris Morgan · multi-business owner"
+      name: "Chris Morgan"
     }
+  ];
+
+  var TESTIMONIAL_AVATARS = [
+    "/assets/testimonials/maya-thompson.png",
+    "/assets/testimonials/daniel-brooks.png",
+    "/assets/testimonials/priya-shah.png",
+    "/assets/testimonials/chris-morgan.png"
   ];
 
   var FAQ_COPY = [
@@ -197,6 +204,18 @@
     });
     quotes.forEach(function (paragraph, i) { text(paragraph, TESTIMONIALS[i % TESTIMONIALS.length].quote); });
     names.forEach(function (paragraph, i) { text(paragraph, TESTIMONIALS[i % TESTIMONIALS.length].name); });
+
+    // Framer repeats the ticker cards for its loop and responsive variants. The
+    // avatar wrapper is stable across those copies, so update only those images
+    // and keep the decorative star icons untouched.
+    var avatars = section.querySelectorAll('[data-framer-name="memoji"] img');
+    avatars.forEach(function (img, i) {
+      var avatar = TESTIMONIAL_AVATARS[i % TESTIMONIAL_AVATARS.length];
+      if (img.getAttribute("data-avatar-version") === COPY_VERSION && img.getAttribute("src") === avatar) return;
+      img.setAttribute("data-avatar-version", COPY_VERSION);
+      img.setAttribute("src", avatar);
+      img.removeAttribute("srcset");
+    });
   }
 
   function patchCta() {
