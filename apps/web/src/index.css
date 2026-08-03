@@ -360,10 +360,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .m-limit-txt{margin-top:6px;font-size:14px;color:var(--ink2)}
 .m-upsell{display:flex;flex-direction:column;gap:10px}
 
-/* ---------- toast: top-right card, kind-coloured ---------- */
-.uni-toast{position:fixed;top:64px;right:20px;background:#fff;color:var(--ink);border:1px solid rgba(0,0,0,.08);
+/* ---------- toast: top-right cards, kind-coloured ----------
+   The stack owns the fixed position; toasts flow inside it newest-first,
+   so rapid actions pile up instead of replacing each other. */
+.uni-toast-stack{position:fixed;top:64px;right:20px;z-index:300;display:flex;flex-direction:column;
+  gap:8px;align-items:flex-end;pointer-events:none}
+.uni-toast{background:#fff;color:var(--ink);border:1px solid rgba(0,0,0,.08);
   border-radius:14px;box-shadow:0 18px 44px rgba(13,40,80,.18);width:330px;max-width:calc(100vw - 40px);
-  opacity:0;transform:translateY(-10px);transition:opacity .22s ease,transform .22s ease;z-index:300;
+  opacity:0;transform:translateY(-10px);transition:opacity .22s ease,transform .22s ease;
   pointer-events:none;overflow:hidden;text-align:left}
 .uni-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .uni-toast.success{--tk:#1e8e3e}
@@ -378,10 +382,6 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .uni-toast .t-x{flex:none;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;
   color:var(--ink3);font-size:16px;line-height:1;cursor:pointer;background:none;border:none;padding:0}
 .uni-toast .t-x:hover{background:#f1f4f8;color:var(--ink)}
-.uni-toast .t-foot{display:block;width:100%;text-align:left;padding:7px 14px 8px;background:#f7f9fb;
-  border:none;border-top:1px solid rgba(0,0,0,.05);font-size:11px;font-weight:500;color:var(--ink3);cursor:pointer;font-family:inherit}
-.uni-toast .t-foot b{font-weight:700;color:var(--ink2)}
-.uni-toast .t-bar{position:absolute;left:0;bottom:0;height:3px;background:var(--tk);transition:width .1s linear;border-radius:0 2px 2px 0}
 
 /* ---------- settings page ---------- */
 .set-main{flex:1;display:flex;min-height:0}
@@ -1046,7 +1046,7 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
    deliberately low-contrast so "nothing typed yet" reads at a glance. */
 .btn-sm:disabled{background:#e6e9ed;color:rgba(2,20,50,.55);box-shadow:none;transform:none}
 /* Table headers and micro-labels sit at the muted step, which now passes. */
-.adm-table th,.adm-tile .t-lab,.uni-toast .t-foot{color:var(--ink3)}
+.adm-table th,.adm-tile .t-lab{color:var(--ink3)}
 
 /* ---- 12. Password fields: show/hide eye ---------------------------
    The toggle sits inside the input's box. It is not a tab stop (the

@@ -58,9 +58,8 @@ export function Layout() {
   const [colorFor, setColorFor] = useState<string | null>(null);
   const updateAccount = useUpdateAccount();
   const syncAccounts = useSyncAccounts();
-  const [toastState, setToastState] = useState<{ msg: string; kind: ToastKind; key: number } | null>(
-    null,
-  );
+  const [toasts, setToasts] = useState<Array<{ msg: string; kind: ToastKind; key: number }>>([]);
+  const toastSeq = useRef(0);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -102,12 +101,13 @@ export function Layout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
-  // Toast bus: any component fires toast("...", kind) and it shows here. The
-  // key remount resets the countdown when a new toast replaces a visible one.
+  // Toast bus: any component fires toast("...", kind) and it shows here.
+  // Bursts stack newest-on-top rather than replacing each other; the stack is
+  // capped so a runaway loop cannot wallpaper the screen.
   useEffect(() => {
     function onToast(e: Event) {
       const d = (e as CustomEvent<{ message: string; kind: ToastKind }>).detail;
-      setToastState({ msg: d.message, kind: d.kind, key: Date.now() });
+      setToasts((cur) => [{ msg: d.message, kind: d.kind, key: ++toastSeq.current }, ...cur].slice(0, 5));
     }
     document.addEventListener("uni:toast", onToast);
     return () => document.removeEventListener("uni:toast", onToast);
@@ -523,40 +523,33 @@ export function Layout() {
           onClose={() => setHelpOpen(false)}
         />
       )}
-      {toastState && (
-        <Toast
-          key={toastState.key}
-          msg={toastState.msg}
-          kind={toastState.kind}
-          onClose={() => setToastState(null)}
-        />
+      {toasts.length > 0 && (
+        <div className="uni-toast-stack">
+          {toasts.map((t) => (
+            <Toast
+              key={t.key}
+              msg={t.msg}
+              kind={t.kind}
+              onClose={() => setToasts((cur) => cur.filter((x) => x.key !== t.key))}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-const TOAST_MS = 6000;
+const TOAST_MS = 2000;
 
-// Notification card (top right): kind-coloured icon ring and progress bar,
-// close button, and a countdown footer that can stop the auto-close.
+// Notification card (top right): kind-coloured icon ring, message and close
+// button. Auto-closes after two seconds; no countdown chrome.
 function Toast({ msg, kind, onClose }: { msg: string; kind: ToastKind; onClose: () => void }) {
-  const [left, setLeft] = useState(TOAST_MS);
-  const [stopped, setStopped] = useState(false);
-
   useEffect(() => {
-    if (stopped) return;
-    const t0 = Date.now();
-    const start = left;
-    const iv = setInterval(() => {
-      const rem = start - (Date.now() - t0);
-      if (rem <= 0) onClose();
-      else setLeft(rem);
-    }, 100);
-    return () => clearInterval(iv);
+    const t = setTimeout(onClose, TOAST_MS);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopped]);
+  }, []);
 
-  const seconds = Math.ceil(left / 1000);
   return (
     <div className={`uni-toast show ${kind}`}>
       <div className="t-row">
@@ -578,16 +571,6 @@ function Toast({ msg, kind, onClose }: { msg: string; kind: ToastKind; onClose: 
           ×
         </button>
       </div>
-      <button className="t-foot" onClick={() => setStopped(true)}>
-        {stopped ? (
-          "Auto close stopped."
-        ) : (
-          <>
-            This message will close in {seconds} second{seconds === 1 ? "" : "s"}. <b>Click to stop.</b>
-          </>
-        )}
-      </button>
-      {!stopped && <span className="t-bar" style={{ width: `${(left / TOAST_MS) * 100}%` }} />}
     </div>
   );
 }
