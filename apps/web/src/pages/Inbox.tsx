@@ -170,6 +170,40 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     if (cur >= 0) rowEls.current[cur]?.scrollIntoView({ block: "nearest" });
   }, [cur]);
 
+  // ── Auto-advance ─────────────────────────────────────────────────────
+  // Acting on the open conversation (delete, snooze, archive, restore,
+  // unstar in Starred...) removes it from this list, but the pane used to
+  // keep showing the removed thread until you clicked something else.
+  // Remember where the open thread sits; when it vanishes from the same
+  // list, open the row that slid into its place (the old "next"), fall
+  // back to the new last row, and close only when the list ran out. Keyed
+  // to the list identity so switching view, account, pile or search never
+  // auto-opens anything. No deps array: `threads` is rebuilt every render,
+  // and the ref guards make re-runs free.
+  const listId = `${view}:${account ?? "all"}:${split ?? "all"}:${searching ? debouncedQ : ""}`;
+  const openPos = useRef<{ list: string; threadId: string; index: number } | null>(null);
+  useEffect(() => {
+    if (!threadId) {
+      openPos.current = null;
+      return;
+    }
+    if (selectedThread) {
+      openPos.current = { list: listId, threadId, index: threads.findIndex((t) => t.id === threadId) };
+      return;
+    }
+    const last = openPos.current;
+    if (!last || last.list !== listId || last.threadId !== threadId) return;
+    openPos.current = null;
+    const at = Math.min(last.index, threads.length - 1);
+    const next = threads[at];
+    if (next) {
+      setCur(at);
+      openThread(next);
+    } else {
+      closeThread();
+    }
+  });
+
   // Switching the open thread remounts the reading pane (it is keyed on
   // threadId), which destroys any reply typed into it. Refuse to move on.
   function guardDraft(): boolean {
@@ -229,7 +263,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         if (view === "deleted") return false;
         return withCursor((t) => {
           deleteThread.mutate(t.id, { onSuccess: () => toast("Conversation deleted", "danger") });
-          if (threadId === t.id) closeThread();
         });
       },
       u: () => (threadId ? closeThread() : false),
@@ -450,10 +483,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                         }
                         onClick={() => {
                           permanentDeleteThread.mutate(t.id, {
-                            onSuccess: () => {
-                              toast("Conversation permanently deleted", "success");
-                              if (threadId === t.id) closeThread();
-                            },
+                            onSuccess: () => toast("Conversation permanently deleted", "success"),
                             onError: (error) => toast((error as Error).message, "warn"),
                           });
                         }}
@@ -520,10 +550,9 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   <button
                     className="act-btn"
                     title="Delete from OneInbox"
-                    onClick={() => {
-                      deleteThread.mutate(t.id, { onSuccess: () => toast("Conversation deleted", "danger") });
-                      if (threadId === t.id) closeThread();
-                    }}
+                    onClick={() =>
+                      deleteThread.mutate(t.id, { onSuccess: () => toast("Conversation deleted", "danger") })
+                    }
                   >
                     🗑
                   </button>

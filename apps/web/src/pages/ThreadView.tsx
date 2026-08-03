@@ -59,7 +59,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
         if (!th) return false;
         if (guardDraft()) return;
         threadOp.mutate({ threadId: th.id, op: th.archived ? "unarchive" : "archive" });
-        onBack();
       },
       s: () => {
         if (!th) return false;
@@ -74,7 +73,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
         if (!th) return false;
         if (guardDraft()) return;
         deleteThread.mutate(th.id, { onSuccess: () => toast("Conversation deleted", "danger") });
-        onBack();
       },
       u: () => {
         if (guardDraft()) return;
@@ -194,7 +192,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
               threadId={thread.id}
               anchor={snoozeChipRef.current.getBoundingClientRect()}
               onClose={() => setSnoozeOpen(false)}
-              onSnoozed={onBack}
             />
           )}
           <button
@@ -204,7 +201,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
                 threadId: thread.id,
                 op: thread.archived ? "unarchive" : "archive",
               });
-              onBack();
             }}
           >
             {thread.archived ? "↩ Unarchive" : "🗂 Archive"}
@@ -213,7 +209,6 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
             className="chip"
             onClick={() => {
               deleteThread.mutate(thread.id, { onSuccess: () => toast("Conversation deleted", "danger") });
-              onBack();
             }}
           >
             🗑 Delete
