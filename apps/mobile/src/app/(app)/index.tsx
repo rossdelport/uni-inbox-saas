@@ -464,14 +464,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 1,
   },
-  // Keep every horizontal filter row inset from the rounded white surface.
-  // The first row used to begin at the edge on iOS because ScrollView's
-  // content inset was being swallowed by the parent shadow container.
-  // Keep the inset on the scroll content, not the ScrollView itself. Native
-  // scrolling can consume ScrollView padding and let the chips touch the
-  // rounded container edge after the first swipe.
-  chipScroll: {},
-  chips: { gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
+  // Keep every horizontal filter row inset from the rounded white surface,
+  // scrolled or not. The inset is margin on the ScrollView, which shrinks the
+  // scroll viewport itself: chips clip at the inset boundary and slide out of
+  // view behind the card's padding instead of riding to its edge. It must not
+  // be paddingHorizontal, on either the ScrollView (native scrolling consumes
+  // it and the chips touch the rounded edge after the first swipe) or the
+  // content (it scrolls away with the chips).
+  chipScroll: { marginHorizontal: 12 },
+  chips: { gap: 8, paddingBottom: 10 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
   emptyTitle: { fontSize: 17, fontWeight: "600", textAlign: "center" },
   emptyBody: { fontSize: 14, lineHeight: 20, textAlign: "center" },
