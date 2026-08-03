@@ -6,6 +6,7 @@ import { wakeAccount } from "../services/imapSync.js";
 import { backfillOlder } from "../services/backfill.js";
 import { logger } from "../lib/logger.js";
 import { rememberSplitRule, senderDomain, normalizeSender } from "../services/splitRules.js";
+import { withImap } from "../services/imapClient.js";
 
 export const inboxRouter = Router();
 
@@ -634,4 +635,103 @@ inboxRouter.delete("/threads/:id", async (req, res) => {
     .eq("id", thread.id);
   if (error) return res.status(500).json({ error: "could not delete thread" });
   res.json({ ok: true });
+});
+
+/**
+ * Permanently remove a deleted conversation from the connected mailbox and
+ * from OneInbox. This deliberately requires UIDPLUS: without UID EXPUNGE,
+ * IMAP's plain EXPUNGE removes every message already marked Deleted in that
+ * mailbox, not just the conversation the user selected.
+ */
+class PermanentDeleteUnsupportedError extends Error {}
+
+inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
+  const uid = userId(res);
+  const { data: thread, error: threadError } = await supabase
+    .from("threads")
+    .select("id, account_id, deleted_at")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (threadError) return res.status(500).json({ error: "could not find thread" });
+  if (!thread) return res.status(404).json({ error: "thread not found" });
+  if (!thread.deleted_at) {
+    return res.status(409).json({ error: "Only conversations in Deleted can be removed permanently." });
+  }
+
+  const { data: messages, error: messagesError } = await supabase
+    .from("messages")
+    .select("imap_uid, imap_mailbox")
+    .eq("thread_id", thread.id)
+    .eq("owner_id", uid);
+  if (messagesError) return res.status(500).json({ error: "could not prepare permanent deletion" });
+  if ((messages ?? []).some((message) => message.imap_uid === null || message.imap_uid === undefined || !message.imap_mailbox)) {
+    return res.status(409).json({
+      error: "Some messages are still syncing. Sync this mailbox, then try permanent deletion again.",
+    });
+  }
+
+  const { data: account, error: accountError } = await supabase
+    .from("email_accounts")
+    .select("id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method")
+    .eq("id", thread.account_id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (accountError) return res.status(500).json({ error: "could not prepare permanent deletion" });
+  if (!account) return res.status(404).json({ error: "mailbox not found" });
+
+  // A thread can contain messages from INBOX and Sent. Group by mailbox so
+  // each UID is deleted from the folder in which it was originally synced.
+  const mailboxUids = new Map<string, number[]>();
+  for (const message of messages ?? []) {
+    const imapUid = Number(message.imap_uid);
+    if (!Number.isSafeInteger(imapUid) || imapUid <= 0) continue;
+    const current = mailboxUids.get(message.imap_mailbox) ?? [];
+    if (!current.includes(imapUid)) current.push(imapUid);
+    mailboxUids.set(message.imap_mailbox, current);
+  }
+
+  try {
+    if (mailboxUids.size > 0) {
+      await withImap(account, async (client) => {
+        // Preflight every mailbox before deleting anything. UIDPLUS makes
+        // this operation safe when other messages are already in the trash.
+        for (const mailbox of mailboxUids.keys()) {
+          await client.mailboxOpen(mailbox, { readOnly: true });
+          if (!client.capabilities.has("UIDPLUS")) {
+            throw new PermanentDeleteUnsupportedError(
+              "This mailbox cannot safely delete one conversation at a time. It is still available in Deleted.",
+            );
+          }
+        }
+
+        for (const [mailbox, uids] of mailboxUids) {
+          await client.mailboxOpen(mailbox, { readOnly: false });
+          const deleted = await client.messageDelete(uids, { uid: true });
+          if (!deleted) throw new Error(`IMAP could not delete messages from ${mailbox}`);
+        }
+      });
+    }
+
+    // Remove local rows only after the provider confirms the permanent
+    // delete. Messages, flag operations, and AI summaries cascade from the
+    // thread; pending outbox rows deliberately retain their audit row but no
+    // longer point at a deleted thread (0023 uses ON DELETE SET NULL).
+    const { error: deleteError } = await supabase
+      .from("threads")
+      .delete()
+      .eq("id", thread.id)
+      .eq("owner_id", uid);
+    if (deleteError) {
+      logger.error({ err: deleteError, threadId: thread.id }, "local cleanup failed after permanent delete");
+      return res.status(500).json({ error: "Mail was deleted from the provider, but OneInbox could not finish cleanup." });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof PermanentDeleteUnsupportedError) {
+      return res.status(409).json({ error: err.message });
+    }
+    logger.warn({ err, threadId: thread.id }, "permanent thread deletion failed");
+    return res.status(502).json({ error: "Could not permanently delete this conversation from your mailbox." });
+  }
 });

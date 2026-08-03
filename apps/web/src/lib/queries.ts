@@ -489,6 +489,41 @@ export function useDeleteThread() {
   });
 }
 
+/** Permanently remove a conversation from its mail provider and local trash. */
+export function usePermanentDeleteThread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) =>
+      api(`/api/inbox/threads/${threadId}/permanent`, { method: "DELETE" }),
+    // The row disappears immediately after the user confirms. If the mail
+    // server rejects the operation, restore the cached Deleted list so the
+    // conversation remains recoverable.
+    onMutate: async (threadId) => {
+      await qc.cancelQueries({ queryKey: ["inbox"] });
+      const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      for (const [key, data] of snapshots) {
+        if (!data) continue;
+        qc.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            threads: page.threads.filter((thread) => thread.id !== threadId),
+          })),
+        });
+      }
+      return { snapshots };
+    },
+    onError: (_error, _threadId, context) => {
+      for (const [key, data] of context?.snapshots ?? []) qc.setQueryData(key, data);
+    },
+    onSettled: (_data, error, threadId) => {
+      void qc.invalidateQueries({ queryKey: ["inbox"] });
+      void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+      if (!error && threadId) void qc.removeQueries({ queryKey: ["thread", threadId] });
+    },
+  });
+}
+
 export function useOauthProviders() {
   return useQuery({
     queryKey: ["oauth-providers"],

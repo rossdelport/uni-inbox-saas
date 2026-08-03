@@ -12,6 +12,7 @@ import {
   useCancelOutbox,
   useDeleteThread,
   useInbox,
+  usePermanentDeleteThread,
   useReadAll,
   useScheduledSends,
   useThreadOp,
@@ -79,6 +80,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   );
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
+  const permanentDeleteThread = usePermanentDeleteThread();
 
   // Infinite scroll. Watching a sentinel below the last row is cheaper and
   // steadier than a scroll handler, which fires constantly and has to
@@ -425,19 +427,41 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                 </div>
                 <div className="acts" onClick={(e) => e.stopPropagation()}>
                   {view === "deleted" ? (
-                    <button
-                      className="act-btn"
-                      title="Restore to inbox"
-                      style={{ width: "auto", padding: "0 10px", fontWeight: 700 }}
-                      onClick={() =>
-                        threadOp.mutate(
-                          { threadId: t.id, op: "restore" },
-                          { onSuccess: () => toast("Conversation restored", "success") },
-                        )
-                      }
-                    >
-                      ↩ Restore
-                    </button>
+                    <>
+                      <button
+                        className="act-btn"
+                        title="Restore to inbox"
+                        style={{ width: "auto", padding: "0 10px", fontWeight: 700 }}
+                        onClick={() =>
+                          threadOp.mutate(
+                            { threadId: t.id, op: "restore" },
+                            { onSuccess: () => toast("Conversation restored", "success") },
+                          )
+                        }
+                      >
+                        ↩ Restore
+                      </button>
+                      <button
+                        className="act-btn permanent-delete-btn"
+                        title="Delete permanently"
+                        aria-label="Delete permanently"
+                        disabled={
+                          permanentDeleteThread.isPending &&
+                          permanentDeleteThread.variables === t.id
+                        }
+                        onClick={() => {
+                          permanentDeleteThread.mutate(t.id, {
+                            onSuccess: () => {
+                              toast("Conversation permanently deleted", "success");
+                              if (threadId === t.id) closeThread();
+                            },
+                            onError: (error) => toast((error as Error).message, "warn"),
+                          });
+                        }}
+                      >
+                        Delete permanently
+                      </button>
+                    </>
                   ) : (
                   <>
                   <button
