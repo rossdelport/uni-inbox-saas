@@ -81,9 +81,9 @@
     if (heads.length > 1) text(heads[1], "across every business.");
 
     var badge = findText(hero, function (value) {
-      return value === "Built for solo founders and indie hackers" || value === "Running multiple businesses?";
+      return value === "Built for solo founders and indie hackers" || value === "Running multiple businesses?" || value === "Launching soon";
     });
-    if (badge) text(badge, "Running 2–5 businesses?");
+    if (badge) text(badge, "Launching soon");
 
     var subline = findText(hero, function (value) {
       return value.indexOf("Connect Gmail") === 0 || value.indexOf("One Inbox turns every email account") === 0 || value.indexOf("One inbox turns all your email accounts") === 0;
