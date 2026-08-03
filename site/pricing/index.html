@@ -176,15 +176,17 @@ nav a[data-highlight="true"]{background:linear-gradient(182.44deg,#3C3C3C,#23232
 
 
 /* ==== OneInbox notifications section ==== */
-.uni-notif{display:flex;align-items:center;gap:64px;max-width:1220px;margin:0 auto;padding:24px 0}
-.un-left{flex:0 1 470px;min-width:0}
-.un-eyebrow{font-family:Inter,sans-serif;font-weight:900;font-size:13px;letter-spacing:.22em;color:#308dfc;margin-bottom:14px}
-.un-h2{margin:0;font-family:Inter,sans-serif;font-weight:900;font-size:clamp(30px,3.6vw,46px);line-height:1.06;letter-spacing:-.02em;color:rgba(0,0,0,.85)}
-.un-sub{margin:16px 0 0;font-family:Inter,sans-serif;font-weight:500;font-size:15.5px;line-height:1.6;color:rgba(2,20,50,.55);max-width:400px}
+.uni-notif{display:flex;align-items:center;gap:64px;width:100%;max-width:1344px;margin:0 auto;padding:24px 0}
+/* Security section retired from the page flow (content kept in the patcher) */
+section[data-uni-sec]{display:none!important}
+.un-left{flex:0 1 560px;min-width:0}
+.un-eyebrow{font-family:Inter,sans-serif;font-weight:900;font-size:14px;letter-spacing:.22em;color:#308dfc;margin-bottom:14px}
+.un-h2{margin:0;font-family:Inter,sans-serif;font-weight:900;font-size:clamp(34px,4.4vw,56px);line-height:1.06;letter-spacing:-.02em;color:rgba(0,0,0,.85)}
+.un-sub{margin:16px 0 0;font-family:Inter,sans-serif;font-weight:500;font-size:18px;line-height:1.6;color:rgba(2,20,50,.55);max-width:520px}
 .un-pills{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
 .un-pill{background:rgba(2,20,50,.055);border-radius:999px;padding:10px 18px;font-family:Inter,sans-serif;font-weight:600;font-size:13.5px;color:rgba(2,20,50,.6);white-space:nowrap}
 .un-right{flex:1;min-width:0}
-.un-panel{background:linear-gradient(160deg,#2f8bfc 0%,#6fb8f4 55%,#8ed0f2 100%);border-radius:28px;padding:24px 24px 18px;box-shadow:0 30px 70px rgba(13,60,140,.20);position:relative;overflow:hidden}
+.un-panel{background:linear-gradient(160deg,#2f8bfc 0%,#6fb8f4 55%,#8ed0f2 100%);border-radius:28px;padding:28px 28px 22px;box-shadow:0 30px 70px rgba(13,60,140,.20);position:relative;overflow:hidden}
 .un-panel:before{content:"";position:absolute;width:340px;height:340px;border:1.5px solid rgba(255,255,255,.14);border-radius:50%;right:-120px;top:-120px;pointer-events:none}
 .un-panel:after{content:"";position:absolute;width:520px;height:520px;border:1.5px solid rgba(255,255,255,.09);border-radius:50%;right:-200px;top:-200px;pointer-events:none}
 .un-head{position:relative;z-index:1;display:flex;align-items:center;gap:9px;color:#fff;font-family:Inter,sans-serif;font-weight:800;font-size:15px;margin-bottom:16px}
