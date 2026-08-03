@@ -1,0 +1,115 @@
+/* Positioning refresh: keep the existing visual system, but make the
+   waitlist pricing control feel like part of the card rather than an add-on. */
+.uni-ptitle {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+
+.uni-billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  user-select: none;
+  color: rgba(0, 0, 0, 0.62);
+  font: 700 12px/1.2 Inter, sans-serif;
+}
+
+.uni-billing-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.uni-toggle-track {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d8e1ed;
+  box-shadow: inset 0 1px 2px rgba(10, 37, 64, 0.16);
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.uni-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(10, 37, 64, 0.2);
+  transition: transform 180ms ease;
+}
+
+.uni-billing-toggle input:checked + .uni-toggle-track {
+  background: #0c7dff;
+  box-shadow: inset 0 1px 2px rgba(0, 40, 140, 0.22), 0 3px 10px rgba(12, 125, 255, 0.22);
+}
+
+.uni-billing-toggle input:checked + .uni-toggle-track::after {
+  transform: translateX(18px);
+}
+
+.uni-billing-toggle:focus-within .uni-toggle-track {
+  outline: 3px solid rgba(12, 125, 255, 0.18);
+  outline-offset: 2px;
+}
+
+.uni-toggle-copy {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.uni-toggle-copy small {
+  color: #0c7dff;
+  font: 700 10px/1.1 Inter, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.uni-billing-note {
+  margin-top: 8px;
+  color: #0c7dff;
+  font: 700 12px/1.35 Inter, sans-serif;
+}
+
+/* The new headline is longer than the original Framer copy. Keep it inside
+   the viewport at normal laptop widths instead of allowing the fixed desktop
+   text frame to crop the first and last words. */
+@media (min-width: 834px) and (max-width: 1400px) {
+  section[data-framer-name="hero"] h1 {
+    width: calc(100vw - 48px) !important;
+    max-width: 1180px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    white-space: normal !important;
+    font-size: clamp(50px, 5vw, 64px) !important;
+    line-height: 1.05 !important;
+  }
+}
+
+@media (max-width: 833px) {
+  section[data-framer-name="hero"] h1 {
+    width: calc(100vw - 32px) !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    white-space: normal !important;
+  }
+}
+
+@media (max-width: 833px) {
+  .uni-billing-toggle {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
