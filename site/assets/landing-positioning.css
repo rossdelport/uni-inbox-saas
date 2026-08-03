@@ -135,9 +135,27 @@
 /* Hero badge pill: the swapped-in copy runs longer than the template's, which
    wrapped it into a blob inside the template's fixed width. Hug the label on
    one line instead. */
-section[data-framer-name="hero"] a[data-framer-name="small"] {
+section[data-framer-name="hero"] a[data-framer-name="small"],
+section[data-framer-name="hero"] a[data-framer-name="default"] {
   white-space: nowrap;
   width: max-content;
   max-width: none;
   height: auto;
+  font-size: 14px !important;
+  padding: 6px 16px !important;
+}
+
+
+/* Pricing header: stack the heading and subtitle instead of sharing one
+   line (the patched heading is long enough to push the subtitle offscreen
+   on desktop), and keep the subtitle left-aligned under it. */
+@media (min-width: 1200px) {
+  .framer-AhP9b .framer-2fx3v8 {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 20px !important;
+  }
+  .framer-AhP9b .framer-2fx3v8 .framer-1ffqq98 p {
+    text-align: left !important;
+  }
 }

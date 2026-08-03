@@ -102,7 +102,7 @@
     // Each breakpoint variant carries its own two-line h1 pair, in order:
     // even indexes are the first line, odd indexes the second.
     hero.querySelectorAll("h1").forEach(function (head, i) {
-      text(head, i % 2 === 0 ? "Know what needs your attention" : "across every business.");
+      text(head, i % 2 === 0 ? "Email for people running" : "multiple businesses");
     });
 
     findTexts(hero, function (value) {
@@ -114,7 +114,7 @@
     findTexts(hero, function (value) {
       return value.indexOf("Connect Gmail") === 0 || value.indexOf("One Inbox turns every email account") === 0 || value.indexOf("One inbox turns all your email accounts") === 0;
     }).forEach(function (subline) {
-      text(subline, "One inbox turns all your email accounts into one clear list of replies, leads and follow-ups. Easily see important emails with colour coded inboxes and smart sorting. Save hours and get more done.");
+      text(subline, "Connect your Gmail, Outlook and work email accounts. Then see every reply, lead and follow-up that needs your attention in one clear view.");
     });
 
     hero.querySelectorAll(".uni-trust span").forEach(function (trust) {
