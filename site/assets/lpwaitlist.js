@@ -281,10 +281,29 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     history.pushState(null, "", href);
-    destination.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      block: "start",
-    });
+    var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function scrollToDestination(behavior) {
+      var offset = parseFloat(window.getComputedStyle(destination).scrollMarginTop) || 0;
+      var top = destination.getBoundingClientRect().top + window.scrollY - offset;
+      if (behavior === "auto") {
+        var root = document.documentElement;
+        var previousScrollBehavior = root.style.scrollBehavior;
+        root.style.scrollBehavior = "auto";
+        window.scrollTo(0, Math.max(0, top));
+        root.style.scrollBehavior = previousScrollBehavior;
+        return;
+      }
+      window.scrollTo({ top: Math.max(0, top), behavior: behavior });
+    }
+    scrollToDestination(reducedMotion ? "auto" : "smooth");
+    setTimeout(function () {
+      scrollToDestination("auto");
+    }, reducedMotion ? 0 : 650);
+    if (!reducedMotion) {
+      setTimeout(function () {
+        scrollToDestination("auto");
+      }, 1200);
+    }
   }, true);
 
   document.addEventListener("submit", function (event) {
