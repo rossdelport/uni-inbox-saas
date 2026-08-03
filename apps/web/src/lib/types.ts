@@ -1,7 +1,7 @@
 // Types shared between @uni/api and @uni/web. The API is the source of truth;
 // everything here is the SANITIZED shape the dashboard sees (no credentials).
 
-export type PlanId = "trial" | "monthly" | "lifetime";
+export type PlanId = "trial" | "monthly" | "yearly" | "lifetime";
 
 export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 
@@ -106,7 +106,7 @@ export interface BillingState {
   ai_price_usd: number;
   plan: PlanId;
   plan_label: string;
-  /** Display price for the current state, e.g. "$7/month" or "$50 one-time". */
+  /** Display price for the current state, e.g. "$10/month" or "$97 one-time". */
   price_label: string;
   max_inboxes: number;
   connected_inboxes: number;
@@ -118,6 +118,9 @@ export interface BillingState {
     monthly_base_usd: number;
     monthly_included: number;
     monthly_per_extra_usd: number;
+    yearly_base_usd: number;
+    yearly_per_extra_usd: number;
+    yearly_max: number;
     lifetime_usd: number;
     lifetime_max: number;
   };

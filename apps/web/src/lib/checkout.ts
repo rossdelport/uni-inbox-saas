@@ -13,7 +13,7 @@ import { api } from "./api.js";
 const PLAN_KEY = "oi-plan-intent";
 
 export interface PlanIntent {
-  tier: "monthly" | "lifetime";
+  tier: "monthly" | "yearly" | "lifetime";
   accounts?: number;
 }
 
@@ -21,7 +21,7 @@ export interface PlanIntent {
 export function planIntentFromUrl(): PlanIntent | null {
   const q = new URLSearchParams(window.location.search);
   const plan = q.get("plan");
-  if (plan !== "monthly" && plan !== "lifetime") return null;
+  if (plan !== "monthly" && plan !== "yearly" && plan !== "lifetime") return null;
   const n = Number(q.get("accounts"));
   return {
     tier: plan,
@@ -42,7 +42,7 @@ export function pendingPlanIntent(): PlanIntent | null {
     const raw = localStorage.getItem(PLAN_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as PlanIntent;
-    return v?.tier === "monthly" || v?.tier === "lifetime" ? v : null;
+    return v?.tier === "monthly" || v?.tier === "yearly" || v?.tier === "lifetime" ? v : null;
   } catch {
     return null;
   }

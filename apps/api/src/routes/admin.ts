@@ -35,6 +35,14 @@ function monthlyMrr(quantity: number | null | undefined): number {
   return PRICING.monthlyBaseUsd + Math.max(0, qty - PRICING.monthlyIncluded) * PRICING.monthlyPerExtraUsd;
 }
 
+function recurringMrr(plan: PlanId, quantity: number | null | undefined): number {
+  if (plan === "yearly") {
+    const qty = Math.min(PRICING.yearlyMax, Math.max(PRICING.monthlyIncluded, quantity ?? PRICING.monthlyIncluded));
+    return (PRICING.yearlyBaseUsd + Math.max(0, qty - PRICING.monthlyIncluded) * PRICING.yearlyPerExtraUsd) / 12;
+  }
+  return plan === "monthly" ? monthlyMrr(quantity) : 0;
+}
+
 adminRouter.get("/users", async (_req, res) => {
   // Emails + signup attribution live in auth; billing on profiles; per-user
   // engagement in the admin_user_stats view (aggregated in Postgres, so this
@@ -76,12 +84,12 @@ adminRouter.get("/users", async (_req, res) => {
       const p = profByUser.get(u.id) ?? {};
       const s = statByUser.get(u.id) ?? {};
       const rawPlan = (p as { plan?: string }).plan ?? "trial";
-      const plan: PlanId = rawPlan === "monthly" || rawPlan === "lifetime" ? rawPlan : "trial";
+      const plan: PlanId = rawPlan === "monthly" || rawPlan === "yearly" || rawPlan === "lifetime" ? rawPlan : "trial";
       const qty = (p as { monthly_quantity?: number | null }).monthly_quantity;
       const trialEnds = (p as { trial_ends_at?: string | null }).trial_ends_at ?? null;
-      const mrr = plan === "monthly" ? monthlyMrr(qty) : 0;
+      const mrr = recurringMrr(plan, qty);
       const accountCount = Number(s.accounts ?? 0);
-      const paying = plan === "monthly" || plan === "lifetime";
+      const paying = plan === "monthly" || plan === "yearly" || plan === "lifetime";
       const lastSignIn = u.last_sign_in_at ?? null;
       // Asked to leave but still inside the paid period. Status alone still
       // reads "trialing"/"active" here, so without this they look healthy
@@ -101,6 +109,8 @@ adminRouter.get("/users", async (_req, res) => {
         plan_label:
           plan === "lifetime"
             ? "Lifetime"
+            : plan === "yearly"
+              ? `Yearly (${Math.min(PRICING.yearlyMax, Math.max(PRICING.monthlyIncluded, qty ?? PRICING.monthlyIncluded))} accounts)`
             : plan === "monthly"
               ? `Monthly (${Math.max(PRICING.monthlyIncluded, qty ?? PRICING.monthlyIncluded)} accounts)`
               : trialEnds && new Date(trialEnds).getTime() < now
@@ -215,6 +225,7 @@ adminRouter.get("/users", async (_req, res) => {
       activated,
       paying,
       paying_monthly: users.filter((u) => u.plan === "monthly").length,
+      paying_yearly: users.filter((u) => u.plan === "yearly").length,
       lifetime: users.filter((u) => u.plan === "lifetime").length,
       trials_active: trialsActive,
       // The nudge list: a trial about to lapse is the cheapest conversion

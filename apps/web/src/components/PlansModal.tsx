@@ -42,8 +42,9 @@ export function ModalShell({
   );
 }
 
-// "Choose your plan": Monthly ($5, 5 accounts, +$2 per extra) and Lifetime
-// ($50 once, 10 accounts), exactly like the marketing site's pricing.
+// "Choose your plan": Monthly ($10, 5 accounts, +$2 per extra), Yearly ($97
+// base, 20% off), and Lifetime ($97 once, 10 accounts), exactly like the
+// marketing site's pricing.
 export function PlansModal({ onClose }: { onClose: () => void }) {
   const { data: billing } = useBillingState();
   const checkout = useCheckout();
@@ -52,6 +53,7 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
   if (!billing) return null;
   const p = billing.pricing;
   const isMonthly = billing.plan === "monthly";
+  const isYearly = billing.plan === "yearly";
   const isLifetime = billing.plan === "lifetime";
 
   return (
@@ -87,6 +89,10 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
             <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
               Covered by Lifetime
             </button>
+          ) : isYearly ? (
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+              Manage billing to change
+            </button>
           ) : (
             <button
               className="btn-black"
@@ -94,6 +100,42 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
               onClick={() => checkout.mutate("monthly")}
             >
               {checkout.isPending ? "Redirecting…" : "Choose Monthly"}
+            </button>
+          )}
+        </div>
+
+        <div className="m-plan">
+          {isYearly && <span className="badge-cur">Current plan</span>}
+          <div className="pname">Yearly</div>
+          <div className="price">
+            ${p.yearly_base_usd}
+            <small>/year</small>
+          </div>
+          <ul>
+            <li>{p.monthly_included} email accounts included</li>
+            <li>20% off Monthly pricing</li>
+            <li>Up to {p.yearly_max} accounts</li>
+            <li>Cancel anytime</li>
+          </ul>
+          {isYearly ? (
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+              Current plan
+            </button>
+          ) : isLifetime ? (
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+              Covered by Lifetime
+            </button>
+          ) : isMonthly ? (
+            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+              Manage billing to change
+            </button>
+          ) : (
+            <button
+              className="btn-black"
+              disabled={checkout.isPending}
+              onClick={() => checkout.mutate("yearly")}
+            >
+              {checkout.isPending ? "Redirecting…" : "Choose Yearly"}
             </button>
           )}
         </div>

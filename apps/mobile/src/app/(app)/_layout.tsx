@@ -30,7 +30,7 @@ export default function AppLayout() {
   }
   if (!session) return <Redirect href="/sign-in" />;
 
-  const unpaid = Boolean(billing) && billing!.plan !== "monthly" && billing!.plan !== "lifetime";
+  const unpaid = Boolean(billing) && billing!.plan !== "monthly" && billing!.plan !== "yearly" && billing!.plan !== "lifetime";
   if (unpaid) return <PlanGate email={session.user.email ?? ""} />;
 
   return (

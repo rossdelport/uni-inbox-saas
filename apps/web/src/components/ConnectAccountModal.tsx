@@ -72,7 +72,7 @@ export function ConnectAccountModal({ onClose }: { onClose: () => void }) {
         </div>
         {billing.plan !== "lifetime" && (
           <div className="m-upsell">
-            {billing.plan === "monthly" ? (
+            {billing.plan === "monthly" || billing.plan === "yearly" ? (
               <button
                 className="btn-black"
                 disabled={addSeat.isPending}

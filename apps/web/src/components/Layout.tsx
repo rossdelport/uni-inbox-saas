@@ -180,7 +180,7 @@ export function Layout() {
   // on arrival, and any click outside it reopens it instead of doing what it
   // would normally do. Paid users (monthly covers a Stripe trial with a card
   // on file, since that converts by itself) never see any of this.
-  const unpaid = Boolean(billing) && billing?.plan !== "monthly" && billing?.plan !== "lifetime";
+  const unpaid = Boolean(billing) && billing?.plan !== "monthly" && billing?.plan !== "yearly" && billing?.plan !== "lifetime";
   useEffect(() => {
     // Open on becoming unpaid, and close on becoming paid, so the modal the
     // gate forced open does not outlive the payment it was asking for. Only
@@ -464,7 +464,7 @@ export function Layout() {
           {/* Trial only. Someone who has already paid does not need a card
               selling them a plan they are on, so the sidebar ends at their
               accounts. Billing stays reachable from Plans & billing above. */}
-          {billing && billing.plan !== "monthly" && billing.plan !== "lifetime" && (
+          {billing && billing.plan !== "monthly" && billing.plan !== "yearly" && billing.plan !== "lifetime" && (
             <div className="side-upsell">
               <h4>{billing.trial_expired ? "Trial ended" : "Free trial"}</h4>
               <p>

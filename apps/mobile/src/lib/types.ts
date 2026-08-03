@@ -2,7 +2,7 @@
 // to clients (no credentials). The API is the source of truth; keep the two
 // copies in sync when the API changes.
 
-export type PlanId = "trial" | "monthly" | "lifetime";
+export type PlanId = "trial" | "monthly" | "yearly" | "lifetime";
 
 export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 
@@ -144,6 +144,9 @@ export interface BillingState {
     monthly_base_usd: number;
     monthly_included: number;
     monthly_per_extra_usd: number;
+    yearly_base_usd: number;
+    yearly_per_extra_usd: number;
+    yearly_max: number;
     lifetime_usd: number;
     lifetime_max: number;
   };

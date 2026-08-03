@@ -82,6 +82,20 @@
   font: 700 12px/1.35 Inter, sans-serif;
 }
 
+/* Keep the homepage's original social-proof line readable. The Framer
+   hydration can collapse its inner paragraph into the link itself, which
+   otherwise falls back to a tiny browser-blue anchor after copy updates. */
+.uni-main-landing section[data-framer-name="hero"] .framer-x05tp6-container > a {
+  color: rgba(0, 0, 0, 0.69) !important;
+  font-family: "Inter Variable", "Inter Placeholder", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  line-height: 151% !important;
+  letter-spacing: 0 !important;
+  opacity: 0.8 !important;
+  text-decoration: none !important;
+}
+
 /* The new headline is longer than the original Framer copy. Keep it inside
    the viewport at normal laptop widths instead of allowing the fixed desktop
    text frame to crop the first and last words. */
@@ -98,6 +112,10 @@
 }
 
 @media (max-width: 833px) {
+  .uni-main-landing section[data-framer-name="hero"] .framer-x05tp6-container > a {
+    font-size: 16px !important;
+  }
+
   section[data-framer-name="hero"] h1 {
     width: calc(100vw - 32px) !important;
     max-width: 100% !important;

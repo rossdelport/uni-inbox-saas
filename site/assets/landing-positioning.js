@@ -5,7 +5,7 @@
   window.__oneInboxPositioningRefresh = true;
 
   var isWaitlist = Boolean(window.__uniWaitlistPage);
-  var COPY_VERSION = "owner-operator-v3";
+  var COPY_VERSION = "owner-operator-v6";
 
   var TESTIMONIALS = [
     {
@@ -66,13 +66,13 @@
   }
 
   function setMeta() {
-    var title = "OneInbox | Know what needs your attention across every business";
+    var title = isWaitlist ? "OneInbox waitlist | Know what needs your attention across every business" : "OneInbox | Know what needs your attention across every business";
     if (document.title !== title) document.title = title;
     var description = "One inbox turns all your email accounts into one clear list of replies, leads and follow-ups for owner-operators running multiple businesses.";
     var meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", description);
     document.querySelectorAll('meta[property="og:title"], meta[name="twitter:title"]').forEach(function (el) {
-      el.setAttribute("content", "OneInbox | Know what needs your attention across every business");
+      el.setAttribute("content", isWaitlist ? "OneInbox waitlist | Know what needs your attention across every business" : "OneInbox | Know what needs your attention across every business");
     });
     document.querySelectorAll('meta[property="og:description"], meta[name="twitter:description"]').forEach(function (el) {
       el.setAttribute("content", description);
@@ -88,9 +88,9 @@
     if (heads.length > 1) text(heads[1], "across every business.");
 
     var badge = findText(hero, function (value) {
-      return value === "Built for solo founders and indie hackers" || value === "Running multiple businesses?" || value === "Launching soon";
+      return value === "Built for solo founders and indie hackers" || value === "Running multiple businesses?" || value === "Launching soon" || value === "Built for busy solo-operators";
     });
-    if (badge) text(badge, "Launching soon");
+    if (badge) text(badge, isWaitlist ? "Launching soon" : "Built for busy solo-operators");
 
     var subline = findText(hero, function (value) {
       return value.indexOf("Connect Gmail") === 0 || value.indexOf("One Inbox turns every email account") === 0 || value.indexOf("One inbox turns all your email accounts") === 0;
@@ -113,15 +113,16 @@
       heading.innerHTML = "Your business email stays <span>under your control</span>.";
     }
     var lead = section.querySelector(".uni-sec-lead");
-    if (lead) text(lead, "Connect Gmail, Outlook and custom domains. See what needs attention without giving up your providers, addresses or business identities.");
+    if (lead) text(lead, "Your accounts stay with their providers, and your mail stays protected from sign-in to storage.");
 
     var cards = section.querySelectorAll(".uni-card");
     var cardCopy = [
-      ["Your passwords stay protected", "Mailbox passwords are encrypted with <b>AES-256-GCM</b> before storage. With Google or Microsoft, One Inbox receives a token instead of your password."],
-      ["Your mail stays encrypted", "Connections run over <b>TLS</b>, and stored data sits on encrypted infrastructure while your accounts keep working as normal."],
-      ["Each business stays separate", "Account rules keep every message tied to its owner. Your business inboxes stay separated even when you view them together."],
-      ["We do not sell your mail", "One Inbox is paid for by subscriptions. We do not sell or share your email, and optional AI features are always your choice."]
+      ["Encrypted, private and under your control", "Passwords are protected with <b>AES-256-GCM</b>. Gmail and Microsoft use revocable tokens, every connection uses <b>TLS</b>, and account rules keep each business inbox separate. We never sell your mail, and optional AI features only run when you turn them on."]
     ];
+    while (cards.length > 1) {
+      cards[cards.length - 1].remove();
+      cards = section.querySelectorAll(".uni-card");
+    }
     for (var i = 0; i < cards.length && i < cardCopy.length; i += 1) {
       var cardHeading = cards[i].querySelector("h3");
       var cardParagraph = cards[i].querySelector("p");
@@ -130,10 +131,7 @@
     }
 
     var note = section.querySelector(".uni-note");
-    if (note && note.getAttribute("data-copy-version") !== COPY_VERSION) {
-      note.setAttribute("data-copy-version", COPY_VERSION);
-      note.innerHTML = "<h4>What changes when I connect an account?</h4><p>Nothing moves. One Inbox connects to your existing accounts and shows them in one workspace. Each business keeps its own address, and you can disconnect any account at any time. <a href=\"/privacy\">Read the privacy policy</a></p>";
-    }
+    if (note) note.remove();
   }
 
   function patchBenefits() {
@@ -278,7 +276,7 @@
     card.setAttribute("data-billing", yearly ? "yearly" : "monthly");
     var buy = card.querySelector('[data-buy="monthly"]');
     if (buy) {
-      buy.setAttribute("href", isWaitlist ? "#waitlist" : "/app/signup");
+      buy.setAttribute("href", isWaitlist ? "#waitlist" : "/app/signup?plan=" + (yearly ? "yearly" : "monthly") + "&accounts=" + accounts);
       buy.setAttribute("data-billing", yearly ? "yearly" : "monthly");
       buy.setAttribute("data-accounts", String(accounts));
     }

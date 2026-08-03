@@ -1,7 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 import { logger } from "../lib/logger.js";
-import { decryptCredentials } from "../lib/crypto.js";
+import { decryptCredentials, encryptCredentials } from "../lib/crypto.js";
+import { supabase } from "../lib/supabase.js";
 
 // XOAUTH2 token plumbing for Google and Microsoft mail access. We store only
 // the (encrypted) refresh token; short-lived access tokens live in memory and
@@ -208,5 +209,21 @@ export async function getAccessToken(
   const tokens = (await res.json()) as TokenSet;
   const exp = Date.now() + (tokens.expires_in ?? 3600) * 1000;
   cache.set(accountId, { token: tokens.access_token, exp });
+
+  // Google may rotate a refresh token. Keep the replacement encrypted in the
+  // mailbox row immediately, otherwise the next refresh would still use the
+  // old token and make a healthy connection look disconnected. This is a
+  // best-effort write: the access token is usable for this sync even if the
+  // persistence call is briefly unavailable, and the next refresh retries it.
+  if (tokens.refresh_token && tokens.refresh_token !== refresh_token) {
+    const credentials_enc = encryptCredentials({ refresh_token: tokens.refresh_token });
+    void supabase
+      .from("email_accounts")
+      .update({ credentials_enc })
+      .eq("id", accountId)
+      .then(({ error }) => {
+        if (error) logger.warn({ accountId, provider, error }, "rotated oauth refresh token was not saved");
+      });
+  }
   return tokens.access_token;
 }

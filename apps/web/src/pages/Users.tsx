@@ -21,7 +21,7 @@ interface AdminUser {
   confirmed: boolean;
   last_sign_in_at: string | null;
   days_idle: number | null;
-  plan: "trial" | "monthly" | "lifetime";
+  plan: "trial" | "monthly" | "yearly" | "lifetime";
   plan_label: string;
   mrr_usd: number;
   trial_ends_at: string | null;
@@ -49,6 +49,7 @@ interface AdminData {
     activated: number;
     paying: number;
     paying_monthly: number;
+    paying_yearly: number;
     lifetime: number;
     trials_active: number;
     trials_expiring_soon: number;
@@ -250,7 +251,7 @@ export function Users() {
               <div className="adm-tile">
                 <div className="t-num">{d.totals.paying}</div>
                 <div className="t-lab">
-                  Paying ({d.totals.paying_monthly} monthly, {d.totals.lifetime} lifetime)
+                  Paying ({d.totals.paying_monthly} monthly, {d.totals.paying_yearly} yearly, {d.totals.lifetime} lifetime)
                 </div>
               </div>
               <div className="adm-tile">

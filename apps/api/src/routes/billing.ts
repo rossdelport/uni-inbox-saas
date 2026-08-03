@@ -50,6 +50,9 @@ billingRouter.get("/state", async (_req, res) => {
       monthly_base_usd: PRICING.monthlyBaseUsd,
       monthly_included: PRICING.monthlyIncluded,
       monthly_per_extra_usd: PRICING.monthlyPerExtraUsd,
+      yearly_base_usd: PRICING.yearlyBaseUsd,
+      yearly_per_extra_usd: PRICING.yearlyPerExtraUsd,
+      yearly_max: PRICING.yearlyMax,
       lifetime_usd: PRICING.lifetimeUsd,
       lifetime_max: PRICING.lifetimeMax,
     },
@@ -57,12 +60,12 @@ billingRouter.get("/state", async (_req, res) => {
 });
 
 // Start a Checkout session.
-// Body: { tier: "monthly" | "lifetime", accounts?: number }, where accounts is
+// Body: { tier: "monthly" | "yearly" | "lifetime", accounts?: number }, where accounts is
 // the seat count picked on the marketing slider before signing up.
 billingRouter.post("/checkout", async (req, res) => {
   const parsed = z
     .object({
-      tier: z.enum(["monthly", "lifetime"]),
+      tier: z.enum(["monthly", "yearly", "lifetime"]),
       accounts: z.number().int().positive().max(PRICING.monthlyHardCap).optional(),
     })
     .safeParse(req.body ?? {});

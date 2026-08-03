@@ -24,6 +24,21 @@ access requires Google's restricted-scope verification and any security
 assessment Google assigns. Branding verification alone does not remove the
 unverified/restricted-app warning.
 
+### What the code can and cannot fix
+
+The server requests `access_type=offline` and stores the refresh token
+encrypted. That keeps a production authorization alive. It cannot override a
+Google Cloud project whose publishing status is **Testing**: Google expires
+refresh tokens for external test users after seven days and shows the
+unverified-app warning. Move the production project to **In production**, then
+submit the restricted Gmail scope for verification. Do not attempt to hide or
+work around Google's warning in the product.
+
+Google's current scope guidance is at
+<https://developers.google.com/workspace/gmail/api/auth/scopes>, and the
+restricted-scope submission requirements are at
+<https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification>.
+
 ## Scope justification for the submission
 
 > OneInbox is a unified email client. A user deliberately connects a Gmail

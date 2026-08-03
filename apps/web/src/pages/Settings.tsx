@@ -491,6 +491,8 @@ function PlanPane() {
             ? "Pick a plan anytime. Nothing is deleted when you switch."
             : billing?.plan === "monthly"
               ? `${billing.pricing.monthly_included} accounts included, $${billing.pricing.monthly_per_extra_usd}/month per extra. Switch or cancel anytime.`
+              : billing?.plan === "yearly"
+                ? `${billing.pricing.monthly_included} accounts included, $${billing.pricing.yearly_base_usd}/year with 20% off. Switch or cancel anytime.`
               : "Every future update included, forever. Thanks for backing OneInbox."}
         </div>
         {billing && (

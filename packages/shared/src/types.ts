@@ -1,7 +1,7 @@
 // Types shared between @uni/api and @uni/web. The API is the source of truth;
 // everything here is the SANITIZED shape the dashboard sees (no credentials).
 
-export type PlanId = "trial" | "monthly" | "lifetime";
+export type PlanId = "trial" | "monthly" | "yearly" | "lifetime";
 
 export type ProviderPreset = "gmail" | "icloud" | "outlook" | "porkbun" | "custom";
 

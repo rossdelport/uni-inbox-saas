@@ -5,10 +5,11 @@ import { supabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 import { getBilling, PRICING } from "../lib/plans.js";
 
-// Stripe billing core. One product ("OneInbox"), two prices:
-//  - Monthly (STRIPE_PRICE_MONTHLY_V2): recurring, graduated tiers — quantity
-//    is the number of allowed accounts; first 5 bill a flat $5, each extra $2.
-//  - Lifetime (STRIPE_PRICE_LIFETIME): $50 one-time payment, 10 accounts.
+// Stripe billing core. One product ("OneInbox"), three customer-facing prices:
+//  - Monthly: $10/month for 5 accounts, then $2 per extra account.
+//  - Yearly: $97/year for 5 accounts, then the same 20%-discounted extra-seat
+//    rate, capped at 10 accounts.
+//  - Lifetime: $97 one-time payment, 10 accounts.
 // The 3-day trial is Stripe's, taken with a card up front on the first
 // subscription, so it converts on its own instead of needing a second visit.
 // Plan flips happen in TWO places on purpose: the authenticated /confirm call
@@ -27,7 +28,7 @@ export function getStripe(): Stripe {
   return stripe();
 }
 
-export type CheckoutTier = "monthly" | "lifetime";
+export type CheckoutTier = "monthly" | "yearly" | "lifetime";
 
 /** Free days on a first subscription, taken with a card already on file. */
 export const SIGNUP_TRIAL_DAYS = 3;
@@ -35,26 +36,36 @@ export const SIGNUP_TRIAL_DAYS = 3;
 // Prices are resolved (and created on first run) by lookup key, so the only
 // required env is STRIPE_SECRET_KEY. STRIPE_PRICE_* env vars act as manual
 // overrides if ever needed.
-const LOOKUP = { monthly: "oneinbox_monthly_v2", lifetime: "oneinbox_lifetime" } as const;
+const LOOKUP = {
+  monthly: "oneinbox_monthly_v3",
+  yearly: "oneinbox_yearly_v1",
+  lifetime: "oneinbox_lifetime_v2",
+} as const;
 const LEGACY_MONTHLY_INCLUDED = 3;
-let priceIds: { monthly: string; lifetime: string } | null = null;
+let priceIds: { monthly: string; yearly: string; lifetime: string } | null = null;
 
-export async function ensurePrices(): Promise<{ monthly: string; lifetime: string }> {
+export async function ensurePrices(): Promise<{ monthly: string; yearly: string; lifetime: string }> {
   if (priceIds) return priceIds;
-  if (env.STRIPE_PRICE_MONTHLY_V2 && env.STRIPE_PRICE_LIFETIME) {
-    priceIds = { monthly: env.STRIPE_PRICE_MONTHLY_V2, lifetime: env.STRIPE_PRICE_LIFETIME };
+  if (env.STRIPE_PRICE_MONTHLY_V2 && env.STRIPE_PRICE_YEARLY && env.STRIPE_PRICE_LIFETIME) {
+    priceIds = {
+      monthly: env.STRIPE_PRICE_MONTHLY_V2,
+      yearly: env.STRIPE_PRICE_YEARLY,
+      lifetime: env.STRIPE_PRICE_LIFETIME,
+    };
     return priceIds;
   }
   const s = stripe();
   const existing = await s.prices.list({
-    lookup_keys: [LOOKUP.monthly, LOOKUP.lifetime],
+    lookup_keys: [LOOKUP.monthly, LOOKUP.yearly, LOOKUP.lifetime],
     limit: 10,
   });
   let monthly =
     env.STRIPE_PRICE_MONTHLY_V2 ?? existing.data.find((p) => p.lookup_key === LOOKUP.monthly)?.id;
+  let yearly =
+    env.STRIPE_PRICE_YEARLY ?? existing.data.find((p) => p.lookup_key === LOOKUP.yearly)?.id;
   let lifetime =
     env.STRIPE_PRICE_LIFETIME ?? existing.data.find((p) => p.lookup_key === LOOKUP.lifetime)?.id;
-  if (!monthly || !lifetime) {
+  if (!monthly || !yearly || !lifetime) {
     const products = await s.products.search({ query: `name:"OneInbox" AND active:"true"` });
     const product =
       products.data[0] ??
@@ -79,6 +90,23 @@ export async function ensurePrices(): Promise<{ monthly: string; lifetime: strin
         })
       ).id;
     }
+    if (!yearly) {
+      yearly = (
+        await s.prices.create({
+          product: product.id,
+          currency: "usd",
+          nickname: "Yearly (5 included, 20% off)",
+          lookup_key: LOOKUP.yearly,
+          recurring: { interval: "year" },
+          billing_scheme: "tiered",
+          tiers_mode: "graduated",
+          tiers: [
+            { up_to: PRICING.monthlyIncluded, flat_amount: PRICING.yearlyBaseUsd * 100, unit_amount: 0 },
+            { up_to: "inf", unit_amount: PRICING.yearlyPerExtraUsd * 100 },
+          ],
+        })
+      ).id;
+    }
     if (!lifetime) {
       lifetime = (
         await s.prices.create({
@@ -86,12 +114,12 @@ export async function ensurePrices(): Promise<{ monthly: string; lifetime: strin
           currency: "usd",
           nickname: "Lifetime (10 accounts, one-time)",
           lookup_key: LOOKUP.lifetime,
-          unit_amount: 5000,
+          unit_amount: PRICING.lifetimeUsd * 100,
         })
       ).id;
     }
   }
-  priceIds = { monthly, lifetime };
+  priceIds = { monthly, yearly, lifetime };
   logger.info(priceIds, "stripe prices resolved");
   return priceIds;
 }
@@ -242,7 +270,7 @@ export async function createCheckoutSession(
     return session.url;
   }
 
-  // Monthly. Guard: one live subscription per account — a retried confirm or
+  // Monthly or Yearly. Guard: one live subscription per account — a retried confirm or
   // double-submitted form must not stack two subscriptions. Seat changes go
   // through /add-seat, cancel through the portal.
   if (ACTIVE_STATUSES.has(billing.subscriptionStatus ?? "")) {
@@ -255,10 +283,8 @@ export async function createCheckoutSession(
     .select("id", { count: "exact", head: true })
     .eq("owner_id", uid)
     .neq("status", "disabled");
-  const quantity = Math.min(
-    Math.max(PRICING.monthlyIncluded, accounts ?? 0, count ?? 0),
-    PRICING.monthlyHardCap,
-  );
+  const requested = Math.max(PRICING.monthlyIncluded, accounts ?? 0, count ?? 0);
+  const quantity = Math.min(requested, tier === "yearly" ? PRICING.yearlyMax : PRICING.monthlyHardCap);
 
   // Only a brand new subscriber gets the trial. Without this check, cancelling
   // and resubscribing would hand out another free 3 days every time.
@@ -267,14 +293,14 @@ export async function createCheckoutSession(
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     customer,
-    line_items: [{ price: prices.monthly, quantity }],
+    line_items: [{ price: tier === "yearly" ? prices.yearly : prices.monthly, quantity }],
     subscription_data: {
       metadata: { user_id: uid },
       // Card is taken up front and the trial converts on its own when it ends.
       ...(firstTime ? { trial_period_days: SIGNUP_TRIAL_DAYS } : {}),
     },
     payment_method_collection: "always",
-    metadata: { user_id: uid, tier: "monthly" },
+    metadata: { user_id: uid, tier },
     allow_promotion_codes: true,
     success_url: `${base}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${base}/billing?checkout=cancelled`,
@@ -286,8 +312,8 @@ export async function createCheckoutSession(
 /** "+$2/month" paywall button: bump the Monthly subscription by one seat. */
 export async function addSeat(uid: string): Promise<{ quantity: number }> {
   const billing = await getBilling(uid);
-  if (billing.planId !== "monthly" || !ACTIVE_STATUSES.has(billing.subscriptionStatus ?? "")) {
-    throw new Error("Adding a seat needs an active Monthly subscription.");
+  if ((billing.planId !== "monthly" && billing.planId !== "yearly") || !ACTIVE_STATUSES.has(billing.subscriptionStatus ?? "")) {
+    throw new Error("Adding a seat needs an active Monthly or Yearly subscription.");
   }
   const { data: prof } = await supabase
     .from("profiles")
@@ -301,7 +327,7 @@ export async function addSeat(uid: string): Promise<{ quantity: number }> {
   const item = sub.items.data[0];
   if (!item) throw new Error("Subscription has no items. Contact support.");
   const current = item.quantity ?? PRICING.monthlyIncluded;
-  const quantity = Math.min(current + 1, PRICING.monthlyHardCap);
+  const quantity = Math.min(current + 1, billing.planId === "yearly" ? PRICING.yearlyMax : PRICING.monthlyHardCap);
   if (quantity === current) throw new Error("Seat limit reached. Contact support for more.");
 
   const updated = await stripe().subscriptions.update(subId, {
@@ -324,7 +350,7 @@ async function migrateMonthlySubscriptionPrice(sub: Stripe.Subscription): Promis
   const item = sub.items.data[0];
   if (!item || isAiSubscription(sub)) return sub;
   const prices = await ensurePrices();
-  if (item.price.id === prices.monthly) return sub;
+  if (item.price.id === prices.monthly || item.price.id === prices.yearly) return sub;
 
   const oldQuantity = item.quantity ?? LEGACY_MONTHLY_INCLUDED;
   const paidExtras = Math.max(0, oldQuantity - LEGACY_MONTHLY_INCLUDED);
@@ -431,7 +457,11 @@ export async function applySubscription(uid: string, sub: Stripe.Subscription): 
     return;
   }
 
-  const planId: PlanId = isActive ? "monthly" : "trial";
+  const planId: PlanId = isActive
+    ? item?.price.recurring?.interval === "year"
+      ? "yearly"
+      : "monthly"
+    : "trial";
   // A subscription set to cancel keeps status "trialing"/"active" until the
   // period actually ends, so status alone cannot tell a happy user from one
   // already on the way out. Stored separately so churn is visible the day it
@@ -458,7 +488,14 @@ export async function applySubscription(uid: string, sub: Stripe.Subscription): 
     })
     .eq("user_id", uid);
 
-  await enforceInboxCap(uid, isActive ? Math.max(PRICING.monthlyIncluded, quantity) : PRICING.trialMax);
+  await enforceInboxCap(
+    uid,
+    isActive
+      ? planId === "yearly"
+        ? Math.min(PRICING.yearlyMax, Math.max(PRICING.monthlyIncluded, quantity))
+        : Math.max(PRICING.monthlyIncluded, quantity)
+      : PRICING.trialMax,
+  );
 
   await supabase.from("billing_events").insert({
     user_id: uid,

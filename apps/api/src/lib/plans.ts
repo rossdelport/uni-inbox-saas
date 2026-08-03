@@ -1,15 +1,17 @@
 import type { PlanId } from "@uni/shared";
 import { supabase } from "./supabase.js";
 
-// Pricing: one Monthly plan ($5/month with 5 accounts included, +$2/month per
-// extra account, billed as Stripe subscription quantity with graduated tiers)
-// and a $50 one-time Lifetime plan (10 accounts). The 3-day trial matches
-// the original 3-account entry point; Monthly now gives users room to grow.
+// Pricing: Monthly is $10/month with 5 accounts included (+$2 per extra),
+// Yearly is $97/year with the same 5-account base and a 20% discount, and
+// Lifetime is a $97 one-time purchase for up to 10 accounts.
 export const PRICING = {
-  monthlyBaseUsd: 5,
+  monthlyBaseUsd: 10,
   monthlyIncluded: 5,
   monthlyPerExtraUsd: 2,
-  lifetimeUsd: 50,
+  yearlyBaseUsd: 97,
+  yearlyPerExtraUsd: 19.2,
+  yearlyMax: 10,
+  lifetimeUsd: 97,
   lifetimeMax: 10,
   trialMax: 3,
   /** Hard ceiling on Monthly seats (sanity bound, not a marketed limit). */
@@ -17,15 +19,26 @@ export const PRICING = {
 } as const;
 
 export function planLabel(planId: PlanId): string {
-  return planId === "lifetime" ? "Lifetime" : planId === "monthly" ? "Monthly" : "Free trial";
+  return planId === "lifetime"
+    ? "Lifetime"
+    : planId === "yearly"
+      ? "Yearly"
+      : planId === "monthly"
+        ? "Monthly"
+        : "Free trial";
 }
 
-/** Display price for the current state, e.g. "$7/month" or "$50 one-time". */
+/** Display price for the current state, e.g. "$12/month" or "$97/year". */
 export function planPriceLabel(planId: PlanId, monthlyQuantity: number): string {
-  if (planId === "lifetime") return "$50 one-time";
+  if (planId === "lifetime") return "$97 one-time";
   if (planId === "monthly") {
     const extras = Math.max(0, monthlyQuantity - PRICING.monthlyIncluded);
     return `$${PRICING.monthlyBaseUsd + extras * PRICING.monthlyPerExtraUsd}/month`;
+  }
+  if (planId === "yearly") {
+    const extras = Math.max(0, monthlyQuantity - PRICING.monthlyIncluded);
+    const amount = PRICING.yearlyBaseUsd + extras * PRICING.yearlyPerExtraUsd;
+    return `$${amount.toFixed(2).replace(/\.00$/, "")}/year`;
   }
   return "Free";
 }
@@ -33,7 +46,7 @@ export function planPriceLabel(planId: PlanId, monthlyQuantity: number): string 
 export interface ProfileBilling {
   planId: PlanId;
   plan: { id: PlanId; label: string; maxInboxes: number };
-  /** Stripe subscription quantity while on Monthly (>= 5), else 0. */
+  /** Stripe subscription quantity while on Monthly or Yearly (>= 5), else 0. */
   monthlyQuantity: number;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
@@ -43,7 +56,10 @@ export interface ProfileBilling {
 
 function maxInboxesFor(planId: PlanId, monthlyQuantity: number): number {
   if (planId === "lifetime") return PRICING.lifetimeMax;
-  if (planId === "monthly") return Math.max(PRICING.monthlyIncluded, monthlyQuantity);
+  if (planId === "monthly" || planId === "yearly") {
+    const max = Math.max(PRICING.monthlyIncluded, monthlyQuantity);
+    return planId === "yearly" ? Math.min(PRICING.yearlyMax, max) : max;
+  }
   return PRICING.trialMax;
 }
 
@@ -56,9 +72,15 @@ export async function getBilling(uid: string): Promise<ProfileBilling> {
   // Old tier ids (pre-0006 rows) count as monthly with their old allowance.
   const legacyQty = rawPlan === "solo" ? 3 : rawPlan === "builder" ? 5 : rawPlan === "empire" ? 12 : 0;
   const planId: PlanId =
-    rawPlan === "monthly" || legacyQty > 0 ? "monthly" : rawPlan === "lifetime" ? "lifetime" : "trial";
+    rawPlan === "yearly"
+      ? "yearly"
+      : rawPlan === "monthly" || legacyQty > 0
+        ? "monthly"
+        : rawPlan === "lifetime"
+          ? "lifetime"
+          : "trial";
   const monthlyQuantity =
-    planId === "monthly"
+    planId === "monthly" || planId === "yearly"
       ? Math.max((data?.monthly_quantity as number | undefined) ?? 0, legacyQty, PRICING.monthlyIncluded)
       : 0;
   const trialEndsAt = (data?.trial_ends_at as string | null) ?? null;

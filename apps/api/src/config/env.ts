@@ -34,11 +34,12 @@ const schema = z.object({
   // holds the TEST key; Railway holds the LIVE key + live price ids.
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  // V2 is the current Monthly price (5 inboxes included). The original
-  // STRIPE_PRICE_MONTHLY is retained only so old deployments keep parsing;
-  // Stripe prices are immutable, so it must not be reused for the new tiers.
+  // STRIPE_PRICE_MONTHLY_V2 is retained as the environment variable name for
+  // compatibility, but it must point to the current v3 Stripe price. Stripe
+  // prices are immutable, so the old $5 price cannot be edited in place.
   STRIPE_PRICE_MONTHLY_V2: z.string().optional(),
   STRIPE_PRICE_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_YEARLY: z.string().optional(),
   STRIPE_PRICE_LIFETIME: z.string().optional(),
 
   // Comma-separated allowed dashboard origins (e.g. the Vercel URL). When

@@ -745,7 +745,7 @@ export function useCompose() {
 
 export function useCheckout() {
   return useMutation({
-    mutationFn: (tier: "monthly" | "lifetime") =>
+    mutationFn: (tier: "monthly" | "yearly" | "lifetime") =>
       api<{ url: string }>("/api/billing/checkout", {
         method: "POST",
         body: JSON.stringify({ tier }),

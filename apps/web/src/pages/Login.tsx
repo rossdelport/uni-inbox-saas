@@ -166,7 +166,9 @@ export function Login() {
           <p className="auth-trial">
             {intent?.tier === "lifetime"
               ? "Create your account, then pay once for Lifetime."
-              : "Free for 3 days, then $5/month. Cancel any time."}
+              : intent?.tier === "yearly"
+                ? "Free for 3 days, then $97/year. Cancel any time."
+                : "Free for 3 days, then $10/month. Cancel any time."}
           </p>
         )}
 

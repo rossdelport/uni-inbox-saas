@@ -266,28 +266,6 @@ export default function InboxScreen() {
             />
           ))}
         </ScrollView>
-        {viewKey === "inbox" ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.chipScroll}
-            contentContainerStyle={styles.chips}
-          >
-            {([
-              [null, "All"],
-              ["important", "Important"],
-              ["newsletter", "Newsletters"],
-              ["other", "Other"],
-            ] as Array<[SplitClass | null, string]>).map(([value, label]) => (
-              <Chip
-                key={label}
-                label={label}
-                active={splitClass === value}
-                onPress={() => setSplitClass(value)}
-              />
-            ))}
-          </ScrollView>
-        ) : null}
         {(accounts?.length ?? 0) > 1 ? (
           <ScrollView
             horizontal
@@ -489,8 +467,11 @@ const styles = StyleSheet.create({
   // Keep every horizontal filter row inset from the rounded white surface.
   // The first row used to begin at the edge on iOS because ScrollView's
   // content inset was being swallowed by the parent shadow container.
-  chipScroll: { paddingHorizontal: 12 },
-  chips: { gap: 8, paddingBottom: 10 },
+  // Keep the inset on the scroll content, not the ScrollView itself. Native
+  // scrolling can consume ScrollView padding and let the chips touch the
+  // rounded container edge after the first swipe.
+  chipScroll: {},
+  chips: { gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
   emptyTitle: { fontSize: 17, fontWeight: "600", textAlign: "center" },
   emptyBody: { fontSize: 14, lineHeight: 20, textAlign: "center" },
