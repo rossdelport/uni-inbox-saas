@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
@@ -58,8 +58,16 @@ export function Layout() {
   const [colorFor, setColorFor] = useState<string | null>(null);
   const updateAccount = useUpdateAccount();
   const syncAccounts = useSyncAccounts();
-  const [toasts, setToasts] = useState<Array<{ msg: string; kind: ToastKind; key: number }>>([]);
+  const [toasts, setToasts] = useState<
+    Array<{ msg: string; kind: ToastKind; key: number; leaving?: boolean }>
+  >([]);
   const toastSeq = useRef(0);
+  // Two-step dismiss: flag the card so CSS can play the exit animation, then
+  // actually drop it once that animation has run.
+  function dismissToast(key: number) {
+    setToasts((cur) => cur.map((t) => (t.key === key ? { ...t, leaving: true } : t)));
+    window.setTimeout(() => setToasts((cur) => cur.filter((t) => t.key !== key)), 220);
+  }
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -525,13 +533,14 @@ export function Layout() {
       )}
       {toasts.length > 0 && (
         <div className="uni-toast-stack">
-          {toasts.map((t) => (
-            <Toast
+          {toasts.map((t, i) => (
+            <div
               key={t.key}
-              msg={t.msg}
-              kind={t.kind}
-              onClose={() => setToasts((cur) => cur.filter((x) => x.key !== t.key))}
-            />
+              className="uni-toast-slot"
+              style={{ "--i": i, zIndex: 60 - i } as CSSProperties}
+            >
+              <Toast msg={t.msg} kind={t.kind} leaving={t.leaving} onClose={() => dismissToast(t.key)} />
+            </div>
           ))}
         </div>
       )}
@@ -542,8 +551,19 @@ export function Layout() {
 const TOAST_MS = 2000;
 
 // Notification card (top right): kind-coloured icon ring, message and close
-// button. Auto-closes after two seconds; no countdown chrome.
-function Toast({ msg, kind, onClose }: { msg: string; kind: ToastKind; onClose: () => void }) {
+// button. Auto-closes after two seconds; `leaving` hands the card to the CSS
+// exit animation before the parent removes it.
+function Toast({
+  msg,
+  kind,
+  leaving,
+  onClose,
+}: {
+  msg: string;
+  kind: ToastKind;
+  leaving?: boolean;
+  onClose: () => void;
+}) {
   useEffect(() => {
     const t = setTimeout(onClose, TOAST_MS);
     return () => clearTimeout(t);
@@ -551,7 +571,7 @@ function Toast({ msg, kind, onClose }: { msg: string; kind: ToastKind; onClose: 
   }, []);
 
   return (
-    <div className={`uni-toast show ${kind}`}>
+    <div className={`uni-toast ${kind} ${leaving ? "out" : ""}`}>
       <div className="t-row">
         <span className="t-ico">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">

@@ -248,11 +248,12 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
       o: () => openCursor(),
       e: () =>
         withCursor((t) =>
-          threadOp.mutate(
-            view === "deleted"
-              ? { threadId: t.id, op: "restore" }
-              : { threadId: t.id, op: t.archived ? "unarchive" : "archive" },
-          ),
+          view === "deleted"
+            ? threadOp.mutate(
+                { threadId: t.id, op: "restore" },
+                { onSuccess: () => toast("Conversation restored", "success") },
+              )
+            : threadOp.mutate({ threadId: t.id, op: t.archived ? "unarchive" : "archive" }),
         ),
       s: () =>
         withCursor((t) => threadOp.mutate({ threadId: t.id, op: t.starred ? "unstar" : "star" })),

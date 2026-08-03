@@ -360,16 +360,28 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .m-limit-txt{margin-top:6px;font-size:14px;color:var(--ink2)}
 .m-upsell{display:flex;flex-direction:column;gap:10px}
 
-/* ---------- toast: top-right cards, kind-coloured ----------
-   The stack owns the fixed position; toasts flow inside it newest-first,
-   so rapid actions pile up instead of replacing each other. */
-.uni-toast-stack{position:fixed;top:64px;right:20px;z-index:300;display:flex;flex-direction:column;
-  gap:8px;align-items:flex-end;pointer-events:none}
+/* ---------- toast: top-right deck, kind-coloured ----------
+   The stack owns the fixed position. The newest card sits in front; older
+   ones layer behind it, nudged up and scaled down so their top edge peeks
+   out and a burst reads as a visible pile. Each slot's place in the deck
+   comes from --i, so cards glide back as new ones land. */
+.uni-toast-stack{position:fixed;top:64px;right:20px;z-index:300;width:330px;
+  max-width:calc(100vw - 40px);pointer-events:none}
+.uni-toast-slot{position:absolute;top:0;right:0;width:100%;transform-origin:top right;
+  transform:translateY(calc(var(--i)*-9px)) scale(calc(1 - var(--i)*.05));
+  opacity:calc(1 - var(--i)*.14);
+  transition:transform .28s cubic-bezier(.22,1,.36,1), opacity .28s ease}
 .uni-toast{background:#fff;color:var(--ink);border:1px solid rgba(0,0,0,.08);
-  border-radius:14px;box-shadow:0 18px 44px rgba(13,40,80,.18);width:330px;max-width:calc(100vw - 40px);
-  opacity:0;transform:translateY(-10px);transition:opacity .22s ease,transform .22s ease;
-  pointer-events:none;overflow:hidden;text-align:left}
-.uni-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  border-radius:14px;box-shadow:0 18px 44px rgba(13,40,80,.18);
+  pointer-events:auto;overflow:hidden;text-align:left;
+  animation:toast-in .3s cubic-bezier(.22,1,.36,1)}
+.uni-toast.out{opacity:0;transform:translateY(-10px) scale(.96);
+  transition:opacity .2s ease, transform .2s ease;pointer-events:none}
+@keyframes toast-in{from{opacity:0;transform:translateY(-12px) scale(.96)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .uni-toast{animation:none}
+  .uni-toast-slot{transition:none}
+}
 .uni-toast.success{--tk:#1e8e3e}
 .uni-toast.danger{--tk:#d93025}
 .uni-toast.warn{--tk:#f9ab00}
