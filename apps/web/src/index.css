@@ -801,6 +801,18 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
   padding:0 8px;font-size:11.5px;color:var(--ink)}
 .snz-custom .btn-mini{height:28px;padding:0 9px;flex:none}
 .snz-when{color:var(--b1-ink);font-weight:600}
+/* Trash row menu: restore / delete permanently behind a kebab, same popover
+   idiom as the snooze picker. Restore keeps the accent blue, delete the
+   danger red, each with a matching tinted hover wash. */
+.trash-menu{position:fixed;z-index:80;width:208px;background:#fff;border:1px solid var(--line);
+  border-radius:14px;padding:5px;box-shadow:var(--sh-float)}
+.trash-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:9px 11px;border-radius:10px;
+  font-size:12.5px;font-weight:600;text-align:left;cursor:pointer}
+.trash-menu .tm-restore{color:var(--b1-ink)}
+.trash-menu .tm-restore:hover{background:rgba(var(--b1-rgb),.08)}
+.trash-menu .tm-delete{color:var(--danger-ink)}
+.trash-menu .tm-delete:hover{background:rgba(217,48,37,.07)}
+.trash-menu button:disabled{opacity:.55;cursor:default}
 .split-pop{position:fixed;z-index:80;background:#fff;border:1px solid var(--line);border-radius:14px;padding:7px;box-shadow:0 16px 36px rgba(13,40,80,.20);color:var(--ink)}
 .split-title{padding:5px 9px 7px;font-size:10.5px;font-weight:800;letter-spacing:.03em;color:var(--ink2)}
 .split-choice{display:flex;align-items:center;gap:9px;width:100%;padding:8px 9px;border:0;border-radius:9px;background:transparent;text-align:left;color:var(--ink);cursor:pointer}
@@ -1228,6 +1240,7 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .mrow .acts{top:8px;right:8px;padding:3px;border-radius:9px;background:rgba(255,255,255,.96);box-shadow:0 5px 14px rgba(15,35,58,.10)}
 .act-btn{border:0;background:transparent;width:27px;height:27px}
 .act-btn.snooze-action svg{width:60%;height:60%}
+.act-btn.more-action svg{width:15px;height:15px}
 .act-btn.read-action{font-size:15.4px;line-height:1}
 .dash-read{background:#fff;min-width:0;position:relative}
 .dash-read.thread-selected{border-top:3px solid var(--thread-accent,var(--b1))}

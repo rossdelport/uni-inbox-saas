@@ -5,6 +5,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import {
   useAccounts,
@@ -80,7 +81,6 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   );
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
-  const permanentDeleteThread = usePermanentDeleteThread();
 
   // Infinite scroll. Watching a sentinel below the last row is cheaper and
   // steadier than a scroll handler, which fires constantly and has to
@@ -150,6 +150,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const [cur, setCur] = useState(-1);
   const rowEls = useRef<Array<HTMLDivElement | null>>([]);
   const [snoozePicker, setSnoozePicker] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
+  const [trashMenu, setTrashMenu] = useState<{ threadId: string; anchor: DOMRect } | null>(null);
   const [splitPicker, setSplitPicker] = useState<{
     threadId: string;
     sender: string | null;
@@ -160,6 +161,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     setCur(-1);
     setSnoozePicker(null);
     setSplitPicker(null);
+    setTrashMenu(null);
   }, [view, account, split, searching]);
   // Archive and delete remove their row optimistically, so the next row
   // slides into the cursor index by itself; this only catches the end.
@@ -460,37 +462,21 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                 </div>
                 <div className="acts" onClick={(e) => e.stopPropagation()}>
                   {view === "deleted" ? (
-                    <>
-                      <button
-                        className="btn-mini"
-                        title="Restore to inbox"
-                        onClick={() =>
-                          threadOp.mutate(
-                            { threadId: t.id, op: "restore" },
-                            { onSuccess: () => toast("Conversation restored", "success") },
-                          )
-                        }
-                      >
-                        ↩ Restore
-                      </button>
-                      <button
-                        className="btn-mini danger"
-                        title="Delete permanently"
-                        aria-label="Delete permanently"
-                        disabled={
-                          permanentDeleteThread.isPending &&
-                          permanentDeleteThread.variables === t.id
-                        }
-                        onClick={() => {
-                          permanentDeleteThread.mutate(t.id, {
-                            onSuccess: () => toast("Conversation permanently deleted", "success"),
-                            onError: (error) => toast((error as Error).message, "warn"),
-                          });
-                        }}
-                      >
-                        Delete permanently
-                      </button>
-                    </>
+                    <button
+                      className="act-btn more-action"
+                      title="Restore or delete permanently"
+                      aria-label="Restore or delete permanently"
+                      aria-haspopup="menu"
+                      onClick={(e) =>
+                        setTrashMenu({ threadId: t.id, anchor: e.currentTarget.getBoundingClientRect() })
+                      }
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="12" cy="5" r="1.8" />
+                        <circle cx="12" cy="12" r="1.8" />
+                        <circle cx="12" cy="19" r="1.8" />
+                      </svg>
+                    </button>
                   ) : (
                   <>
                   <button
@@ -616,6 +602,13 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
           onClose={() => setSnoozePicker(null)}
         />
       )}
+      {trashMenu && (
+        <TrashRowMenu
+          threadId={trashMenu.threadId}
+          anchor={trashMenu.anchor}
+          onClose={() => setTrashMenu(null)}
+        />
+      )}
       {splitPicker && (
         <SplitPicker
           threadId={splitPicker.threadId}
@@ -626,6 +619,69 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
         />
       )}
     </>
+  );
+}
+
+// Restore / delete-permanently menu for a Trash row, portalled to <body> like
+// the snooze picker so the overflow-clipped list cannot cut it off.
+function TrashRowMenu({
+  threadId,
+  anchor,
+  onClose,
+}: {
+  threadId: string;
+  anchor: DOMRect;
+  onClose: () => void;
+}) {
+  const threadOp = useThreadOp();
+  const permanentDelete = usePermanentDeleteThread();
+  const popRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (!popRef.current?.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [onClose]);
+  useHotkeys({ Escape: () => onClose(), "*": () => {} }, { priority: KP.overlay });
+
+  // Right-align to the kebab and clamp to the viewport, like the pickers.
+  const width = 208;
+  const left = Math.max(12, Math.min(anchor.right - width, window.innerWidth - width - 12));
+  const top = Math.min(anchor.bottom + 6, Math.max(12, window.innerHeight - 96 - 12));
+
+  return createPortal(
+    <div ref={popRef} className="trash-menu" style={{ top, left }} role="menu" aria-label="Conversation actions">
+      <button
+        role="menuitem"
+        className="tm-restore"
+        onClick={() => {
+          threadOp.mutate(
+            { threadId, op: "restore" },
+            { onSuccess: () => toast("Conversation restored", "success") },
+          );
+          onClose();
+        }}
+      >
+        ↩ Restore to inbox
+      </button>
+      <button
+        role="menuitem"
+        className="tm-delete"
+        disabled={permanentDelete.isPending}
+        onClick={() => {
+          permanentDelete.mutate(threadId, {
+            onSuccess: () => toast("Conversation permanently deleted", "success"),
+            onError: (error) => toast((error as Error).message, "warn"),
+          });
+          onClose();
+        }}
+      >
+        🗑 Delete permanently
+      </button>
+    </div>,
+    document.body,
   );
 }
 
