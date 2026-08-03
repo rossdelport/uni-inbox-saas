@@ -1,0 +1,245 @@
+html {
+  scroll-behavior: smooth;
+}
+
+[data-waitlist-anchor] {
+  scroll-margin-top: 96px;
+}
+
+.wl-form {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: min(100%, 600px);
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.wl-form input[type="email"] {
+  box-sizing: border-box;
+  flex: 1 1 250px;
+  min-width: 220px;
+  height: 65px;
+  padding: 0 20px;
+  border: 1px solid rgba(10, 37, 64, 0.16);
+  border-radius: 20px;
+  outline: none;
+  background: #fff;
+  color: #0a2540;
+  box-shadow: 0 10px 26px rgba(10, 37, 64, 0.1);
+  font-family: Inter, "Inter Placeholder", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.wl-form input[type="email"]::placeholder {
+  color: #7e8da3;
+}
+
+.wl-form input[type="email"]:focus {
+  border-color: #1682ff;
+  box-shadow: 0 0 0 4px rgba(22, 130, 255, 0.13), 0 12px 28px rgba(10, 37, 64, 0.12);
+  transform: translateY(-1px);
+}
+
+.wl-form > a[data-waitlist-cta] {
+  flex: 0 0 auto !important;
+  cursor: pointer;
+  text-decoration: none !important;
+}
+
+.wl-form [aria-disabled="true"] {
+  cursor: wait !important;
+  opacity: 0.78 !important;
+  pointer-events: none;
+}
+
+.wl-status {
+  flex: 1 0 100%;
+  min-height: 18px;
+  margin: -3px 4px 0;
+  color: #0a2540;
+  font-family: Inter, "Inter Placeholder", sans-serif;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.wl-status:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+.wl-status[data-error="true"] {
+  color: #c72f24;
+}
+
+.wl-nav {
+  width: auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.wl-nav input[type="email"] {
+  flex: 0 1 170px;
+  min-width: 145px;
+  width: 170px;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 15px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.wl-nav > a[data-waitlist-cta] {
+  width: 150px !important;
+  height: 48px !important;
+}
+
+.wl-nav .wl-status {
+  display: none;
+}
+
+[data-framer-name="btns"].wl-cta-host {
+  width: min(100%, 600px) !important;
+  align-items: stretch !important;
+}
+
+.wl-hero {
+  width: min(100%, 600px);
+}
+
+.wl-hero .wl-status,
+.wl-mid .wl-status {
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow: 0 1px 8px rgba(0, 70, 160, 0.28);
+}
+
+.wl-mid {
+  width: min(100%, 570px);
+  margin-inline: auto;
+}
+
+.wl-pricing {
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wl-pricing input[type="email"] {
+  width: 100%;
+  min-width: 0;
+  height: 53px;
+  flex: 0 0 53px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.wl-pricing > a[data-waitlist-cta] {
+  width: 100% !important;
+  height: 53px !important;
+}
+
+.wl-pricing .wl-status {
+  margin-top: 0;
+}
+
+.wl-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wl-confetti i {
+  position: absolute;
+  top: -22px;
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--wl-color);
+  transform: rotate(var(--wl-rotate));
+  animation: wl-fall 1.35s cubic-bezier(0.2, 0.75, 0.35, 1) forwards;
+  animation-delay: var(--wl-delay);
+}
+
+.wl-confetti i:nth-child(3n) {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+@keyframes wl-fall {
+  to {
+    top: 105vh;
+    opacity: 0.92;
+    transform: translateX(var(--wl-drift)) rotate(680deg);
+  }
+}
+
+@media (max-width: 809px) {
+  [data-waitlist-anchor] {
+    scroll-margin-top: 76px;
+  }
+
+  .wl-form:not(.wl-nav):not(.wl-pricing) {
+    width: min(100%, 460px);
+    flex-direction: column;
+  }
+
+  .wl-form:not(.wl-nav) input[type="email"],
+  .wl-form:not(.wl-nav) > a[data-waitlist-cta] {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .wl-form:not(.wl-nav) input[type="email"] {
+    height: 65px;
+    flex: 0 0 65px;
+  }
+
+  .wl-pricing input[type="email"] {
+    height: 53px;
+    flex-basis: 53px;
+  }
+
+  .wl-nav {
+    gap: 6px;
+  }
+
+  .wl-nav input[type="email"] {
+    width: 132px;
+    min-width: 112px;
+    flex-basis: 132px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .wl-nav > a[data-waitlist-cta] {
+    width: 122px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .wl-nav input[type="email"] {
+    display: none;
+  }
+
+  .wl-nav > a[data-waitlist-cta] {
+    width: 132px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .wl-confetti {
+    display: none;
+  }
+}
