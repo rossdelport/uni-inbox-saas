@@ -108,7 +108,7 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       <div className="empty-state">
         <div>
           Thread not found.{" "}
-          <button style={{ color: "var(--b1)", fontWeight: 600 }} onClick={onBack}>
+          <button style={{ color: "var(--b1-ink)", fontWeight: 600 }} onClick={onBack}>
             Back to the list
           </button>
         </div>

@@ -88,7 +88,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
   padding:var(--btn-pad);
   background:#111;color:#fff;font-size:var(--btn-fs);font-weight:700;letter-spacing:-.01em;
   box-shadow:0 10px 24px rgba(0,0,0,.22);transition:transform .15s ease, box-shadow .15s ease}
-.btn-black:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(0,0,0,.26);text-decoration:none}
+.btn-black:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(0,0,0,.26);text-decoration:none}
+.btn-black:disabled{opacity:.45;cursor:default}
 /* Inline "working" spinner for buttons. Sized in em so it tracks the label's
    font-size, and currentColor so it inherits whatever the button's text is
    (white on .btn-black, ink on .btn-ghost) without a second rule per button. */
@@ -401,6 +402,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 .acc-row .a-acts{margin-left:auto;display:flex;gap:8px}
 .btn-mini{height:var(--btn-h-sm);padding:var(--btn-pad-sm);border-radius:999px;font-size:var(--btn-fs-sm);font-weight:700;border:1.5px solid var(--line);background:#fff;color:var(--ink)}
 .btn-mini:hover{border-color:var(--b1);color:var(--b1)}
+.btn-mini:disabled{opacity:.55;cursor:default;pointer-events:none}
 .btn-mini.danger:hover{border-color:#EA4335;color:#EA4335}
 .plan-hero{background:linear-gradient(150deg,var(--b1),#0a63e0);border-radius:20px;padding:26px 28px;color:#fff;margin-top:22px;
   box-shadow:0 16px 36px rgba(13,60,140,.3)}
@@ -909,13 +911,12 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
   background:linear-gradient(180deg,#3a3a3a 0%,#0b0b0b 100%);
   box-shadow:var(--sh-pill-dark);
   transition:transform .16s cubic-bezier(.22,1,.36,1), box-shadow .16s ease, filter .16s ease}
-.btn-black:hover,.side-compose:hover,.side-upsell a:hover,.btn-sm:not(:disabled):hover{
+.btn-black:not(:disabled):hover,.side-compose:hover,.side-upsell a:hover,.btn-sm:not(:disabled):hover{
   background:linear-gradient(180deg,#454545 0%,#111 100%);
   transform:translateY(-1px);
   box-shadow:inset 0 4.7px 14.5px rgba(255,255,255,.5), 0 3.6px 0 0 #000}
-.btn-black:active,.side-compose:active,.btn-sm:not(:disabled):active{
+.btn-black:not(:disabled):active,.side-compose:active,.btn-sm:not(:disabled):active{
   transform:translateY(1px);box-shadow:inset 0 4.7px 14.5px rgba(255,255,255,.4), 0 1px 0 0 #000}
-.btn-sm:disabled{background:#dfe3e8;color:#fff;box-shadow:none;transform:none}
 /* White pills (secondary) get the site's matching light lip. */
 .btn-ghost,.btn-mini,.oauth a{
   box-shadow:var(--sh-pill-white);transition:box-shadow .16s ease, border-color .16s ease, color .16s ease}
@@ -1031,7 +1032,7 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .uni-toast.warn{--tk:#8A5A00}
 /* Disabled send: grey pill with muted ink, not white-on-grey mush. Kept
    deliberately low-contrast so "nothing typed yet" reads at a glance. */
-.btn-sm:disabled{background:#e6e9ed;color:rgba(2,20,50,.55)}
+.btn-sm:disabled{background:#e6e9ed;color:rgba(2,20,50,.55);box-shadow:none;transform:none}
 /* Table headers and micro-labels sit at the muted step, which now passes. */
 .adm-table th,.adm-tile .t-lab,.uni-toast .t-foot{color:var(--ink3)}
 
@@ -1228,23 +1229,6 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .act-btn{border:0;background:transparent;width:27px;height:27px}
 .act-btn.snooze-action svg{width:60%;height:60%}
 .act-btn.read-action{font-size:15.4px;line-height:1}
-.permanent-delete-btn{
-  width:auto;
-  min-width:132px;
-  padding:0 10px;
-  color:#b42318;
-  background:#fff7f6;
-  border:1px solid rgba(180,35,24,.18);
-  font-weight:700;
-  white-space:nowrap;
-}
-.permanent-delete-btn:hover{
-  color:#a01812;
-  border-color:#e0524d;
-  background:#fff0ee;
-}
-.permanent-delete-btn:disabled{cursor:wait;opacity:.55}
-
 .dash-read{background:#fff;min-width:0;position:relative}
 .dash-read.thread-selected{border-top:3px solid var(--thread-accent,var(--b1))}
 .read-scroll{padding:30px clamp(28px,4vw,58px) 28px}

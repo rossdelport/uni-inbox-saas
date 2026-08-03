@@ -82,15 +82,15 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
             <li>Cancel anytime</li>
           </ul>
           {isMonthly ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Current plan
             </button>
           ) : isLifetime ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Covered by Lifetime
             </button>
           ) : isYearly ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Manage billing to change
             </button>
           ) : (
@@ -118,15 +118,15 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
             <li>Cancel anytime</li>
           </ul>
           {isYearly ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Current plan
             </button>
           ) : isLifetime ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Covered by Lifetime
             </button>
           ) : isMonthly ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Manage billing to change
             </button>
           ) : (
@@ -160,7 +160,7 @@ export function PlansModal({ onClose }: { onClose: () => void }) {
             <li>30-day money-back guarantee</li>
           </ul>
           {isLifetime ? (
-            <button className="btn-black" style={{ opacity: 0.45, cursor: "default" }} disabled>
+            <button className="btn-black" disabled>
               Current plan
             </button>
           ) : (

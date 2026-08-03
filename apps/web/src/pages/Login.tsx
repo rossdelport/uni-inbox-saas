@@ -227,7 +227,7 @@ export function Login() {
           {notice && <p className="ok-note">{notice}</p>}
 
           <div className="auth-cta">
-            <button type="submit" className="btn-black" disabled={busy} style={{ width: "100%" }}>
+            <button type="submit" className="btn-black" disabled={busy}>
               {busy ? "Working…" : isSignup ? "Create account" : "Log in"}
             </button>
           </div>

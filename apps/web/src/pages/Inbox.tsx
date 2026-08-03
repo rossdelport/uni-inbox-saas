@@ -429,9 +429,8 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                   {view === "deleted" ? (
                     <>
                       <button
-                        className="act-btn"
+                        className="btn-mini"
                         title="Restore to inbox"
-                        style={{ width: "auto", padding: "0 10px", fontWeight: 700 }}
                         onClick={() =>
                           threadOp.mutate(
                             { threadId: t.id, op: "restore" },
@@ -442,7 +441,7 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
                         ↩ Restore
                       </button>
                       <button
-                        className="act-btn permanent-delete-btn"
+                        className="btn-mini danger"
                         title="Delete permanently"
                         aria-label="Delete permanently"
                         disabled={
