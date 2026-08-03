@@ -131,3 +131,13 @@
     justify-content: flex-start;
   }
 }
+
+/* Hero badge pill: the swapped-in copy runs longer than the template's, which
+   wrapped it into a blob inside the template's fixed width. Hug the label on
+   one line instead. */
+section[data-framer-name="hero"] a[data-framer-name="small"] {
+  white-space: nowrap;
+  width: max-content;
+  max-width: none;
+  height: auto;
+}
