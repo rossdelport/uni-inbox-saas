@@ -1228,6 +1228,22 @@ body.resizing .pane-grip{background:linear-gradient(to right,transparent 2px,rgb
 .act-btn{border:0;background:transparent;width:27px;height:27px}
 .act-btn.snooze-action svg{width:60%;height:60%}
 .act-btn.read-action{font-size:15.4px;line-height:1}
+.permanent-delete-btn{
+  width:auto;
+  min-width:132px;
+  padding:0 10px;
+  color:#b42318;
+  background:#fff7f6;
+  border:1px solid rgba(180,35,24,.18);
+  font-weight:700;
+  white-space:nowrap;
+}
+.permanent-delete-btn:hover{
+  color:#a01812;
+  border-color:#e0524d;
+  background:#fff0ee;
+}
+.permanent-delete-btn:disabled{cursor:wait;opacity:.55}
 
 .dash-read{background:#fff;min-width:0;position:relative}
 .dash-read.thread-selected{border-top:3px solid var(--thread-accent,var(--b1))}
