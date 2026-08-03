@@ -269,6 +269,17 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       var form = anchor.closest("form[data-waitlist-form]");
+      if (form && form.classList.contains("wl-nav")) {
+        var navInput = form.querySelector('input[name="email"]');
+        if (navInput && window.getComputedStyle(navInput).display === "none") {
+          var heroInput = document.querySelector('.wl-hero input[name="email"]');
+          if (heroInput) {
+            heroInput.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(function () { heroInput.focus(); }, 500);
+          }
+          return;
+        }
+      }
       if (form) form.requestSubmit();
       return;
     }
