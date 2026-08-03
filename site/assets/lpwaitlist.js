@@ -102,9 +102,16 @@
     setButtonLabel(anchor, "Join waitlist");
 
     parent.insertBefore(form, replaceNode);
-    form.appendChild(input);
-    form.appendChild(anchor);
-    form.appendChild(status);
+    // The header stays compact: its button points people to the real hero
+    // form instead of duplicating an email field in the navigation.
+    if (placement === "nav") {
+      form.setAttribute("aria-label", "Join the waitlist");
+      form.appendChild(anchor);
+    } else {
+      form.appendChild(input);
+      form.appendChild(anchor);
+      form.appendChild(status);
+    }
     if (replaceNode !== anchor && replaceNode.parentNode) replaceNode.remove();
   }
 
@@ -270,15 +277,12 @@
       event.stopImmediatePropagation();
       var form = anchor.closest("form[data-waitlist-form]");
       if (form && form.classList.contains("wl-nav")) {
-        var navInput = form.querySelector('input[name="email"]');
-        if (navInput && window.getComputedStyle(navInput).display === "none") {
-          var heroInput = document.querySelector('.wl-hero input[name="email"]');
-          if (heroInput) {
-            heroInput.scrollIntoView({ behavior: "smooth", block: "center" });
-            setTimeout(function () { heroInput.focus(); }, 500);
-          }
-          return;
+        var heroInput = document.querySelector('.wl-hero input[name="email"]');
+        if (heroInput) {
+          heroInput.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(function () { heroInput.focus(); }, 500);
         }
+        return;
       }
       if (form) form.requestSubmit();
       return;

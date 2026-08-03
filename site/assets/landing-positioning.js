@@ -5,7 +5,7 @@
   window.__oneInboxPositioningRefresh = true;
 
   var isWaitlist = Boolean(window.__uniWaitlistPage);
-  var COPY_VERSION = "owner-operator-v1";
+  var COPY_VERSION = "owner-operator-v2";
 
   var TESTIMONIALS = [
     {
@@ -61,7 +61,7 @@
   function setMeta() {
     var title = "OneInbox | Know what needs your attention across every business";
     if (document.title !== title) document.title = title;
-    var description = "One Inbox turns every email account into one clear list of replies, leads and follow-ups for owner-operators running multiple businesses.";
+    var description = "One inbox turns all your email accounts into one clear list of replies, leads and follow-ups for owner-operators running multiple businesses.";
     var meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", description);
     document.querySelectorAll('meta[property="og:title"], meta[name="twitter:title"]').forEach(function (el) {
@@ -86,14 +86,14 @@
     if (badge) text(badge, "Running 2–5 businesses?");
 
     var subline = findText(hero, function (value) {
-      return value.indexOf("Connect Gmail") === 0 || value.indexOf("One Inbox turns every email account") === 0;
+      return value.indexOf("Connect Gmail") === 0 || value.indexOf("One Inbox turns every email account") === 0 || value.indexOf("One inbox turns all your email accounts") === 0;
     });
-    if (subline) text(subline, "One Inbox turns every email account into one clear list of replies, leads and follow-ups. Easily see important emails with colour coded inboxes and smart sorting. Save hours and get more done.");
+    if (subline) text(subline, "One inbox turns all your email accounts into one clear list of replies, leads and follow-ups. Easily see important emails with colour coded inboxes and smart sorting. Save hours and get more done.");
 
     var trust = hero.querySelector(".uni-trust span");
     if (trust && trust.getAttribute("data-copy-version") !== COPY_VERSION) {
       trust.setAttribute("data-copy-version", COPY_VERSION);
-      trust.innerHTML = "<b>Keep your accounts where they are.</b> No forwarding. No migration. No switching providers.";
+      trust.innerHTML = "<b>All your accounts are encrypted.</b> No forwarding. No migration. No switching providers";
     }
   }
 
