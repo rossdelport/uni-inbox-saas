@@ -367,18 +367,20 @@
   }
 
   var timer = null;
-  function schedule() {
+  function schedule(delay) {
     clearTimeout(timer);
     timer = setTimeout(function () {
       wrapSlider();
       applyAll();
-    }, 180);
+    }, delay || 180);
   }
 
-  wrapSlider();
-  applyAll();
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener("resize", schedule);
-  setTimeout(applyAll, 700);
-  setTimeout(applyAll, 1800);
+  // Framer hydrates the exported page after these scripts are parsed. A
+  // permanent DOM observer can race React's reconciliation and cause a
+  // removeChild error, so use a few delayed passes instead. The page is then
+  // left alone; the only ongoing behavior is the explicit pricing controls.
+  schedule(900);
+  setTimeout(function () { wrapSlider(); applyAll(); }, 1800);
+  setTimeout(function () { wrapSlider(); applyAll(); }, 3200);
+  window.addEventListener("resize", function () { schedule(240); });
 })();
