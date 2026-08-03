@@ -56,13 +56,28 @@
     if (el && el.textContent !== value) el.textContent = value;
   }
 
+  // Patch every match, not just the first. The exported page keeps all
+  // breakpoint variants in the DOM (hydration used to cull them to one),
+  // so each patcher has to visit every copy of its section.
+  function each(selector, fn) {
+    Array.prototype.forEach.call(document.querySelectorAll(selector), fn);
+  }
+
   function findText(root, matcher) {
+    var all = findTexts(root, matcher);
+    return all.length ? all[0] : null;
+  }
+
+  // All matching nodes, not just the first: every breakpoint variant keeps
+  // its own copy of a text node in the DOM now, and each needs the patch.
+  function findTexts(root, matcher) {
     var nodes = root ? root.querySelectorAll("h1,h2,h3,h4,p,a,button,span") : [];
+    var out = [];
     for (var i = 0; i < nodes.length; i += 1) {
       var value = (nodes[i].textContent || "").replace(/\s+/g, " ").trim();
-      if (matcher(value, nodes[i])) return nodes[i];
+      if (matcher(value, nodes[i])) out.push(nodes[i]);
     }
-    return null;
+    return out;
   }
 
   function setMeta() {
@@ -80,33 +95,40 @@
   }
 
   function patchHero() {
-    var hero = document.querySelector('section[data-framer-name="hero"]');
-    if (!hero) return;
+    each('section[data-framer-name="hero"]', patchHeroSection);
+  }
 
-    var heads = hero.querySelectorAll("h1");
-    if (heads.length > 0) text(heads[0], "Know what needs your attention");
-    if (heads.length > 1) text(heads[1], "across every business.");
+  function patchHeroSection(hero) {
+    // Each breakpoint variant carries its own two-line h1 pair, in order:
+    // even indexes are the first line, odd indexes the second.
+    hero.querySelectorAll("h1").forEach(function (head, i) {
+      text(head, i % 2 === 0 ? "Know what needs your attention" : "across every business.");
+    });
 
-    var badge = findText(hero, function (value) {
+    findTexts(hero, function (value) {
       return value === "Built for solo founders and indie hackers" || value === "Running multiple businesses?" || value === "Launching soon" || value === "Built for busy solo-operators";
+    }).forEach(function (badge) {
+      text(badge, isWaitlist ? "Launching soon" : "Built for busy solo-operators");
     });
-    if (badge) text(badge, isWaitlist ? "Launching soon" : "Built for busy solo-operators");
 
-    var subline = findText(hero, function (value) {
+    findTexts(hero, function (value) {
       return value.indexOf("Connect Gmail") === 0 || value.indexOf("One Inbox turns every email account") === 0 || value.indexOf("One inbox turns all your email accounts") === 0;
+    }).forEach(function (subline) {
+      text(subline, "One inbox turns all your email accounts into one clear list of replies, leads and follow-ups. Easily see important emails with colour coded inboxes and smart sorting. Save hours and get more done.");
     });
-    if (subline) text(subline, "One inbox turns all your email accounts into one clear list of replies, leads and follow-ups. Easily see important emails with colour coded inboxes and smart sorting. Save hours and get more done.");
 
-    var trust = hero.querySelector(".uni-trust span");
-    if (trust && trust.getAttribute("data-copy-version") !== COPY_VERSION) {
+    hero.querySelectorAll(".uni-trust span").forEach(function (trust) {
+      if (trust.getAttribute("data-copy-version") === COPY_VERSION) return;
       trust.setAttribute("data-copy-version", COPY_VERSION);
       trust.innerHTML = "<b>All your accounts are encrypted.</b> No forwarding. No migration. No switching providers";
-    }
+    });
   }
 
   function patchSecurity() {
-    var section = document.querySelector("section[data-uni-sec]");
-    if (!section) return;
+    each("section[data-uni-sec]", patchSecuritySection);
+  }
+
+  function patchSecuritySection(section) {
     var heading = section.querySelector("h2");
     if (heading && heading.getAttribute("data-copy-version") !== COPY_VERSION) {
       heading.setAttribute("data-copy-version", COPY_VERSION);
@@ -135,18 +157,23 @@
   }
 
   function patchBenefits() {
-    var section = document.querySelector('section[data-framer-name="benefits-custom"]');
-    if (!section) return;
-    var heading = section.querySelector("h2");
-    var subtitle = findText(section, function (value) {
-      return value.indexOf("Everything a solo founder") === 0 || value.indexOf("Run 2–5 businesses?") === 0;
+    each('section[data-framer-name="benefits-custom"]', patchBenefitsSection);
+  }
+
+  function patchBenefitsSection(section) {
+    section.querySelectorAll("h2").forEach(function (heading) {
+      text(heading, "Built for owner-operators with multiple businesses.");
     });
-    if (heading) text(heading, "Built for owner-operators with multiple businesses.");
-    if (subtitle) text(subtitle, "Run 2–5 businesses? See every reply, lead and follow-up without checking each account separately.");
+    findTexts(section, function (value) {
+      return value.indexOf("Everything a solo founder") === 0 || value.indexOf("Run 2–5 businesses?") === 0;
+    }).forEach(function (subtitle) {
+      text(subtitle, "Run 2–5 businesses? See every reply, lead and follow-up without checking each account separately.");
+    });
 
     var replacements = {
       "Every mailbox connects with AES-256 encryption. Your passwords stay encrypted at rest, and your mail is never sold or used to train AI.": "Connect Gmail, Outlook and custom-domain accounts. Keep each business address separate.",
       "Never miss a client reply. Get notified the moment any inbox receives mail, so you’re always in the loop.": "See important emails first. Smart sorting helps you act before leads and follow-ups go cold.",
+      "Never miss a client reply. Get notified the moment any inbox receives mail, so you are always in the loop.": "See important emails first. Smart sorting helps you act before leads and follow-ups go cold.",
       "Search every inbox at once. Find any email from any account in seconds, without tab-hopping between webmail.": "Find any email without remembering which business received it."
     };
     section.querySelectorAll("p").forEach(function (paragraph) {
@@ -156,16 +183,18 @@
   }
 
   function patchProviders() {
-    var flow = document.querySelector(".uni-flow");
-    if (!flow) return;
-    text(flow.querySelector(".uf-eyebrow"), "YOUR ACCOUNTS");
-    text(flow.querySelector(".uf-h2"), "Every business. Every inbox. One clear view.");
-    text(flow.querySelector(".uf-sub"), "Connect Gmail, Outlook and custom domains. Keep your providers, identities and addresses exactly as they are.");
+    each(".uni-flow", function (flow) {
+      text(flow.querySelector(".uf-eyebrow"), "YOUR ACCOUNTS");
+      text(flow.querySelector(".uf-h2"), "Every business. Every inbox. One clear view.");
+      text(flow.querySelector(".uf-sub"), "Connect Gmail, Outlook and custom domains. Keep your providers, identities and addresses exactly as they are.");
+    });
   }
 
   function patchNotifications() {
-    var section = document.querySelector(".uni-notif");
-    if (!section) return;
+    each(".uni-notif", patchNotificationsSection);
+  }
+
+  function patchNotificationsSection(section) {
     text(section.querySelector(".un-h2"), "Know what needs your attention.");
     text(section.querySelector(".un-sub"), "Smart sorting puts replies, leads and follow-ups first, so you spend less time checking and more time running your businesses.");
 
@@ -186,19 +215,25 @@
   }
 
   function patchTestimonials() {
-    var section = document.querySelector('section[data-framer-name="testimonials"]');
-    if (!section) return;
+    each('section[data-framer-name="testimonials"]', patchTestimonialsSection);
+  }
+
+  function patchTestimonialsSection(section) {
     var labels = section.querySelectorAll("p");
     labels.forEach(function (paragraph) {
       var value = (paragraph.textContent || "").replace(/\s+/g, " ").trim();
       if (value === "Why people") text(paragraph, "Built for owner-operators");
       if (value === "love OneInbox.") text(paragraph, "with less to check.");
     });
+    // The mobile carousel (.uni-car-track) carries its final quotes, names
+    // and avatars baked into the markup; cycling it here alongside the
+    // ticker cards would rotate its cards out of order. Patch only the rest.
+    function outsideCarousel(p) { return !p.closest(".uni-car-track"); }
     var quotes = Array.prototype.filter.call(section.querySelectorAll("p.framer-styles-preset-1k7v3ke"), function (p) {
-      return (p.textContent || "").trim().length > 70;
+      return outsideCarousel(p) && (p.textContent || "").trim().length > 70;
     });
     var names = Array.prototype.filter.call(section.querySelectorAll("p.framer-styles-preset-1spabvc"), function (p) {
-      return (p.textContent || "").trim().length > 2 && (p.textContent || "").trim() !== "Testimonials";
+      return outsideCarousel(p) && (p.textContent || "").trim().length > 2 && (p.textContent || "").trim() !== "Testimonials";
     });
     quotes.forEach(function (paragraph, i) { text(paragraph, TESTIMONIALS[i % TESTIMONIALS.length].quote); });
     names.forEach(function (paragraph, i) { text(paragraph, TESTIMONIALS[i % TESTIMONIALS.length].name); });
@@ -206,7 +241,7 @@
     // Framer repeats the ticker cards for its loop and responsive variants. The
     // avatar wrapper is stable across those copies, so update only those images
     // and keep the decorative star icons untouched.
-    var avatars = section.querySelectorAll('[data-framer-name="memoji"] img');
+    var avatars = Array.prototype.filter.call(section.querySelectorAll('[data-framer-name="memoji"] img'), outsideCarousel);
     avatars.forEach(function (img, i) {
       var avatar = TESTIMONIAL_AVATARS[i % TESTIMONIAL_AVATARS.length];
       if (img.getAttribute("data-avatar-version") === COPY_VERSION && img.getAttribute("src") === avatar) return;
@@ -218,32 +253,43 @@
 
   function patchCta() {
     ["cta section", "desktop"].forEach(function (name) {
-      var section = document.querySelector('section[data-framer-name="' + name + '"]');
-      if (!section) return;
-      var heading = section.querySelector("h2");
-      var paragraph = section.querySelector("p.framer-styles-preset-1k7v3ke");
-      if (heading) text(heading, "Feel in control across every business.");
-      if (paragraph) text(paragraph, "Connect your existing accounts, keep each address separate and see what needs attention in one place.");
+      each('section[data-framer-name="' + name + '"]', function (section) {
+        section.querySelectorAll("h2").forEach(function (heading) {
+          text(heading, "Feel in control across every business.");
+        });
+        section.querySelectorAll("p.framer-styles-preset-1k7v3ke").forEach(function (paragraph) {
+          text(paragraph, "Connect your existing accounts, keep each address separate and see what needs attention in one place.");
+        });
+      });
     });
   }
 
   function patchFaq() {
-    var section = document.querySelector('section[data-framer-name="faq"]');
-    if (!section) return;
-    var headings = section.querySelectorAll("h2");
-    if (headings.length > 0) text(headings[0], "Questions owner-operators");
-    if (headings.length > 1) text(headings[1], "ask.");
-    var subtitle = findText(section, function (value) {
-      return value.indexOf("Got questions?") === 0 || value.indexOf("Simple answers") === 0;
+    each('section[data-framer-name="faq"]', patchFaqSection);
+  }
+
+  function patchFaqSection(section) {
+    // Two-line heading, one pair per breakpoint variant: even indexes are
+    // the first line, odd indexes the second.
+    section.querySelectorAll("h2").forEach(function (heading, i) {
+      text(heading, i % 2 === 0 ? "Questions owner-operators" : "ask.");
     });
-    if (subtitle) text(subtitle, "Simple answers before you connect your accounts.");
-    section.querySelectorAll(".uni-faq-item").forEach(function (item, i) {
-      var copy = FAQ_COPY[i];
-      if (!copy) return;
-      var question = item.querySelector(".uni-faq-qt");
-      var answer = item.querySelector(".uni-faq-ai p");
-      if (question) text(question, copy.q);
-      if (answer) text(answer, copy.a);
+    findTexts(section, function (value) {
+      return value.indexOf("Got questions?") === 0 || value.indexOf("Simple answers") === 0;
+    }).forEach(function (subtitle) {
+      text(subtitle, "Simple answers before you connect your accounts.");
+    });
+    // index within each accordion block: a section can hold one block per
+    // breakpoint variant, and item order restarts inside every block
+    section.querySelectorAll(".uni-faq").forEach(function (block) {
+      block.querySelectorAll(".uni-faq-item").forEach(function (item, i) {
+        var copy = FAQ_COPY[i];
+        if (!copy) return;
+        var question = item.querySelector(".uni-faq-qt");
+        var answer = item.querySelector(".uni-faq-ai p");
+        if (question) text(question, copy.q);
+        if (answer) text(answer, copy.a);
+      });
     });
   }
 
@@ -283,12 +329,16 @@
   }
 
   function patchPricing() {
-    var section = document.querySelector('section[data-framer-name="footer"]');
-    if (!section) return;
-    var heading = section.querySelector("h2");
-    var paragraph = section.querySelector("p.framer-styles-preset-1k7v3ke");
-    if (heading) text(heading, "Simple pricing for every business you run.");
-    if (paragraph) text(paragraph, "One plan. Up to 10 accounts. No surprise fees.");
+    each('section[data-framer-name="footer"]', patchPricingSection);
+  }
+
+  function patchPricingSection(section) {
+    section.querySelectorAll("h2").forEach(function (heading) {
+      text(heading, "Simple pricing for every business you run.");
+    });
+    section.querySelectorAll("p.framer-styles-preset-1k7v3ke").forEach(function (paragraph) {
+      text(paragraph, "One plan. Up to 10 accounts. No surprise fees.");
+    });
 
     var cards = section.querySelectorAll(".uni-pcard");
     if (cards.length < 2) return;
@@ -350,12 +400,12 @@
   }
 
   function patchFooterCopy() {
-    var footer = document.querySelector("footer");
-    if (!footer) return;
-    var description = findText(footer, function (value) {
-      return value.indexOf("One clutter-free inbox") === 0 || value.indexOf("One clear view across") === 0 || value.indexOf("One clear view of replies") === 0;
+    each("footer", function (footer) {
+      var description = findText(footer, function (value) {
+        return value.indexOf("One clutter-free inbox") === 0 || value.indexOf("One clear view across") === 0 || value.indexOf("One clear view of replies") === 0;
+      });
+      if (description) text(description, "One clear view of replies, leads and follow-ups across every business you run.");
     });
-    if (description) text(description, "One clear view of replies, leads and follow-ups across every business you run.");
   }
 
   function applyAll() {
