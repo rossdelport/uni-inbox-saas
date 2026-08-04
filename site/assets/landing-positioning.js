@@ -334,7 +334,7 @@
 
   function patchPricingSection(section) {
     section.querySelectorAll("h2").forEach(function (heading) {
-      text(heading, "Simple pricing for every business you run.");
+      text(heading, "Simple pricing");
     });
     section.querySelectorAll("p.framer-styles-preset-1k7v3ke").forEach(function (paragraph) {
       text(paragraph, "One plan. Up to 10 accounts. No surprise fees.");
