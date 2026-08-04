@@ -201,7 +201,11 @@
   function patchProviders() {
     each(".uni-flow", function (flow) {
       var eyebrow = flow.querySelector(".uf-eyebrow"); if (eyebrow) eyebrow.style.display = "none";
-      text(flow.querySelector(".uf-h2"), "Every business. Every inbox. One clear view.");
+      var h2 = flow.querySelector(".uf-h2");
+      if (h2 && h2.getAttribute("data-split-copy") !== "v1") {
+        h2.setAttribute("data-split-copy", "v1");
+        h2.innerHTML = '<span style="color:rgba(10,37,64,.4)">Every business. Every inbox.</span> One clear view.';
+      }
       text(flow.querySelector(".uf-sub"), "Connect Gmail, Outlook and custom domains. Keep your providers, identities and addresses exactly as they are.");
     });
   }
