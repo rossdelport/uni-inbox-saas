@@ -36,19 +36,35 @@
   var FAQ_COPY = [
     {
       q: "Which email providers can I connect?",
-      a: "Gmail, Outlook, and custom-domain accounts that support IMAP and SMTP. Proton Mail, Tuta, and HEY Mail cannot be connected because they block third-party access."
+      a: "Most providers work. Gmail, Outlook, Yahoo, and iCloud connect in a couple of clicks, and any custom mailbox that supports IMAP and SMTP works too, including Porkbun and other domain hosts. Proton Mail, Tuta, and HEY Mail cannot be connected because they block IMAP and SMTP access for third-party apps."
     },
     {
-      q: "Does One Inbox replace Gmail or Outlook?",
-      a: "No. Keep using your providers. One Inbox connects to them and gives you one clear view across every business."
+      q: "Is it safe to connect my email accounts?",
+      a: "Yes. Your mailbox passwords are encrypted with AES-256-GCM before they are stored, and only our sync engine can read them. Your emails are never sold, shared, or used for advertising."
+    },
+    {
+      q: "Will replies send from the right address?",
+      a: "Always. Every reply is sent from the exact address that received the thread, so clients and collaborators never see the wrong from line, no matter how many inboxes you connect."
+    },
+    {
+      q: "How does the free trial work?",
+      a: "You get 3 days of full access. You pick your plan and add a card up front, then the trial runs free for 3 days and only converts if you stay. Cancel any time inside those 3 days and you are not charged."
+    },
+    {
+      q: "Does OneInbox replace Gmail or Outlook?",
+      a: "No. Keep using your providers. OneInbox connects to your existing accounts and gives you one clear view across every business, while your mail stays exactly where it is."
     },
     {
       q: "Do I move or forward my email?",
-      a: "No. Your mail stays with your provider. One Inbox connects to your existing accounts and syncs them into your workspace."
+      a: "No. Nothing moves and nothing is forwarded. OneInbox syncs your existing mailboxes into one workspace, and every message stays with your provider."
     },
     {
-      q: "Can I reply from the right business?",
-      a: "Yes. Replies go from the address that received the thread, so each business keeps its own identity."
+      q: "How many inboxes can I connect?",
+      a: "The monthly plan starts at 5 connected accounts and scales up to 10 with the slider. The lifetime plan includes up to 10. You can add or remove accounts whenever you like."
+    },
+    {
+      q: "Can I use OneInbox on my phone?",
+      a: "Yes. OneInbox works in any browser on desktop and mobile, and a native iPhone app is on the way."
     }
   ];
 
@@ -162,7 +178,7 @@
 
   function patchBenefitsSection(section) {
     section.querySelectorAll("h2").forEach(function (heading) {
-      text(heading, "Built for owner-operators with multiple businesses.");
+      text(heading, "Features you will love");
     });
     findTexts(section, function (value) {
       return value.indexOf("Everything a solo founder") === 0 || value.indexOf("Run 2–5 businesses?") === 0;
@@ -184,7 +200,7 @@
 
   function patchProviders() {
     each(".uni-flow", function (flow) {
-      text(flow.querySelector(".uf-eyebrow"), "YOUR ACCOUNTS");
+      var eyebrow = flow.querySelector(".uf-eyebrow"); if (eyebrow) eyebrow.style.display = "none";
       text(flow.querySelector(".uf-h2"), "Every business. Every inbox. One clear view.");
       text(flow.querySelector(".uf-sub"), "Connect Gmail, Outlook and custom domains. Keep your providers, identities and addresses exactly as they are.");
     });
@@ -282,6 +298,10 @@
     // index within each accordion block: a section can hold one block per
     // breakpoint variant, and item order restarts inside every block
     section.querySelectorAll(".uni-faq").forEach(function (block) {
+      var existing = block.querySelectorAll(".uni-faq-item");
+      for (var n = existing.length; existing.length > 0 && n < FAQ_COPY.length; n++) {
+        block.appendChild(existing[0].cloneNode(true));
+      }
       block.querySelectorAll(".uni-faq-item").forEach(function (item, i) {
         var copy = FAQ_COPY[i];
         if (!copy) return;
@@ -371,7 +391,7 @@
     var lifetimeTitle = lifetime.querySelector(".uni-ptitle");
     if (lifetimeTitle && lifetimeTitle.getAttribute("data-copy-version") !== COPY_VERSION) {
       lifetimeTitle.setAttribute("data-copy-version", COPY_VERSION);
-      lifetimeTitle.innerHTML = '<span>One-time purchase</span><span class="uni-ribbon">Best value</span>';
+      lifetimeTitle.innerHTML = '<span>One-time purchase</span><span class="uni-ribbon"><svg class="uni-medal" viewBox="0 0 48 52" aria-hidden="true"><path fill="#fff" d="M16 30l-7 16 9-4 4 8 7-15z"/><path fill="#fff" d="M32 30l7 16-9-4-4 8-7-15z"/><g fill="#fff"><circle cx="39" cy="20" r="6.5"/><circle cx="37" cy="27.5" r="6.5"/><circle cx="31.5" cy="33" r="6.5"/><circle cx="24" cy="35" r="6.5"/><circle cx="16.5" cy="33" r="6.5"/><circle cx="11" cy="27.5" r="6.5"/><circle cx="9" cy="20" r="6.5"/><circle cx="11" cy="12.5" r="6.5"/><circle cx="16.5" cy="7" r="6.5"/><circle cx="24" cy="5" r="6.5"/><circle cx="31.5" cy="7" r="6.5"/><circle cx="37" cy="12.5" r="6.5"/><circle cx="24" cy="20" r="16"/></g><circle cx="24" cy="20" r="12.5" fill="#fff"/><circle cx="24" cy="20" r="12.5" fill="rgba(12,125,255,.06)"/><path fill="#4F8EF7" d="M24 12.6l2.3 4.7 5.2.8-3.8 3.6.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.6 5.2-.8z"/><path fill="rgba(255,255,255,.35)" d="M24 15l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z"/></svg>Best value</span>';
     }
     var lifetimeAmount = lifetime.querySelector(".uni-amt");
     var lifetimePer = lifetime.querySelector(".uni-per");

@@ -86,7 +86,7 @@ footer.framer-sP0dz{display:none!important}
 .uni-pricing{display:flex;gap:28px;justify-content:center;align-items:stretch;flex-wrap:wrap;width:100%;max-width:980px;margin:0 auto;padding:10px 0 30px}
 .uni-pcard{flex:1 1 340px;max-width:440px;background:#fff;border-radius:40px;box-shadow:0 1px 1px rgba(0,0,0,.1),0 2px 2px rgba(0,0,0,.09),0 4.5px 2.5px rgba(0,0,0,.05),0 24px 48px rgba(10,60,140,.12);padding:36px 34px;display:flex;flex-direction:column;border:1px solid rgba(0,0,0,.05)}
 .uni-ptitle{font:700 22px "M PLUS Rounded 1c",sans-serif;color:#000;display:flex;align-items:center;gap:10px}
-.uni-ribbon{font:600 12px Inter,sans-serif;color:#fff;background:linear-gradient(180deg,#4A9BF5,#0C7DFF);padding:5px 12px;border-radius:999px;box-shadow:inset 0 -1px 1px rgba(10,114,237,.64)}
+.uni-ribbon{position:relative;display:inline-flex;align-items:center;font:600 12px Inter,sans-serif;color:#fff;background:linear-gradient(180deg,#82B1FF 0%,#3D7FFC 100%);padding:6px 14px 6px 26px;border-radius:999px;box-shadow:inset 0 1px 1px rgba(255,255,255,.4), 0 2.5px 0 0 #2E6FF0}.uni-medal{position:absolute;left:-15px;top:50%;transform:translateY(-50%);width:34px;height:37px;filter:drop-shadow(0 2px 3px rgba(13,60,140,.3))}
 .uni-pprice{margin-top:14px;display:flex;align-items:baseline;gap:8px}
 .uni-amt{font:800 52px "M PLUS Rounded 1c",sans-serif;color:#000;letter-spacing:-.02em}
 .uni-per{font:500 20px "M PLUS 1",Inter,sans-serif;color:rgba(0,0,0,.45)}
@@ -120,7 +120,7 @@ nav a[data-highlight="true"]{background:linear-gradient(182.44deg,#3C3C3C,#23232
 
 /* ==== OneInbox providers flow ==== */
 .uni-flow{position:relative;width:100%;border-radius:32px;background:#f2f2f3;border:1px solid rgba(10,37,64,.06);overflow:hidden;padding:76px 28px 66px;box-shadow:0 30px 80px rgba(10,37,64,.05)}
-.uf-rings i{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);border:1.5px solid rgba(255,255,255,.9);border-radius:50%;pointer-events:none}
+.uf-eyebrow{display:none}.uf-rings i{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);border:1.5px solid rgba(255,255,255,.9);border-radius:50%;pointer-events:none}
 .uf-rings i:nth-child(1){width:420px;height:420px}
 .uf-rings i:nth-child(2){width:700px;height:700px;border-color:rgba(255,255,255,.75)}
 .uf-rings i:nth-child(3){width:1000px;height:1000px;border-color:rgba(255,255,255,.6)}
@@ -1485,7 +1485,7 @@ var PRICING_HTML = `
     </div>
   </div>
   <div class="uni-pcard">
-    <div class="uni-ptitle">Lifetime <span class="uni-ribbon">Best value</span></div>
+    <div class="uni-ptitle">Lifetime <span class="uni-ribbon"><svg class="uni-medal" viewBox="0 0 48 52" aria-hidden="true"><path fill="#fff" d="M16 30l-7 16 9-4 4 8 7-15z"/><path fill="#fff" d="M32 30l7 16-9-4-4 8-7-15z"/><g fill="#fff"><circle cx="39" cy="20" r="6.5"/><circle cx="37" cy="27.5" r="6.5"/><circle cx="31.5" cy="33" r="6.5"/><circle cx="24" cy="35" r="6.5"/><circle cx="16.5" cy="33" r="6.5"/><circle cx="11" cy="27.5" r="6.5"/><circle cx="9" cy="20" r="6.5"/><circle cx="11" cy="12.5" r="6.5"/><circle cx="16.5" cy="7" r="6.5"/><circle cx="24" cy="5" r="6.5"/><circle cx="31.5" cy="7" r="6.5"/><circle cx="37" cy="12.5" r="6.5"/><circle cx="24" cy="20" r="16"/></g><circle cx="24" cy="20" r="12.5" fill="#fff"/><circle cx="24" cy="20" r="12.5" fill="rgba(12,125,255,.06)"/><path fill="#4F8EF7" d="M24 12.6l2.3 4.7 5.2.8-3.8 3.6.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.6 5.2-.8z"/><path fill="rgba(255,255,255,.35)" d="M24 15l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z"/></svg>Best value</span></div>
     <div class="uni-pprice"><span class="uni-amt">$50</span><span class="uni-per">one-time</span></div>
     <div class="uni-pdesc">Up to <b>10</b> email accounts included</div>
     <div class="uni-pfoot">
@@ -1943,7 +1943,7 @@ setTimeout(patchAll, 3000);
 })();</script>
 <script>/* uni-src: tag signup clicks with the button that sent them */document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a"):null;if(!a)return;var h=a.getAttribute("href")||"";if(!/signup|^\/app/.test(h))return;try{var u=new URL(h,location.origin);if(u.origin!==location.origin||u.searchParams.get("src"))return;var t=(a.textContent||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,32)||"link";u.searchParams.set("src",(location.pathname.replace(/\/$/,"")||"/")+":"+t);a.setAttribute("href",u.pathname+u.search)}catch(err){}},true);</script>
 <script src="/assets/lpwaitlist.js?v=owner-operator-v6"></script>
-<script src="/assets/landing-positioning.js?v=owner-operator-v7"></script>
+<script src="/assets/landing-positioning.js?v=owner-operator-v8"></script>
 <script src="/assets/footer-links.js?v=2"></script>
 </body>
 </html>

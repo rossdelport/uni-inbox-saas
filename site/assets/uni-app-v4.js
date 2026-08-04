@@ -12,7 +12,7 @@ window.UNI = (function(){
     {id:'a3', prov:'icloud',  email:'ross@icloud.com'},
     {id:'a4', prov:'other',   email:'ross@trynoisy.com'}
   ];
-  var DEFAULT_PLAN = {tier:'monthly', included:5, extra:0};   // $5/mo, 5 accounts
+  var DEFAULT_PLAN = {tier:'monthly', included:5, extra:0};   // $10/mo, 5 accounts
   var DEFAULT_PROFILE = {name:'Ross Miller', email:'ross@acmestudio.com'};
 
   function load(k, def){ try{ var v = JSON.parse(localStorage.getItem(k)); return v || JSON.parse(JSON.stringify(def)); }catch(e){ return JSON.parse(JSON.stringify(def)); } }
@@ -31,7 +31,7 @@ window.UNI = (function(){
 
   api.planLimit = function(p){ p = p || api.getPlan(); return p.tier === 'lifetime' ? 10 : p.included + p.extra; };
   api.planLabel = function(p){ p = p || api.getPlan(); return p.tier === 'lifetime' ? 'Lifetime' : 'Monthly'; };
-  api.planPrice = function(p){ p = p || api.getPlan(); return p.tier === 'lifetime' ? '$50 one-time' : '$' + (5 + 2 * (p.extra || 0)) + '/month'; };
+  api.planPrice = function(p){ p = p || api.getPlan(); return p.tier === 'lifetime' ? '$97 one-time' : '$' + (10 + 2 * (p.extra || 0)) + '/month'; };
 
   /* ---------- toast (inline-styled: immune to stale CSS cache) ---------- */
   var toastEl = null, toastT = null;
@@ -77,12 +77,12 @@ window.UNI = (function(){
     var body = elFrom(
       '<div class="m-plans">' +
         '<div class="m-plan" data-tier="monthly">' + (p.tier === 'monthly' ? '<span class="badge-cur">Current plan</span>' : '') +
-          '<div class="pname">Monthly</div><div class="price">$5<small>/month</small></div>' +
+          '<div class="pname">Monthly</div><div class="price">$10<small>/month</small></div>' +
           '<ul><li>5 email accounts included</li><li>+$2/month per extra account</li><li>Unified inbox, search and labels</li><li>Cancel anytime</li></ul>' +
           '<button class="btn-black" data-act="monthly" style="height:44px;font-size:14px">' + (p.tier === 'monthly' ? 'Current plan' : 'Switch to Monthly') + '</button>' +
         '</div>' +
         '<div class="m-plan best" data-tier="lifetime">' + (p.tier === 'lifetime' ? '<span class="badge-cur">Current plan</span>' : '<span class="badge-cur" style="background:#111">Best value</span>') +
-          '<div class="pname">Lifetime</div><div class="price">$50<small> one-time</small></div>' +
+          '<div class="pname">Lifetime</div><div class="price">$97<small> one-time</small></div>' +
           '<ul><li>Up to 10 email accounts included</li><li>Every future update, forever</li><li>Unified inbox, search and labels</li><li>30-day money-back guarantee</li></ul>' +
           '<button class="btn-black" data-act="lifetime" style="height:44px;font-size:14px">' + (p.tier === 'lifetime' ? 'Current plan' : 'Switch to Lifetime') + '</button>' +
         '</div>' +
