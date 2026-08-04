@@ -1107,5 +1107,41 @@ document.documentElement.classList.add('uni-js');
   document.addEventListener("DOMContentLoaded", reveal);
 })();
 </script>
+<script>
+/* The accordion's open state lived in the Framer runtime. Wire it by hand:
+   click a question card and the matching answer expands beneath it. */
+(function () {
+  var ANSWERS = {
+    "Which email providers can I connect?": "Most providers work. Gmail, Outlook, Yahoo, and iCloud connect in a couple of clicks, and any custom mailbox that supports IMAP and SMTP works too. Proton Mail, Tuta, and HEY Mail cannot be connected because they block third-party access.",
+    "Is it safe to connect my email accounts?": "Yes. Your mailbox passwords are encrypted with AES-256-GCM before they are stored, and only our sync engine can read them. Your emails are never sold, shared, or used for advertising.",
+    "Will replies send from the right address?": "Always. Every reply is sent from the exact address that received the thread, so clients and collaborators never see the wrong from line.",
+    "How does the free trial work?": "You get 3 days of full access. Pick your plan and add a card up front; cancel any time inside those 3 days and you are not charged."
+  };
+  function wire() {
+    document.querySelectorAll("p").forEach(function (p) {
+      var q = (p.textContent || "").trim();
+      if (!ANSWERS[q]) return;
+      var item = p.closest('[data-framer-name="Variant 1"]') || p.closest('[data-framer-name="Closed"]');
+      if (!item || item.dataset.faqWired) return;
+      item.dataset.faqWired = "1";
+      item.style.cursor = "pointer";
+      item.addEventListener("click", function () {
+        var a = item.querySelector(".uni-static-answer");
+        if (!a) {
+          a = document.createElement("div");
+          a.className = "uni-static-answer";
+          a.textContent = ANSWERS[q];
+          a.style.cssText = "padding:2px 20px 18px;font:400 15px/1.55 Inter,sans-serif;color:rgba(0,0,0,.62)";
+          item.appendChild(a);
+        } else {
+          a.style.display = a.style.display === "none" ? "" : "none";
+        }
+      });
+    });
+  }
+  wire();
+  document.addEventListener("DOMContentLoaded", wire);
+})();
+</script>
 </body>
 </html>
