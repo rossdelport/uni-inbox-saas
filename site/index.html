@@ -2830,8 +2830,33 @@ window.addEventListener('resize', function(){
     }
   }
 
-  ensureTerms();
-  setTimeout(ensureTerms, 1000);
+  // The Social Media column (its header and the placeholder icon links) is
+  // retired. Climb from the header to the widest ancestor that holds only
+  // this column, so the icons go with it and the other columns stay.
+  function dropSocial() {
+    var footer = document.querySelector("footer");
+    if (!footer) return;
+    footer.querySelectorAll("p").forEach(function (p) {
+      if ((p.textContent || "").trim() !== "Social Media") return;
+      var col = p;
+      while (col.parentElement && col.parentElement !== footer) {
+        var parentText = col.parentElement.textContent || "";
+        if (parentText.indexOf("Legal") >= 0 || parentText.indexOf("Menu") >= 0) break;
+        col = col.parentElement;
+      }
+      if (col.parentNode) col.parentNode.removeChild(col);
+    });
+  }
+
+  function pass() {
+    ensureTerms();
+    dropSocial();
+  }
+
+  pass();
+  setTimeout(pass, 1000);
+  setTimeout(pass, 2600);
+  setTimeout(pass, 5000);
 })();
 
 </script>
