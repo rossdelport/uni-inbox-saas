@@ -1090,5 +1090,22 @@ document.documentElement.classList.add('uni-js');
 </script>
 <style>/* The Framer runtime used to animate appear elements from their inline pre-animation states; without it they stay hidden. Force everything to its final state. */
 [data-framer-appear-id]{opacity:1 !important;transform:none !important}</style>
+<script>
+/* Some appear states carry no appear-id, just inline opacity:0 plus an offset
+   transform. Reveal exactly that signature and leave real hidden UI alone. */
+(function () {
+  function reveal() {
+    document.querySelectorAll("[style]").forEach(function (el) {
+      var o = el.style.opacity;
+      if ((o === "0" || o === "0.001") && /translate|scale/.test(el.style.transform || "")) {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+      }
+    });
+  }
+  reveal();
+  document.addEventListener("DOMContentLoaded", reveal);
+})();
+</script>
 </body>
 </html>
