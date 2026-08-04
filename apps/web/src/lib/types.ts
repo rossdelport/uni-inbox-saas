@@ -19,6 +19,8 @@ export interface EmailAccount {
   status: AccountStatus;
   last_error: string | null;
   created_at: string;
+  signature_html?: string | null;
+  signature_text?: string | null;
 }
 
 /** A recipient suggestion derived from this user's synced mail metadata. */

@@ -40,8 +40,22 @@ export function Compose() {
       .map((s) => s.trim())
       .filter(Boolean);
     if (recipients.length === 0 || !fromId) return;
+    // The from-account's saved signature rides along, identical to how the
+    // user's own client renders it: plain text in the text part, the stored
+    // HTML block in the html part.
+    const fromAcct = active.find((a) => a.id === fromId);
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+    const withSig = fromAcct?.signature_html
+      ? {
+          body_text: body + "\n\n" + (fromAcct.signature_text ?? ""),
+          body_html:
+            `<div style="font-family:-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.6">` +
+            `${esc(body)}<br><br>${fromAcct.signature_html}</div>`,
+        }
+      : { body_text: body };
     compose.mutate(
-      { account_id: fromId, to: recipients, subject, body_text: body },
+      { account_id: fromId, to: recipients, subject, ...withSig },
       {
         onSuccess: () => {
           // Queued through the outbox: the thread does not exist until the

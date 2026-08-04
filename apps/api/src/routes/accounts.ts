@@ -10,6 +10,7 @@ import { getBilling } from "../lib/plans.js";
 import { buildImap } from "../services/imapClient.js";
 import { PRESETS } from "../services/providerPresets.js";
 import { wakeAccount } from "../services/imapSync.js";
+import { detectSignature, htmlToText } from "../services/signatureDetect.js";
 
 export const accountsRouter = Router();
 
@@ -42,7 +43,7 @@ const accountInput = z.object({
 });
 
 const SANITIZED_COLUMNS =
-  "id, label, email_address, color, provider_preset, auth_method, status, last_error, created_at";
+  "id, label, email_address, color, provider_preset, auth_method, status, last_error, created_at, signature_html, signature_text";
 
 // Derived from the schema so route parse results are assignable by
 // construction, independent of how zod's inference behaves on any compiler.
@@ -350,6 +351,9 @@ const patchInput = z.object({
     .transform((s) => (/^[a-z]{4}( [a-z]{4}){3}$/i.test(s.trim()) ? s.replace(/\s+/g, "") : s))
     .optional(),
   status: z.enum(["active", "disabled"]).optional(),
+  // Signatures: null clears, absent leaves untouched.
+  signature_html: z.string().max(100_000).nullable().optional(),
+  signature_text: z.string().max(20_000).nullable().optional(),
 });
 
 accountsRouter.patch("/:id", async (req, res) => {
@@ -369,6 +373,8 @@ accountsRouter.patch("/:id", async (req, res) => {
   const update: Record<string, unknown> = {};
   if (parsed.data.label) update.label = parsed.data.label;
   if (parsed.data.color) update.color = parsed.data.color;
+  if (parsed.data.signature_html !== undefined) update.signature_html = parsed.data.signature_html;
+  if (parsed.data.signature_text !== undefined) update.signature_text = parsed.data.signature_text;
   if (parsed.data.password) {
     // New password: re-encrypt, clear failure state, sync immediately.
     update.credentials_enc = encryptCredentials({ imap_password: parsed.data.password });
@@ -406,6 +412,49 @@ accountsRouter.patch("/:id", async (req, res) => {
     .single();
   if (error) return res.status(500).json({ error: "could not update account" });
   res.json(updated);
+});
+
+// Detect the account's signature from its own sent mail. Read-only: returns
+// the candidate for the user to approve in Settings, never saves by itself.
+accountsRouter.post("/:id/signature/detect", async (req, res) => {
+  const uid = userId(res);
+  const { data: account } = await supabase
+    .from("email_accounts")
+    .select("id")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
+  if (!account) return res.status(404).json({ error: "account not found" });
+
+  const { data: msgs, error } = await supabase
+    .from("messages")
+    .select("body_html")
+    .eq("account_id", account.id)
+    .eq("owner_id", uid)
+    .eq("direction", "outbound")
+    .not("body_html", "is", null)
+    .order("date", { ascending: false })
+    .limit(20);
+  if (error) {
+    logger.error({ error, accountId: account.id }, "signature detect query failed");
+    return res.status(500).json({ error: "could not read sent mail" });
+  }
+  const bodies = (msgs ?? []).map((m) => m.body_html as string).filter(Boolean);
+  if (bodies.length === 0) {
+    return res.json({ found: false, reason: "no_sent", samples: 0 });
+  }
+  const detected = detectSignature(bodies);
+  if (!detected) {
+    return res.json({ found: false, reason: "no_match", samples: bodies.length });
+  }
+  res.json({
+    found: true,
+    signature_html: detected.html,
+    signature_text: htmlToText(detected.html),
+    hits: detected.hits,
+    samples: bodies.length,
+    method: detected.method,
+  });
 });
 
 accountsRouter.delete("/:id", async (req, res) => {

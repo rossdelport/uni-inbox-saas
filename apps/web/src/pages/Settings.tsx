@@ -14,6 +14,7 @@ import {
   useRemoveAccount,
   useSnippets,
   useUpdateAccount,
+  useDetectSignature,
 } from "../lib/queries.js";
 import { PlansModal } from "../components/PlansModal.js";
 import { ConnectAccountModal } from "../components/ConnectAccountModal.js";
@@ -220,6 +221,10 @@ function AccountRow({ account }: { account: EmailAccount }) {
   const [editOpen, setEditOpen] = useState(false);
   const [label, setLabel] = useState(account.label);
   const [color, setColor] = useState(account.color);
+  const [sigOpen, setSigOpen] = useState(false);
+  const detectSig = useDetectSignature();
+  // A detected-but-unsaved candidate; saving copies it onto the account.
+  const [sigCandidate, setSigCandidate] = useState<{ html: string; text: string } | null>(null);
 
   return (
     <div className="acc-row" style={{ flexWrap: "wrap" }}>
@@ -281,6 +286,9 @@ function AccountRow({ account }: { account: EmailAccount }) {
             Pause
           </button>
         )}
+        <button className="btn-mini" onClick={() => setSigOpen((v) => !v)}>
+          Signature
+        </button>
         <button
           className="btn-mini danger"
           disabled={remove.isPending}
@@ -300,6 +308,121 @@ function AccountRow({ account }: { account: EmailAccount }) {
 
       {account.last_error && account.status !== "active" && (
         <p className="err" style={{ width: "100%" }}>{account.last_error}</p>
+      )}
+
+      {sigOpen && (
+        <div style={{ width: "100%", marginTop: 6, padding: "12px 14px", background: "#f7f9fb", borderRadius: 14, border: "1px solid var(--line)" }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>
+            Signature for {account.email_address}
+          </div>
+          {sigCandidate ? (
+            <>
+              <p style={{ fontSize: 12.5, color: "var(--ink2)", margin: "0 0 8px" }}>
+                Found in your sent mail. This is exactly what your replies already end with:
+              </p>
+              <div
+                style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", fontSize: 13, overflow: "auto", maxHeight: 220 }}
+                dangerouslySetInnerHTML={{ __html: sigCandidate.html }}
+              />
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  className="btn-mini"
+                  disabled={update.isPending}
+                  onClick={() =>
+                    update.mutate(
+                      { id: account.id, signature_html: sigCandidate.html, signature_text: sigCandidate.text },
+                      {
+                        onSuccess: () => {
+                          setSigCandidate(null);
+                          toast("Signature saved. New replies will end with it.", "success");
+                        },
+                      },
+                    )
+                  }
+                >
+                  Use this signature
+                </button>
+                <button className="btn-mini" onClick={() => setSigCandidate(null)}>
+                  Discard
+                </button>
+              </div>
+            </>
+          ) : account.signature_html ? (
+            <>
+              <div
+                style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", fontSize: 13, overflow: "auto", maxHeight: 220 }}
+                dangerouslySetInnerHTML={{ __html: account.signature_html }}
+              />
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  className="btn-mini"
+                  disabled={detectSig.isPending}
+                  onClick={() =>
+                    detectSig.mutate(account.id, {
+                      onSuccess: (r) => {
+                        if (r.found && r.signature_html) {
+                          setSigCandidate({ html: r.signature_html, text: r.signature_text ?? "" });
+                        } else {
+                          toast(
+                            r.reason === "no_sent"
+                              ? "No sent mail synced yet for this account."
+                              : "Could not find a consistent signature in your sent mail.",
+                            "warn",
+                          );
+                        }
+                      },
+                      onError: () => toast("Could not scan sent mail. Try again.", "warn"),
+                    })
+                  }
+                >
+                  {detectSig.isPending ? "Scanning…" : "Re-detect from sent mail"}
+                </button>
+                <button
+                  className="btn-mini danger"
+                  disabled={update.isPending}
+                  onClick={() =>
+                    update.mutate(
+                      { id: account.id, signature_html: null, signature_text: null },
+                      { onSuccess: () => toast("Signature removed", "danger") },
+                    )
+                  }
+                >
+                  Remove signature
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 12.5, color: "var(--ink2)", margin: "0 0 8px" }}>
+                No signature yet. OneInbox can lift the one you already use from this
+                account's sent mail, identical to how it appears today.
+              </p>
+              <button
+                className="btn-mini"
+                disabled={detectSig.isPending}
+                onClick={() =>
+                  detectSig.mutate(account.id, {
+                    onSuccess: (r) => {
+                      if (r.found && r.signature_html) {
+                        setSigCandidate({ html: r.signature_html, text: r.signature_text ?? "" });
+                      } else {
+                        toast(
+                          r.reason === "no_sent"
+                            ? "No sent mail synced yet for this account."
+                            : "Could not find a consistent signature in your sent mail.",
+                          "warn",
+                        );
+                      }
+                    },
+                    onError: () => toast("Could not scan sent mail. Try again.", "warn"),
+                  })
+                }
+              >
+                {detectSig.isPending ? "Scanning sent mail…" : "Detect from sent mail"}
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       {editOpen && (

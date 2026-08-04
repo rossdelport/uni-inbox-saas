@@ -575,7 +575,15 @@ export function useConnectAccount() {
 export function useUpdateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string; label?: string; color?: string; password?: string; status?: "active" | "disabled" }) =>
+    mutationFn: ({ id, ...patch }: {
+      id: string;
+      label?: string;
+      color?: string;
+      password?: string;
+      status?: "active" | "disabled";
+      signature_html?: string | null;
+      signature_text?: string | null;
+    }) =>
       api<EmailAccount>(`/api/accounts/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["accounts"] });
@@ -584,6 +592,19 @@ export function useUpdateAccount() {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["thread"] });
     },
+  });
+}
+
+export function useDetectSignature() {
+  return useMutation({
+    mutationFn: (accountId: string) =>
+      api<{
+        found: boolean;
+        signature_html?: string;
+        signature_text?: string;
+        reason?: "no_sent" | "no_match";
+        samples?: number;
+      }>(`/api/accounts/${accountId}/signature/detect`, { method: "POST" }),
   });
 }
 
@@ -766,7 +787,7 @@ export function useForward() {
 export function useCompose() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string; send_at?: string }) =>
+    mutationFn: (input: { account_id: string; to: string[]; subject: string; body_text: string; body_html?: string; send_at?: string }) =>
       api<QueuedSend>("/api/messages/send", {
         method: "POST",
         body: JSON.stringify({ ...input, client_token: crypto.randomUUID() }),

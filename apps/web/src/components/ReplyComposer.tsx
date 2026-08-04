@@ -16,14 +16,24 @@ const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
 
 // Rich reply box: formatting toolbar over a contentEditable body, attachment
 // chips, and a send button that stays grey until there is something to send.
+/** Text the user actually typed: everything except the seeded signature. */
+function typedText(el: HTMLElement | null): string {
+  if (!el) return "";
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("[data-oi-sig]").forEach((n) => n.remove());
+  return (clone.textContent ?? "").trim();
+}
+
 export function ReplyComposer({
   threadId,
   replyTo,
   accountEmail,
+  signatureHtml,
 }: {
   threadId: string;
   replyTo: string;
   accountEmail: string;
+  signatureHtml?: string | null;
 }) {
   const reply = useReply();
   const editRef = useRef<HTMLDivElement>(null);
@@ -87,7 +97,7 @@ export function ReplyComposer({
       onComposerDirty(() => {
         const d = draftRef.current;
         return (
-          Boolean((editRef.current?.innerText ?? "").trim()) ||
+          Boolean(typedText(editRef.current)) ||
           d.files.length > 0 ||
           d.cc.trim().length > 0 ||
           d.bcc.trim().length > 0
@@ -108,8 +118,29 @@ export function ReplyComposer({
   );
 
   function syncEmpty() {
-    setEmpty(!(editRef.current?.innerText ?? "").trim());
+    setEmpty(!typedText(editRef.current));
   }
+
+  // Seed the account's signature into the editor, exactly as stored, with two
+  // writing lines above it. Only when nothing has been typed, so remounts and
+  // undo restores never clobber a draft.
+  useEffect(() => {
+    const el = editRef.current;
+    if (!el || !signatureHtml) return;
+    if (typedText(el) || el.querySelector("[data-oi-sig]")) return;
+    el.innerHTML =
+      '<div><br></div><div><br></div><div data-oi-sig="1">' + signatureHtml + "</div>";
+    // Caret goes to the top line, where the reply starts.
+    const sel = window.getSelection();
+    if (sel && el.firstChild) {
+      const range = document.createRange();
+      range.setStart(el.firstChild, 0);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signatureHtml]);
 
   // ;shortcode expansion, Superhuman style: typing ";intro " swaps the token
   // for the snippet at the caret. Runs on every input; the regex only looks
@@ -221,7 +252,9 @@ export function ReplyComposer({
       },
       {
         onSuccess: (data: QueuedSend) => {
-          el.innerHTML = "";
+          el.innerHTML = signatureHtml
+            ? '<div><br></div><div><br></div><div data-oi-sig="1">' + signatureHtml + "</div>"
+            : "";
           setFiles([]);
           setEmpty(true);
           setCc("");

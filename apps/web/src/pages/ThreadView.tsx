@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import {
+  useAccounts,
   useAiSummary,
   useBillingState,
   useCancelOutbox,
@@ -27,6 +28,7 @@ import type { Message } from "../lib/types.js";
 // sender rows, message bodies and the reply composer.
 export function ReadingPane({ threadId, onBack }: { threadId: string | null; onBack: () => void }) {
   const { data, isLoading, error } = useThread(threadId);
+  const { data: allAccounts } = useAccounts();
   const threadOp = useThreadOp();
   const deleteThread = useDeleteThread();
   // Toggled message ids. The latest message defaults open, older ones closed;
@@ -115,6 +117,8 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
   }
 
   const { thread, messages } = data;
+  const signatureHtml =
+    allAccounts?.find((a) => a.email_address === thread.account_email)?.signature_html ?? null;
   const lastIdx = messages.length - 1;
   const last = messages[lastIdx];
   // Lock the older messages only during the live handoff. Once the reply is
@@ -274,7 +278,12 @@ export function ReadingPane({ threadId, onBack }: { threadId: string | null; onB
       <OutboxStrip threadId={thread.id} />
       </div>
 
-      <ReplyComposer threadId={thread.id} replyTo={replyTo} accountEmail={thread.account_email} />
+      <ReplyComposer
+        threadId={thread.id}
+        replyTo={replyTo}
+        accountEmail={thread.account_email}
+        signatureHtml={signatureHtml}
+      />
     </div>
   );
 }
