@@ -1143,5 +1143,60 @@ document.documentElement.classList.add('uni-js');
   document.addEventListener("DOMContentLoaded", wire);
 })();
 </script>
+<style>
+/* Envelopes: tucked in from the edges with a hand-placed tilt. Late in the
+   cascade on purpose so it outranks the appear-state reset above. */
+.framer-1ga9262{left:18px !important;transform:rotate(-15deg) !important}
+.framer-rmilbt{left:unset !important;right:14px !important;transform:rotate(15deg) !important}
+/* Template FAQ block retired in favour of the homepage accordion. */
+[data-framer-name="faq"]{display:none !important}
+/* Homepage FAQ, verbatim. */
+.uni-faq-wrap{display:flex;gap:56px;align-items:flex-start;max-width:1200px;margin:0 auto;padding:56px 48px;width:100%;box-sizing:border-box}
+.uni-faq-head{flex:0 0 38%}
+.uni-faq-head h2{margin:0;font:700 56px/1 Inter,sans-serif;letter-spacing:0;color:#000}
+.uni-faq-head p{margin:16px 0 0;font:400 18px/1.51 Inter,sans-serif;color:rgba(0,0,0,.69)}
+.uni-faq{display:flex;flex-direction:column;gap:16px;width:100%;max-width:560px;margin-left:auto;margin-right:auto}
+.uni-faq-item{background:linear-gradient(180deg,#fff,#eee);border-radius:24px;box-shadow:inset 0 0 60px rgba(255,255,255,1),0 1px 2px rgba(0,0,0,.07),0 2px 3px rgba(0,0,0,.06);overflow:hidden}
+.uni-faq-q{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;cursor:pointer;padding:20px 22px;text-align:left;font:500 19px "M PLUS 1",Inter,sans-serif;color:rgba(0,0,0,.83)}
+.uni-faq-qt{flex:1}
+.uni-plus{display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;border-radius:50%;background:rgba(12,125,255,.1);transition:transform .35s cubic-bezier(.22,1,.36,1)}
+.uni-faq-item.open .uni-plus{transform:rotate(45deg)}
+.uni-faq-a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s cubic-bezier(.22,1,.36,1)}
+.uni-faq-item.open .uni-faq-a{grid-template-rows:1fr}
+.uni-faq-ai{overflow:hidden}
+.uni-faq-ai p{margin:0;padding:0 22px 20px 64px;font:400 15px/1.55 Inter,sans-serif;color:rgba(0,0,0,.5)}
+@media (max-width:999px){.uni-faq-wrap{flex-direction:column;gap:28px;padding:40px 24px}.uni-faq-head{flex:none}.uni-faq-head h2{font-size:48px}}
+@media (max-width:809px){.uni-faq-head h2{font-size:32px}.uni-faq-q{font-size:17px}.uni-faq-ai p{padding-left:22px}}
+</style>
+<script>
+window.uniFaq = function (btn) {
+  var item = btn.closest(".uni-faq-item");
+  var open = item.classList.contains("open");
+  item.parentElement.querySelectorAll(".uni-faq-item.open").forEach(function (i) { i.classList.remove("open"); });
+  if (!open) item.classList.add("open");
+};
+(function () {
+  function apply() {
+    var scope = document.querySelectorAll('[data-framer-name="contact form"]');
+    scope.forEach(function (block) {
+      block.querySelectorAll("a").forEach(function (a) {
+        var t = (a.textContent || "").replace(/\s+/g, " ").trim();
+        if (t.indexOf("ross@tryoneinbox") >= 0 || t === "Start Today" || t === "Our Contacts") a.style.display = "none";
+      });
+      block.querySelectorAll(".framer-1jjxdxl-container").forEach(function (c) { c.style.display = "none"; });
+    });
+    var target = document.querySelector('[data-framer-name="faq"]');
+    if (target && !document.getElementById("uni-faq-wrap")) {
+      target.insertAdjacentHTML("beforebegin",
+        '<div class="uni-faq-wrap" id="uni-faq-wrap"><div class="uni-faq-head">' +
+        '<h2>Questions owner-operators ask.</h2>' +
+        '<p>Simple answers before you connect your accounts.</p></div>' +
+        '<div class="uni-faq"><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">Which email providers can I connect?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>Most providers work. Gmail, Outlook, Yahoo, and iCloud connect in a couple of clicks, and any custom mailbox that supports IMAP and SMTP works too, including Porkbun and other domain hosts. Proton Mail, Tuta, and HEY Mail cannot be connected because they block IMAP and SMTP access for third-party apps.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">Is it safe to connect my email accounts?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>Yes. Your mailbox passwords are encrypted with AES-256-GCM before they are stored, and only our sync engine can read them. Your emails are never sold, shared, or used for advertising.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">Will replies send from the right address?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>Always. Every reply is sent from the exact address that received the thread, so clients and collaborators never see the wrong from line, no matter how many inboxes you connect.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">How does the free trial work?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>You get 3 days of full access. You pick your plan and add a card up front, then the trial runs free for 3 days and only converts if you stay. Cancel any time inside those 3 days and you are not charged.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">Does OneInbox replace Gmail or Outlook?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>No. Keep using your providers. OneInbox connects to your existing accounts and gives you one clear view across every business, while your mail stays exactly where it is.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">Do I move or forward my email?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>No. Nothing moves and nothing is forwarded. OneInbox syncs your existing mailboxes into one workspace, and every message stays with your provider.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">How many inboxes can I connect?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>The monthly plan starts at 5 connected accounts and scales up to 10 with the slider. The lifetime plan includes up to 10. You can add or remove accounts whenever you like.</p></div></div></div><div class="uni-faq-item"><button class="uni-faq-q" type="button" onclick="uniFaq(this)"><span class="uni-plus"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#0C7DFF" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="uni-faq-qt">Can I use OneInbox on my phone?</span></button><div class="uni-faq-a"><div class="uni-faq-ai"><p>Yes. OneInbox works in any browser on desktop and mobile, and a native iPhone app is on the way.</p></div></div></div></div></div>');
+    }
+  }
+  apply();
+  document.addEventListener("DOMContentLoaded", apply);
+})();
+</script>
 </body>
 </html>
