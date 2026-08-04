@@ -196,6 +196,11 @@ app.get(["/login", "/login/"], (_req, res) => res.redirect(301, "/app/login"));
 app.get(["/dashboard", "/dashboard/"], (_req, res) => res.redirect(301, "/app"));
 app.get(["/settings", "/settings/"], (_req, res) => res.redirect(301, "/app/settings"));
 
+// The marketing site is a single page now: the old Solutions and Pricing
+// pages fold into homepage sections, and any inbound links follow them there.
+app.get(["/solutions", "/solutions/"], (_req, res) => res.redirect(301, "/#solutions"));
+app.get(["/pricing", "/pricing/"], (_req, res) => res.redirect(301, "/#pricing"));
+
 // Page views, recorded from the response rather than from the browser. Keying
 // off a finished text/html response means assets, redirects and 404s are all
 // excluded for free, and nothing depends on client JS surviving an ad blocker.
