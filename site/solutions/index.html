@@ -1515,6 +1515,6 @@ setTimeout(patchAll, 3000);
 })();</script>
 <script>/* uni-src: tag signup clicks with the button that sent them */document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a"):null;if(!a)return;var h=a.getAttribute("href")||"";if(!/signup|^\/app/.test(h))return;try{var u=new URL(h,location.origin);if(u.origin!==location.origin||u.searchParams.get("src"))return;var t=(a.textContent||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,32)||"link";u.searchParams.set("src",(location.pathname.replace(/\/$/,"")||"/")+":"+t);a.setAttribute("href",u.pathname+u.search)}catch(err){}},true);</script>
 <script>/* uni-src: tailor the solutions hero for owner-operators */(function(){var next="Built for owner-operators with multiple businesses";function update(){document.querySelectorAll('section[data-framer-name="hero"] h1').forEach(function(h){if(h.textContent.trim()==="One Inbox, Endless Possibilities")h.textContent=next})}update();new MutationObserver(update).observe(document.documentElement,{childList:true,subtree:true});})();</script>
-<script src="/assets/footer-links.js?v=2"></script>
+<script src="/assets/footer-links.js?v=3"></script>
 </body>
 </html>
