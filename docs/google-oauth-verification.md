@@ -1,5 +1,25 @@
 # Google OAuth production verification
 
+## Status as of 6 August 2026
+
+First review round returned two items; both addressed on 6 August 2026:
+
+- **Privacy policy**: "does not specify any data protection mechanisms for
+  sensitive data." Fixed: both `/privacy` and `/privacy-policy` now enumerate
+  TLS in transit, AES-256-GCM credential encryption with the key outside the
+  database, at-rest encryption, row-level isolation, secret-manager key
+  storage, NDB breach notification, and secure deletion. Resubmitted in the
+  Verification Center.
+- **Minimum scopes**: Google recommended `gmail.readonly` + `gmail.send`.
+  Declined via the Option 2 email reply ("Unable to use narrower scopes"):
+  OneInbox uses IMAP/SMTP, whose XOAUTH2 flow only accepts
+  `https://mail.google.com/`, and two-way sync (read/archive/delete) exceeds
+  readonly+send anyway. Per Google's instructions the recommended scopes were
+  NOT added to the console. Passed items so far: App functionality, Branding
+  guidelines, Appropriate data access.
+
+Next expected step: Google re-review, then the CASA security assessment.
+
 ## Production configuration
 
 - App name: **OneInbox**
