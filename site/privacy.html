@@ -26,7 +26,7 @@
       <span class="eyebrow">Your data, clearly explained</span>
       <h1>Privacy Policy</h1>
       <p class="lede">OneInbox brings the mailboxes you choose into one dashboard. This policy explains what data we need to do that, what we do with it, and the choices you have.</p>
-      <p class="updated">Effective and last updated: 3 August 2026</p>
+      <p class="updated">Effective and last updated: 6 August 2026</p>
     </header>
 
     <div class="legal-layout">
@@ -79,7 +79,7 @@
           </ul>
 
           <h3>How Google user data is stored and protected</h3>
-          <p>OAuth refresh tokens are encrypted at rest. Message data is transmitted using encrypted connections and stored on access-controlled infrastructure so the Service can provide synchronization, search, and message history. Database access controls isolate each user’s data from other customers.</p>
+          <p>OAuth refresh tokens are encrypted at rest with AES-256-GCM using an application key held outside the database. Message data is transmitted only over TLS and stored on access-controlled infrastructure that encrypts data at rest, so the Service can provide synchronization, search, and message history. Row-level security policies isolate each user’s data from other customers, and the specific protection mechanisms in section 6 apply to all Google user data.</p>
 
           <h3>How Google user data is shared</h3>
           <p>We do not sell Google user data. We do not use it for advertising, credit decisions, or to build general-purpose profiles. We disclose it only to service providers acting on our behalf where necessary to operate the Service, when you explicitly direct us to do so, or when required by law. Those providers may process data only to provide their contracted services to us.</p>
@@ -106,7 +106,15 @@
 
         <section id="security">
           <h2>6. Storage and security</h2>
-          <p>We use technical and organizational safeguards designed to protect personal data. Mailbox passwords and OAuth refresh tokens are encrypted at rest, connections to supported mailbox providers use TLS, and application access controls are designed to keep customer data separated.</p>
+          <p>We protect sensitive data, including Google user data, with specific technical mechanisms at every stage:</p>
+          <ul>
+            <li><b>Encryption in transit.</b> All connections between your browser or device and OneInbox, and between OneInbox and your mailbox providers, use TLS. Mail is never fetched or sent over unencrypted connections.</li>
+            <li><b>Encryption at rest.</b> Mailbox passwords and OAuth refresh tokens are encrypted with AES-256-GCM using a dedicated application key that is held outside the database, so database access alone cannot expose your credentials. Message data and backups are stored on infrastructure that encrypts all data at rest with AES-256.</li>
+            <li><b>Access controls.</b> Every API request is authenticated and scoped to the signed-in user's own records, and row-level security policies in the database isolate each customer's data. Production access is restricted to authorized personnel on a need-to-know basis.</li>
+            <li><b>Key and credential management.</b> Encryption keys and provider credentials are stored in the hosting platform's secret manager, never in source code or version control.</li>
+            <li><b>Monitoring and incident response.</b> Application and sync activity are logged. If we become aware of a data breach affecting your personal data, we will notify affected users without undue delay, consistent with applicable law including the Australian Notifiable Data Breaches scheme.</li>
+            <li><b>Secure deletion.</b> Disconnecting a mailbox or deleting your account removes the associated credentials and synced mail from active systems, and residual copies age out of encrypted backups on a fixed schedule.</li>
+          </ul>
           <p>No method of storage or transmission is completely secure. You are responsible for safeguarding your OneInbox login and the devices you use to access the Service.</p>
         </section>
 
