@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import type { Message } from "@/lib/types";
 import { formatFullDate, formatBytes, senderLabel } from "@/lib/format";
 import { useTheme } from "@/lib/theme";
@@ -101,9 +102,29 @@ export function MessageCard({
   const t = useTheme();
   const sender = senderLabel(message.from_name, message.from_address);
   const mine = message.direction === "outbound";
+  const copyAddress = mine ? message.to_addresses.filter(Boolean).join(", ") : message.from_address;
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deliveryState =
     message.client_delivery_state ?? (message.id.startsWith("optimistic-") ? "sending" : null);
   const avatarColor = mine ? t.accent : accountColor;
+
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
+
+  async function copyEmailAddress() {
+    if (!copyAddress) return;
+    try {
+      await Clipboard.setStringAsync(copyAddress);
+      setCopied(true);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // Clipboard access can be unavailable in a restricted device preview;
+      // leave the message itself fully usable in that case.
+    }
+  }
 
   if (!expanded) {
     return (
@@ -145,22 +166,40 @@ export function MessageCard({
         },
       ]}
     >
-      <Pressable onPress={onToggle} style={styles.header}>
-        <SenderAvatar label={mine ? "You" : sender} color={avatarColor} size={34} solid={mine} />
-        <View style={styles.headerText}>
-          <Text numberOfLines={1} style={[styles.sender, { color: t.text }]}>
-            {mine ? "You" : sender}
-          </Text>
-          {deliveryState ? (
-            <DeliveryStatus state={deliveryState} color={t.accent} />
-          ) : (
-            <Text numberOfLines={1} style={[styles.meta, { color: t.faint }]}>
-              {`to ${message.to_addresses.join(", ") || "(no recipients)"}`}
+      <View style={styles.header}>
+        <Pressable onPress={onToggle} style={styles.headerMain}>
+          <SenderAvatar label={mine ? "You" : sender} color={avatarColor} size={34} solid={mine} />
+          <View style={styles.headerText}>
+            <Text numberOfLines={1} style={[styles.sender, { color: t.text }]}>
+              {mine ? "You" : sender}
             </Text>
-          )}
-        </View>
+            {deliveryState ? (
+              <DeliveryStatus state={deliveryState} color={t.accent} />
+            ) : (
+              <Text numberOfLines={1} style={[styles.meta, { color: t.faint }]}>
+                {mine
+                  ? `to ${message.to_addresses.join(", ") || "(no recipients)"}`
+                  : message.from_address}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+        {copyAddress ? (
+          <Pressable
+            onPress={() => void copyEmailAddress()}
+            accessibilityRole="button"
+            accessibilityLabel="Copy email address"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.copyButton,
+              { borderColor: t.line, backgroundColor: t.chipBg, opacity: pressed ? 0.65 : 1 },
+            ]}
+          >
+            <Text style={[styles.copyIcon, { color: copied ? t.accent : t.sub }]}>{copied ? "✓" : "⧉"}</Text>
+          </Pressable>
+        ) : null}
         <Text style={[styles.when, { color: t.faint }]}>{formatFullDate(message.date)}</Text>
-      </Pressable>
+      </View>
 
       <View style={styles.bodyWrap}>
         {message.body_html ? (
@@ -233,10 +272,20 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 15,
   },
+  headerMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
   headerText: { flex: 1 },
   sender: { fontSize: 15, fontWeight: "600" },
   meta: { fontSize: 12 },
   when: { fontSize: 11 },
+  copyButton: {
+    width: 28,
+    height: 28,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  copyIcon: { fontSize: 16, lineHeight: 18, fontWeight: "700" },
   bodyWrap: { paddingHorizontal: 15, paddingBottom: 15 },
   textBody: { fontSize: 15, lineHeight: 22 },
   attachments: {

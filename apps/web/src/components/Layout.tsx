@@ -430,7 +430,7 @@ export function Layout() {
                   <button
                     className={`side-item ${activeAccount === a.id ? "active" : ""}`}
                     style={activeAccount === a.id ? { background: `${a.color}14` } : undefined}
-                    title={`${a.label} — ${a.email_address}`}
+                    title={`${a.label} — ${a.email_address}${unread > 0 ? ` — ${unread} unread` : ""}`}
                     onClick={() => go(`/?account=${a.id}`)}
                   >
                     <i className="side-dot" style={{ background: a.color }} />
@@ -457,6 +457,15 @@ export function Layout() {
                       </span>
                     ) : unread > 0 ? (
                       <span className="cnt">{unread}</span>
+                    ) : null}
+                    {a.status === "active" && unread > 0 ? (
+                      <span
+                        className="side-collapsed-count"
+                        aria-hidden="true"
+                        title={`${unread} unread`}
+                      >
+                        {unread > 9 ? "9+" : unread}
+                      </span>
                     ) : null}
                     <span
                       className="paint"
@@ -665,6 +674,11 @@ function SideLink({
       {children}
       <span className="side-text">{label}</span>
       {count !== undefined && count > 0 && <span className="cnt">{count}</span>}
+      {count !== undefined && count > 0 ? (
+        <span className="side-collapsed-count" aria-hidden="true" title={`${count} unread`}>
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : null}
     </NavLink>
   );
 }
