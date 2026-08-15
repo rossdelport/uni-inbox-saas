@@ -458,15 +458,6 @@ export function Layout() {
                     ) : unread > 0 ? (
                       <span className="cnt">{unread}</span>
                     ) : null}
-                    {a.status === "active" && unread > 0 ? (
-                      <span
-                        className="side-collapsed-count"
-                        aria-hidden="true"
-                        title={`${unread} unread`}
-                      >
-                        {unread > 9 ? "9+" : unread}
-                      </span>
-                    ) : null}
                     <span
                       className="paint"
                       role="button"
@@ -675,9 +666,7 @@ function SideLink({
       <span className="side-text">{label}</span>
       {count !== undefined && count > 0 && <span className="cnt">{count}</span>}
       {count !== undefined && count > 0 ? (
-        <span className="side-collapsed-count" aria-hidden="true" title={`${count} unread`}>
-          {count > 9 ? "9+" : count}
-        </span>
+        <span className="side-collapsed-dot" aria-hidden="true" title={`${count} unread`} />
       ) : null}
     </NavLink>
   );
