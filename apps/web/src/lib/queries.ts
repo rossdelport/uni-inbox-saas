@@ -14,6 +14,7 @@ import type {
   Message,
   TestResult,
   ThreadDetail,
+  ThreadSummary,
   SplitClass,
 } from "./types.js";
 import { api } from "./api.js";
@@ -114,12 +115,53 @@ interface PendingReply {
 
 const pendingReplyKey = (threadId: string) => ["pending-replies", threadId] as const;
 
-// A provider-side permanent purge can take several seconds. Realtime may
-// invalidate the inbox while that purge is still running, so keep the row
-// hidden from fresh responses until the API has finished. Without this small
-// client-side guard, the optimistic removal flashes back into Deleted before
-// the provider and local cleanup complete.
-const pendingPermanentDeletes = new Set<string>();
+// A mailbox move can overlap a Realtime event or polling refetch. Remember the
+// destination the user chose so a stale response can never flash the row back
+// into its old pile while the mutation is settling.
+type PendingThreadLocation = "inbox" | "trash" | "gone";
+const pendingThreadLocations = new Map<string, PendingThreadLocation>();
+
+type InboxCache = { pages: InboxPage[] };
+
+function matchesAccountView(key: readonly unknown[], accountId: string) {
+  return key[1] === "all" || key[1] === accountId;
+}
+
+function isPlainInboxView(key: readonly unknown[], accountId: string) {
+  return key[0] === "inbox"
+    && matchesAccountView(key, accountId)
+    && key[2] === false
+    && key[3] === false
+    && key[4] === false
+    && key[5] === false
+    && key[6] === false
+    && key[7] === "all"
+    && key[8] === "";
+}
+
+function isPlainDeletedView(key: readonly unknown[], accountId: string) {
+  return key[0] === "inbox"
+    && matchesAccountView(key, accountId)
+    && key[2] === false
+    && key[3] === false
+    && key[4] === false
+    && key[5] === true
+    && key[6] === false
+    && key[7] === "all"
+    && key[8] === "";
+}
+
+function prependThread(data: InboxCache, thread: ThreadSummary): InboxCache {
+  if (data.pages.some((page) => page.threads.some((item) => item.id === thread.id))) {
+    return data;
+  }
+  return {
+    ...data,
+    pages: data.pages.map((page, index) => index === 0
+      ? { ...page, threads: [thread, ...page.threads] }
+      : page),
+  };
+}
 
 const comparableBody = (body: string | null) =>
   (body ?? "").replace(/\r\n/g, "\n").trim();
@@ -207,10 +249,15 @@ export function useInbox(view: InboxView) {
       if (later) params.set("later", "1");
       if (split) params.set("split", split);
       const page = await api<InboxPage>(`/api/inbox?${params.toString()}`);
-      if (pendingPermanentDeletes.size === 0) return page;
+      if (pendingThreadLocations.size === 0) return page;
       return {
         ...page,
-        threads: page.threads.filter((thread) => !pendingPermanentDeletes.has(thread.id)),
+        threads: page.threads.filter((thread) => {
+          const pending = pendingThreadLocations.get(thread.id);
+          if (!pending) return true;
+          if (pending === "gone") return false;
+          return deleted ? pending === "trash" : pending === "inbox";
+        }),
       };
     },
     initialPageParam: "",
@@ -404,6 +451,7 @@ export function useThreadOp() {
       api(`/api/inbox/threads/${threadId}/${op}`, { method: "POST" }),
     // Optimistic: flip the row in every cached inbox page immediately.
     onMutate: async ({ threadId, op }) => {
+      if (op === "restore") pendingThreadLocations.set(threadId, "inbox");
       await qc.cancelQueries({ queryKey: ["inbox"] });
       const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
 
@@ -434,6 +482,7 @@ export function useThreadOp() {
       }
       for (const [key, data] of snapshots) {
         if (!data) continue;
+        const keyParts = Array.isArray(key) ? key : [];
         qc.setQueryData(key, {
           ...data,
           pages: data.pages.map((page) => ({
@@ -465,16 +514,27 @@ export function useThreadOp() {
               ),
           })),
         });
+        if (op === "restore" && before && isPlainInboxView(keyParts, before.account_id)) {
+          qc.setQueryData<InboxCache>(key, (current) => current
+            ? prependThread(current, before)
+            : current);
+        }
       }
       return { snapshots, countsBefore };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (_err, vars, ctx) => {
+      if (vars.op === "restore" && pendingThreadLocations.get(vars.threadId) === "inbox") {
+        pendingThreadLocations.delete(vars.threadId);
+      }
       for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
       // Put the badge back too, or a failed request leaves a number that is
       // quietly one lower than the truth until the next refetch.
       if (ctx?.countsBefore) qc.setQueryData(["unread-counts"], ctx.countsBefore);
     },
     onSettled: (_data, _error, variables) => {
+      if (variables?.op === "restore" && pendingThreadLocations.get(variables.threadId) === "inbox") {
+        pendingThreadLocations.delete(variables.threadId);
+      }
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       // Opening a thread marks it read, and read/unread/archive all move the
       // badge. Without this the count is server-held and nothing tells it to
@@ -549,13 +609,17 @@ export function useDeleteThread() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (threadId: string) => api(`/api/inbox/threads/${threadId}`, { method: "DELETE" }),
-    // Optimistic: drop the row from every cached inbox page immediately.
+    // Optimistic: move the row into any cached Deleted pile immediately.
     onMutate: async (threadId) => {
-      pendingPermanentDeletes.add(threadId);
+      pendingThreadLocations.set(threadId, "trash");
       await qc.cancelQueries({ queryKey: ["inbox"] });
       const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      const thread = snapshots
+        .flatMap(([, data]) => data?.pages.flatMap((page) => page.threads) ?? [])
+        .find((item) => item.id === threadId);
       for (const [key, data] of snapshots) {
         if (!data) continue;
+        const keyParts = Array.isArray(key) ? key : [];
         qc.setQueryData(key, {
           ...data,
           pages: data.pages.map((page) => ({
@@ -563,13 +627,24 @@ export function useDeleteThread() {
             threads: page.threads.filter((t) => t.id !== threadId),
           })),
         });
+        if (thread && isPlainDeletedView(keyParts, thread.account_id)) {
+          qc.setQueryData<InboxCache>(key, (current) => current
+            ? prependThread(current, thread)
+            : current);
+        }
       }
       return { snapshots };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (_err, threadId, ctx) => {
+      if (pendingThreadLocations.get(threadId) === "trash") {
+        pendingThreadLocations.delete(threadId);
+      }
       for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
     },
-    onSettled: () => {
+    onSettled: (_data, _error, threadId) => {
+      if (pendingThreadLocations.get(threadId) === "trash") {
+        pendingThreadLocations.delete(threadId);
+      }
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       // Binning an unread conversation drops it out of the count too.
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
@@ -587,6 +662,7 @@ export function usePermanentDeleteThread() {
     // server rejects the operation, restore the cached Deleted list so the
     // conversation remains recoverable.
     onMutate: async (threadId) => {
+      pendingThreadLocations.set(threadId, "gone");
       await qc.cancelQueries({ queryKey: ["inbox"] });
       const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
       for (const [key, data] of snapshots) {
@@ -601,12 +677,16 @@ export function usePermanentDeleteThread() {
       }
       return { snapshots };
     },
-    onError: (_error, _threadId, context) => {
-      if (_threadId) pendingPermanentDeletes.delete(_threadId);
+    onError: (_error, threadId, context) => {
+      if (pendingThreadLocations.get(threadId) === "gone") {
+        pendingThreadLocations.delete(threadId);
+      }
       for (const [key, data] of context?.snapshots ?? []) qc.setQueryData(key, data);
     },
     onSettled: (_data, error, threadId) => {
-      if (threadId) pendingPermanentDeletes.delete(threadId);
+      if (threadId && pendingThreadLocations.get(threadId) === "gone") {
+        pendingThreadLocations.delete(threadId);
+      }
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
       if (!error && threadId) void qc.removeQueries({ queryKey: ["thread", threadId] });

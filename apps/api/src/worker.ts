@@ -6,6 +6,7 @@ import { retentionSweep } from "./services/retention.js";
 import { snoozeSweep } from "./services/snooze.js";
 import { outboxDrain } from "./services/outboxDrain.js";
 import { reconcileBilling } from "./services/stripeBilling.js";
+import { kickMailboxMoveDrain } from "./services/mailboxMoves.js";
 import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
 // IMAP sync supervisor. Every 5s: start syncers for due accounts, tear down
@@ -53,6 +54,19 @@ setInterval(() => {
 void superviseTick()
   .catch((err) => logger.error({ err }, "initial supervisor tick failed"))
   .finally(() => markTick());
+
+// Delete and Restore update OneInbox immediately, then this durable queue
+// mirrors the move to Gmail/Outlook. Poll every second so provider state
+// follows quickly even if the API and worker run as separate services or a
+// process restarts after accepting the click.
+setInterval(() => {
+  void kickMailboxMoveDrain().catch((err) =>
+    logger.error({ err }, "mailbox move drain failed"),
+  );
+}, 1_000);
+void kickMailboxMoveDrain().catch((err) =>
+  logger.error({ err }, "initial mailbox move drain failed"),
+);
 
 // Outbox drain: every 5s. The undo window is 10s, so a send goes out at most
 // ~15s after the button. Never overlaps itself: a slow SMTP conversation must
