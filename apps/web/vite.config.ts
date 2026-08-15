@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -12,8 +12,13 @@ function requireSupabaseEnv() {
     apply: "build" as const,
     config(_config: unknown, { mode }: { mode: string }) {
       if (mode !== "production") return;
+      // Vite loads .env.local after this hook runs. Read it here as well so a
+      // developer's localhost API URL cannot silently leak into dist/ when a
+      // production build is run from the repo.
+      const fileEnv = loadEnv(mode, process.cwd(), "VITE_");
+      const valueFor = (key: string) => process.env[key] ?? fileEnv[key];
       const missing = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"].filter(
-        (k) => !process.env[k],
+        (k) => !valueFor(k),
       );
       if (missing.length) {
         throw new Error(
@@ -24,8 +29,8 @@ function requireSupabaseEnv() {
       }
 
       const configuredUrls = [
-        ["VITE_SUPABASE_URL", process.env.VITE_SUPABASE_URL],
-        ["VITE_API_URL", process.env.VITE_API_URL],
+        ["VITE_SUPABASE_URL", valueFor("VITE_SUPABASE_URL")],
+        ["VITE_API_URL", valueFor("VITE_API_URL")],
       ] as const;
       const unsafe = configuredUrls.flatMap(([key, value]) => {
         if (!value) return [];
