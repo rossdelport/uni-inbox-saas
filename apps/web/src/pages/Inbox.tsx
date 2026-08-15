@@ -67,10 +67,16 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
   const { search } = useOutletContext<AppOutletContext>();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   // Search is server-side across EVERY mailbox at once. Debounced so we
-  // query on pauses, not every keystroke.
+  // query on pauses, not every keystroke. Clearing is immediate: an explicit
+  // clear action should never leave the old filter visible for the debounce.
   const [debouncedQ, setDebouncedQ] = useState("");
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(search.trim()), 300);
+    const next = search.trim();
+    if (!next) {
+      setDebouncedQ("");
+      return;
+    }
+    const t = setTimeout(() => setDebouncedQ(next), 300);
     return () => clearTimeout(t);
   }, [search]);
   const searching = debouncedQ.length > 0;

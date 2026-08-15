@@ -278,7 +278,24 @@ export function Layout() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <kbd>/</kbd>
+          {search.length > 0 ? (
+            <button
+              type="button"
+              className="dash-search-clear"
+              aria-label="Clear search"
+              title="Clear search"
+              onClick={() => {
+                setSearch("");
+                searchRef.current?.focus();
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M7 7l10 10M17 7L7 17" />
+              </svg>
+            </button>
+          ) : (
+            <kbd>/</kbd>
+          )}
         </div>
         <div className="dash-top-actions">
           <button
