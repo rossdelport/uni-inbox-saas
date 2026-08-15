@@ -723,16 +723,38 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
 
   const { data: thread } = await supabase
     .from("threads")
-    .select("id, account_id")
+    .select("id, account_id, deleted_at")
     .eq("id", req.params.id)
     .eq("owner_id", uid)
     .maybeSingle();
   if (!thread) return res.status(404).json({ error: "thread not found" });
 
   if (op === "restore") {
+    // The provider move can take several seconds. Mark it restored locally
+    // before the move starts so a sync pass cannot make the Deleted row flash
+    // back while the message is travelling from Trash to INBOX. If the
+    // provider rejects the move, restore the original Deleted timestamp.
+    const { error: markRestoredError } = await supabase
+      .from("threads")
+      .update({ deleted_at: null })
+      .eq("id", thread.id)
+      .eq("owner_id", uid);
+    if (markRestoredError) {
+      logger.error({ err: markRestoredError, threadId: thread.id }, "could not mark thread restored");
+      return res.status(500).json({ error: "could not restore thread" });
+    }
+
     try {
       await moveThreadMailbox(uid, thread.id as string, "inbox");
     } catch (err) {
+      const { error: rollbackError } = await supabase
+        .from("threads")
+        .update({ deleted_at: thread.deleted_at ?? null })
+        .eq("id", thread.id)
+        .eq("owner_id", uid);
+      if (rollbackError) {
+        logger.error({ err: rollbackError, threadId: thread.id }, "could not roll back failed restore");
+      }
       if (err instanceof RemoteMailboxMoveError) {
         return res.status(err.statusCode).json({ error: err.message });
       }
@@ -773,7 +795,9 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
   // above, so it does not need a second queued operation.
   const mirrorsToImap = op !== "star" && op !== "unstar" && op !== "later" && op !== "unlater" && op !== "restore";
   const [threadWrite, messageWrite, flagWrite] = await Promise.all([
-    supabase.from("threads").update(local).eq("id", thread.id),
+    op === "restore"
+      ? Promise.resolve({ error: null })
+      : supabase.from("threads").update(local).eq("id", thread.id),
     op === "read" || op === "unread"
       ? supabase
           .from("messages")
