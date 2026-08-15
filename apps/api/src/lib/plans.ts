@@ -52,6 +52,9 @@ export interface ProfileBilling {
   trialEndsAt: string | null;
   /** True when the user is on 'trial' AND the 3 days have lapsed. */
   trialExpired: boolean;
+  /** Already present on the profile row; send routes reuse it rather than
+   *  paying for a second profile lookup just to format From. */
+  displayName: string | null;
 }
 
 function maxInboxesFor(planId: PlanId, monthlyQuantity: number): number {
@@ -93,5 +96,6 @@ export async function getBilling(uid: string): Promise<ProfileBilling> {
     subscriptionStatus: (data?.subscription_status as string | null) ?? null,
     trialEndsAt,
     trialExpired,
+    displayName: (data?.display_name as string | null) ?? null,
   };
 }

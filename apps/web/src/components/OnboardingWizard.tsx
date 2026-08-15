@@ -1,24 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAccounts } from "../lib/queries.js";
 import { LOGO_SRC, MAIL_SRC, PROVIDER_COLORS } from "../lib/assets.js";
+import { markOnboardingSeen } from "../lib/onboardingState.js";
 import { ConnectForm } from "./ConnectAccountModal.js";
-
-const DONE_KEY = "oneinbox-onboarding-done";
-
-export function onboardingSeen(): boolean {
-  try {
-    return localStorage.getItem(DONE_KEY) === "1";
-  } catch {
-    return true;
-  }
-}
-export function markOnboardingSeen() {
-  try {
-    localStorage.setItem(DONE_KEY, "1");
-  } catch {
-    /* private mode */
-  }
-}
 
 type Step = "welcome" | "connect" | "done";
 

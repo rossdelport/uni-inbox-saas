@@ -812,17 +812,33 @@ const running = new Map<string, AccountSyncer>();
 
 /** One supervisor tick: start due syncers, stop ones that shouldn't run. */
 export async function superviseTick(): Promise<void> {
-  const { data: accounts, error } = await supabase
-    .from("email_accounts")
-    .select(
-      "id, owner_id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method, status, next_sync_at",
+  const runningIds = [...running.keys()];
+  const nowIso = new Date().toISOString();
+  // Keep the 5s wake path cheap: fetch credentials only for accounts that are
+  // actually due, and fetch only id/status for connections already running.
+  // The old all-account query transferred every encrypted credential on every
+  // tick even though nearly all accounts were already connected.
+  const [dueResult, runningResult] = await Promise.all([
+    supabase
+      .from("email_accounts")
+      .select(
+        "id, owner_id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method, status, next_sync_at",
+      )
+      .eq("status", "active")
+      .lte("next_sync_at", nowIso),
+    runningIds.length > 0
+      ? supabase.from("email_accounts").select("id, status").in("id", runningIds)
+      : Promise.resolve({ data: [] as { id: string; status: string }[], error: null }),
+  ]);
+  if (dueResult.error || runningResult.error) {
+    logger.error(
+      { dueError: dueResult.error, runningError: runningResult.error },
+      "supervisor: account lookup failed",
     );
-  if (error) {
-    logger.error({ error }, "supervisor: account list failed");
     return;
   }
 
-  const byId = new Map((accounts ?? []).map((a) => [a.id as string, a]));
+  const byId = new Map((runningResult.data ?? []).map((a) => [a.id as string, a]));
 
   // Tear down syncers for deleted/paused accounts.
   for (const [id, syncer] of running) {
@@ -834,11 +850,8 @@ export async function superviseTick(): Promise<void> {
   }
 
   // Start due accounts that aren't already running.
-  const now = Date.now();
-  for (const row of accounts ?? []) {
-    if (row.status !== "active") continue;
+  for (const row of dueResult.data ?? []) {
     if (running.has(row.id as string)) continue;
-    if (new Date(row.next_sync_at as string).getTime() > now) continue;
     const syncer = new AccountSyncer(row as never);
     running.set(row.id as string, syncer);
     // run() is fire-and-forget, so it needs its own catch: without one, any
@@ -855,7 +868,7 @@ export async function superviseTick(): Promise<void> {
 /** Nudge an account to sync ASAP (e.g. after the user flips a flag). */
 export async function wakeAccount(accountId: string): Promise<void> {
   // A live syncer can break out of IDLE immediately. Otherwise make the
-  // account due so the next supervisor tick (30s) starts one.
+  // account due so the next supervisor tick (5s) starts one.
   const syncer = running.get(accountId);
   if (syncer) {
     syncer.wake();

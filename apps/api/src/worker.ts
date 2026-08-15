@@ -8,9 +8,10 @@ import { outboxDrain } from "./services/outboxDrain.js";
 import { reconcileBilling } from "./services/stripeBilling.js";
 import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
-// IMAP sync supervisor. Every 30s: start syncers for due accounts, tear down
+// IMAP sync supervisor. Every 5s: start syncers for due accounts, tear down
 // ones that were removed/paused. Each syncer holds a live IDLE connection, so
-// new mail lands in seconds; the tick only handles lifecycle.
+// new mail lands in seconds; the faster tick removes the old worst-case 30s
+// wait when a user presses Sync now while a connection is being rebuilt.
 logger.info("sync supervisor starting");
 markWorkerStarted();
 
@@ -36,7 +37,7 @@ void import("./lib/supabase.js")
   })
   .catch((err) => logger.error({ err }, "boot placeholder clamp failed"));
 
-const SUPERVISOR_INTERVAL_MS = 30_000;
+const SUPERVISOR_INTERVAL_MS = 5_000;
 let ticking = false;
 
 setInterval(() => {

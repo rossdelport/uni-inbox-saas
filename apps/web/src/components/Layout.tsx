@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
 import { NavLink, Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
@@ -14,14 +14,23 @@ import {
 import { useRealtimeInbox } from "../lib/realtime.js";
 import { LOGO_SRC } from "../lib/assets.js";
 import { toast, type ToastKind } from "../lib/toast.js";
-import { PlansModal } from "./PlansModal.js";
-import { ConnectAccountModal } from "./ConnectAccountModal.js";
 import { ColorDots } from "./ColorDots.js";
 import { PaneResizer, restorePaneWidths } from "./PaneResizer.js";
 import { SecurityBadge } from "./SecurityBadge.js";
-import { ShortcutsOverlay } from "./ShortcutsOverlay.js";
-import { HelpSupportModal } from "./HelpSupportModal.js";
 import { KP, setKeyboardEnabled, useHotkeys } from "../lib/keyboard.js";
+
+const PlansModal = lazy(() =>
+  import("./PlansModal.js").then((m) => ({ default: m.PlansModal })),
+);
+const ConnectAccountModal = lazy(() =>
+  import("./ConnectAccountModal.js").then((m) => ({ default: m.ConnectAccountModal })),
+);
+const ShortcutsOverlay = lazy(() =>
+  import("./ShortcutsOverlay.js").then((m) => ({ default: m.ShortcutsOverlay })),
+);
+const HelpSupportModal = lazy(() =>
+  import("./HelpSupportModal.js").then((m) => ({ default: m.HelpSupportModal })),
+);
 
 export interface AppOutletContext {
   search: string;
@@ -58,6 +67,18 @@ export function Layout() {
   const [colorFor, setColorFor] = useState<string | null>(null);
   const updateAccount = useUpdateAccount();
   const syncAccounts = useSyncAccounts();
+
+  // Secondary dialogs are not part of the first useful paint. Warm them once
+  // the inbox is already usable so their eventual buttons still feel instant.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void import("./ConnectAccountModal.js");
+      void import("./PlansModal.js");
+      void import("./ShortcutsOverlay.js");
+      void import("./HelpSupportModal.js");
+    }, 1_200);
+    return () => clearTimeout(timer);
+  }, []);
   const [toasts, setToasts] = useState<
     Array<{ msg: string; kind: ToastKind; key: number; leaving?: boolean }>
   >([]);
@@ -521,16 +542,18 @@ export function Layout() {
         <Outlet context={{ search } satisfies AppOutletContext} />
       </div>
 
-      {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
-      {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
-      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
-      {helpOpen && (
-        <HelpSupportModal
-          name={displayName}
-          email={user?.email ?? ""}
-          onClose={() => setHelpOpen(false)}
-        />
-      )}
+      <Suspense fallback={null}>
+        {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
+        {connectOpen && <ConnectAccountModal onClose={() => setConnectOpen(false)} />}
+        {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+        {helpOpen && (
+          <HelpSupportModal
+            name={displayName}
+            email={user?.email ?? ""}
+            onClose={() => setHelpOpen(false)}
+          />
+        )}
+      </Suspense>
       {toasts.length > 0 && (
         <div className="uni-toast-stack">
           {toasts.map((t, i) => (

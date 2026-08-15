@@ -9,23 +9,31 @@ export const messagesRouter = Router();
 // Full thread detail: the thread row + every message, oldest first.
 messagesRouter.get("/threads/:id", async (req, res) => {
   const uid = userId(res);
-  const { data: thread } = await supabase
-    .from("threads")
-    .select(
-      "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, snooze_until, split_class, split_reason, split_manual, email_accounts!inner(label, color, email_address)",
-    )
-    .eq("id", req.params.id)
-    .eq("owner_id", uid)
-    .maybeSingle();
+  // Both reads are owner-scoped, so they can start together. Opening a
+  // conversation used to wait for the thread lookup before even asking for
+  // its messages, adding a full database round-trip to every click.
+  const [threadResult, messagesResult] = await Promise.all([
+    supabase
+      .from("threads")
+      .select(
+        "id, account_id, subject_norm, snippet, last_message_at, message_count, unread, archived, starred, read_later, snooze_until, split_class, split_reason, split_manual, email_accounts!inner(label, color, email_address)",
+      )
+      .eq("id", req.params.id)
+      .eq("owner_id", uid)
+      .maybeSingle(),
+    supabase
+      .from("messages")
+      .select(
+        "id, thread_id, account_id, from_name, from_address, to_addresses, cc_addresses, subject, date, body_text, body_html, snippet, seen, direction, attachments",
+      )
+      .eq("thread_id", req.params.id)
+      .eq("owner_id", uid)
+      .order("date", { ascending: true }),
+  ]);
+  const { data: thread } = threadResult;
   if (!thread) return res.status(404).json({ error: "thread not found" });
 
-  const { data: messages, error } = await supabase
-    .from("messages")
-    .select(
-      "id, thread_id, account_id, from_name, from_address, to_addresses, cc_addresses, subject, date, body_text, body_html, snippet, seen, direction, attachments",
-    )
-    .eq("thread_id", thread.id)
-    .order("date", { ascending: true });
+  const { data: messages, error } = messagesResult;
   if (error) return res.status(500).json({ error: "could not load messages" });
 
   const acct = thread.email_accounts as unknown as {

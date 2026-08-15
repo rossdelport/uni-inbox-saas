@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -26,11 +28,17 @@ import { SenderAvatar } from "../components/SenderAvatar.js";
 import { PaneResizer } from "../components/PaneResizer.js";
 import { SnoozePicker } from "../components/SnoozePicker.js";
 import { SplitPicker } from "../components/SplitPicker.js";
-import { OnboardingWizard, onboardingSeen } from "../components/OnboardingWizard.js";
-import { ReadingPane } from "./ThreadView.js";
+import { onboardingSeen } from "../lib/onboardingState.js";
 import { MAIL_SRC } from "../lib/assets.js";
 import type { AppOutletContext } from "../components/Layout.js";
 import type { ThreadSummary } from "../lib/types.js";
+
+const ReadingPane = lazy(() =>
+  import("./ThreadView.js").then((m) => ({ default: m.ReadingPane })),
+);
+const OnboardingWizard = lazy(() =>
+  import("../components/OnboardingWizard.js").then((m) => ({ default: m.OnboardingWizard })),
+);
 
 export type InboxViewName = "all" | "starred" | "later" | "archived" | "deleted" | "sent";
 
@@ -66,6 +74,14 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
     return () => clearTimeout(t);
   }, [search]);
   const searching = debouncedQ.length > 0;
+
+  // Pull the heavy reading/composer code after the inbox list has become
+  // interactive. In normal use it is already cached by the first click, but
+  // it no longer blocks the dashboard's initial paint and parse.
+  useEffect(() => {
+    const timer = setTimeout(() => void import("./ThreadView.js"), 700);
+    return () => clearTimeout(timer);
+  }, []);
   const inbox = useInbox(
     searching
       ? { q: debouncedQ }
@@ -588,12 +604,25 @@ export function Inbox({ view = "all" }: { view?: InboxViewName }) {
             : undefined
         }
       >
-        <ReadingPane threadId={threadId} onBack={closeThread} />
+        {threadId ? (
+          <Suspense fallback={<div className="empty-state"><div>Loading…</div></div>}>
+            <ReadingPane threadId={threadId} onBack={closeThread} />
+          </Suspense>
+        ) : (
+          <div className="empty-state">
+            <img src={MAIL_SRC} alt="" />
+            <div>Select a message to read.</div>
+          </div>
+        )}
       </section>
 
       {/* Keeps the onboarding wizard alive across the first connect (the
           first-run branch above unmounts the moment accounts exist). */}
-      {wizard && <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />}
+      {wizard && (
+        <Suspense fallback={null}>
+          <OnboardingWizard startAt={wizard} onClose={() => setWizard(null)} />
+        </Suspense>
+      )}
 
       {/* Snooze picker for a row action or the keyboard cursor ("h"). */}
       {snoozePicker && (

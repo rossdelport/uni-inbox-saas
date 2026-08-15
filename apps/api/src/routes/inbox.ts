@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { ImapFlow } from "imapflow";
 import { z } from "zod";
 import { userId } from "../lib/auth.js";
 import { supabase } from "../lib/supabase.js";
@@ -6,7 +7,7 @@ import { wakeAccount } from "../services/imapSync.js";
 import { backfillOlder } from "../services/backfill.js";
 import { logger } from "../lib/logger.js";
 import { rememberSplitRule, senderDomain, normalizeSender } from "../services/splitRules.js";
-import { findSpecialUse, withImap } from "../services/imapClient.js";
+import { findSpecialUse, withActionImap } from "../services/imapClient.js";
 
 export const inboxRouter = Router();
 
@@ -477,21 +478,32 @@ inboxRouter.post("/read-all", async (req, res) => {
   if (threads.length === 0) return res.json({ marked: 0, remaining: false });
 
   const ids = threads.map((t) => t.id as string);
-  await supabase.from("threads").update({ unread: false }).in("id", ids);
-  await supabase
-    .from("messages")
-    .update({ seen: true })
-    .in("thread_id", ids)
-    .eq("direction", "inbound");
-
-  // One op per thread, same as the single-thread path, so the read state
-  // reaches Gmail and friends rather than only living in our database.
-  await supabase.from("flag_ops").insert(
-    threads.map((t) => ({ account_id: t.account_id as string, thread_id: t.id as string, op: "read" })),
-  );
-  for (const id of new Set(threads.map((t) => t.account_id as string))) {
-    await wakeAccount(id);
+  // These writes are independent and the worker is only woken after all
+  // three finish, so run them in parallel instead of paying three serial
+  // database round-trips before the button can settle.
+  const [threadWrite, messageWrite, flagWrite] = await Promise.all([
+    supabase.from("threads").update({ unread: false }).in("id", ids),
+    supabase
+      .from("messages")
+      .update({ seen: true })
+      .in("thread_id", ids)
+      .eq("direction", "inbound"),
+    // One op per thread, same as the single-thread path, so the read state
+    // reaches Gmail and friends rather than only living in our database.
+    supabase.from("flag_ops").insert(
+      threads.map((t) => ({ account_id: t.account_id as string, thread_id: t.id as string, op: "read" })),
+    ),
+  ]);
+  if (threadWrite.error || messageWrite.error || flagWrite.error) {
+    logger.error(
+      { threadError: threadWrite.error, messageError: messageWrite.error, flagError: flagWrite.error, uid },
+      "read-all write failed",
+    );
+    return res.status(502).json({ error: "Could not mark everything read." });
   }
+  await Promise.all(
+    [...new Set(threads.map((t) => t.account_id as string))].map((id) => wakeAccount(id)),
+  );
 
   logger.info({ uid, marked: ids.length, account }, "read-all applied");
   res.json({ marked: ids.length, remaining: ids.length === READ_ALL_CAP });
@@ -521,18 +533,11 @@ inboxRouter.post("/threads/:id/snooze", async (req, res) => {
     return res.status(400).json({ error: "Snooze is limited to one year out." });
   }
 
-  const { data: thread } = await supabase
-    .from("threads")
-    .select("id")
-    .eq("id", req.params.id)
-    .eq("owner_id", uid)
-    .maybeSingle();
-  if (!thread) return res.status(404).json({ error: "thread not found" });
-
   // read_later comes along so the thread shows in the Snoozed list, which
   // filters on read_later alone (that keeps the installed iOS build's Later
-  // tab correct without an app update).
-  const { error } = await supabase
+  // tab correct without an app update). Ownership and mutation happen in one
+  // database request so the tap does not wait on a separate existence check.
+  const { data: thread, error } = await supabase
     .from("threads")
     .update({
       snooze_until: until.toISOString(),
@@ -540,11 +545,15 @@ inboxRouter.post("/threads/:id/snooze", async (req, res) => {
       snooze_woke_at: null,
       read_later: true,
     })
-    .eq("id", thread.id);
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .select("id")
+    .maybeSingle();
   if (error) {
-    logger.error({ err: error, threadId: thread.id }, "snooze failed");
+    logger.error({ err: error, threadId: req.params.id }, "snooze failed");
     return res.status(500).json({ error: "could not snooze thread" });
   }
+  if (!thread) return res.status(404).json({ error: "thread not found" });
   res.json({ ok: true, snooze_until: until.toISOString() });
 });
 
@@ -560,6 +569,24 @@ class RemoteMailboxMoveError extends Error {
 
 type MailboxDestination = "trash" | "inbox";
 
+// Resolve once per account/process and reuse it for future actions. The Gmail
+// fallback is only used when SPECIAL-USE is absent: Gmail folder names can be
+// localised, so hard-coding the English path before discovery would be fast
+// but wrong for some customers.
+const trashMailboxCache = new Map<string, string>();
+
+async function trashMailboxFor(
+  account: { id: string; provider_preset: string },
+  client: ImapFlow,
+): Promise<string | null> {
+  const cached = trashMailboxCache.get(account.id);
+  if (cached) return cached;
+  const found = (await findSpecialUse(client, "\\Trash"))
+    ?? (account.provider_preset === "gmail" ? "[Gmail]/Trash" : null);
+  if (found) trashMailboxCache.set(account.id, found);
+  return found;
+}
+
 /**
  * Move every server-backed message in a thread to a real mailbox folder.
  *
@@ -569,20 +596,24 @@ type MailboxDestination = "trash" | "inbox";
  * delete is allowed.
  */
 async function moveThreadMailbox(ownerId: string, threadId: string, destinationKind: MailboxDestination): Promise<void> {
-  const { data: thread, error: threadError } = await supabase
-    .from("threads")
-    .select("account_id")
-    .eq("id", threadId)
-    .eq("owner_id", ownerId)
-    .maybeSingle();
+  const [threadResult, messagesResult] = await Promise.all([
+    supabase
+      .from("threads")
+      .select("account_id")
+      .eq("id", threadId)
+      .eq("owner_id", ownerId)
+      .maybeSingle(),
+    supabase
+      .from("messages")
+      .select("id, imap_uid, imap_mailbox")
+      .eq("thread_id", threadId)
+      .eq("owner_id", ownerId),
+  ]);
+  const { data: thread, error: threadError } = threadResult;
   if (threadError) throw new RemoteMailboxMoveError("Could not prepare the mailbox move.", 502);
   if (!thread) throw new RemoteMailboxMoveError("Thread not found.", 404);
 
-  const { data: messages, error: messagesError } = await supabase
-    .from("messages")
-    .select("id, imap_uid, imap_mailbox")
-    .eq("thread_id", threadId)
-    .eq("owner_id", ownerId);
+  const { data: messages, error: messagesError } = messagesResult;
   if (messagesError) throw new RemoteMailboxMoveError("Could not prepare the mailbox move.", 502);
 
   const rows = (messages ?? []) as {
@@ -603,19 +634,12 @@ async function moveThreadMailbox(ownerId: string, threadId: string, destinationK
   if (accountError) throw new RemoteMailboxMoveError("Could not prepare the mailbox move.", 502);
   if (!account) throw new RemoteMailboxMoveError("Mailbox not found.", 404);
 
-  await withImap(account, async (client) => {
-    let destination: string | null = destinationKind === "inbox" ? "INBOX" : await findSpecialUse(client, "\\Trash");
-    if (!destination && destinationKind === "trash" && account.provider_preset === "gmail") {
-      destination = "[Gmail]/Trash";
-    }
+  await withActionImap(account, async (client) => {
+    const destination: string | null = destinationKind === "inbox"
+      ? "INBOX"
+      : await trashMailboxFor(account, client);
     if (!destination) {
       throw new RemoteMailboxMoveError("This mailbox does not expose a Trash folder, so the message was not moved.");
-    }
-
-    try {
-      await client.mailboxOpen(destination, { readOnly: true });
-    } catch {
-      throw new RemoteMailboxMoveError("This mailbox does not expose a usable destination folder, so the message was not moved.");
     }
 
     const grouped = new Map<string, { id: string; uid: number }[]>();
@@ -647,7 +671,10 @@ async function moveThreadMailbox(ownerId: string, threadId: string, destinationK
       } else if (client.capabilities.has("UIDPLUS")) {
         const copied = await client.messageCopy(uids, destination, { uid: true });
         if (!copied) {
-          throw new RemoteMailboxMoveError("The mail server refused to copy this conversation to Trash.", 502);
+          throw new RemoteMailboxMoveError(
+            `The mail server refused to copy this conversation to ${destinationKind === "trash" ? "Trash" : "Inbox"}.`,
+            502,
+          );
         }
         const expunged = await client.messageDelete(uids, { uid: true });
         if (!expunged) {
@@ -662,16 +689,20 @@ async function moveThreadMailbox(ownerId: string, threadId: string, destinationK
       }
 
       const uidMap = typeof moved === "object" ? moved.uidMap : undefined;
-      for (const item of items) {
-        const nextUid = uidMap?.get(item.uid) ?? null;
-        const { error: updateError } = await supabase
-          .from("messages")
-          .update({ imap_mailbox: destination, imap_uid: nextUid })
-          .eq("id", item.id)
-          .eq("owner_id", ownerId);
-        if (updateError) {
-          throw new RemoteMailboxMoveError("The message moved, but OneInbox could not update its mailbox record.", 502);
-        }
+      // These rows have different destination UIDs, but the writes are
+      // independent. Run them together instead of paying one database
+      // network round-trip per message in the conversation.
+      const updates = await Promise.all(
+        items.map((item) =>
+          supabase
+            .from("messages")
+            .update({ imap_mailbox: destination, imap_uid: uidMap?.get(item.uid) ?? null })
+            .eq("id", item.id)
+            .eq("owner_id", ownerId),
+        ),
+      );
+      if (updates.some(({ error }) => error)) {
+        throw new RemoteMailboxMoveError("The message moved, but OneInbox could not update its mailbox record.", 502);
       }
     }
   });
@@ -737,24 +768,35 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
                         snooze_woke_at: null,
                       }
                     : { deleted_at: null }; // restore from trash
-  await supabase.from("threads").update(local).eq("id", thread.id);
-  if (op === "read" || op === "unread") {
-    await supabase
-      .from("messages")
-      .update({ seen: op === "read" })
-      .eq("thread_id", thread.id)
-      .eq("direction", "inbound");
-  }
-
   // Star and read-later are app-local state; read/archive ops mirror to IMAP
   // through the flag queue. Restore already moved the message into INBOX
   // above, so it does not need a second queued operation.
-  if (op !== "star" && op !== "unstar" && op !== "later" && op !== "unlater" && op !== "restore") {
-    await supabase.from("flag_ops").insert({
-      account_id: thread.account_id,
-      thread_id: thread.id,
-      op,
-    });
+  const mirrorsToImap = op !== "star" && op !== "unstar" && op !== "later" && op !== "unlater" && op !== "restore";
+  const [threadWrite, messageWrite, flagWrite] = await Promise.all([
+    supabase.from("threads").update(local).eq("id", thread.id),
+    op === "read" || op === "unread"
+      ? supabase
+          .from("messages")
+          .update({ seen: op === "read" })
+          .eq("thread_id", thread.id)
+          .eq("direction", "inbound")
+      : Promise.resolve({ error: null }),
+    mirrorsToImap
+      ? supabase.from("flag_ops").insert({
+          account_id: thread.account_id,
+          thread_id: thread.id,
+          op,
+        })
+      : Promise.resolve({ error: null }),
+  ]);
+  if (threadWrite.error || messageWrite.error || flagWrite.error) {
+    logger.error(
+      { threadError: threadWrite.error, messageError: messageWrite.error, flagError: flagWrite.error, threadId: thread.id, op },
+      "thread action write failed",
+    );
+    return res.status(502).json({ error: "Could not update this conversation." });
+  }
+  if (mirrorsToImap) {
     await wakeAccount(thread.account_id as string);
   }
   res.json({ ok: true });
@@ -801,23 +843,27 @@ class PermanentDeleteUnsupportedError extends Error {}
 
 inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
   const uid = userId(res);
-  const { data: thread, error: threadError } = await supabase
-    .from("threads")
-    .select("id, account_id, deleted_at")
-    .eq("id", req.params.id)
-    .eq("owner_id", uid)
-    .maybeSingle();
+  const [threadResult, messagesResult] = await Promise.all([
+    supabase
+      .from("threads")
+      .select("id, account_id, deleted_at")
+      .eq("id", req.params.id)
+      .eq("owner_id", uid)
+      .maybeSingle(),
+    supabase
+      .from("messages")
+      .select("imap_uid, imap_mailbox")
+      .eq("thread_id", req.params.id)
+      .eq("owner_id", uid),
+  ]);
+  const { data: thread, error: threadError } = threadResult;
   if (threadError) return res.status(500).json({ error: "could not find thread" });
   if (!thread) return res.status(404).json({ error: "thread not found" });
   if (!thread.deleted_at) {
     return res.status(409).json({ error: "Only conversations in Deleted can be removed permanently." });
   }
 
-  const { data: messages, error: messagesError } = await supabase
-    .from("messages")
-    .select("imap_uid, imap_mailbox")
-    .eq("thread_id", thread.id)
-    .eq("owner_id", uid);
+  const { data: messages, error: messagesError } = messagesResult;
   if (messagesError) return res.status(500).json({ error: "could not prepare permanent deletion" });
   if ((messages ?? []).some((message) => message.imap_uid === null || message.imap_uid === undefined || !message.imap_mailbox)) {
     return res.status(409).json({
@@ -847,15 +893,19 @@ inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
 
   try {
     if (mailboxUids.size > 0) {
-      await withImap(account, async (client) => {
-        // Preflight every mailbox before deleting anything. UIDPLUS makes
-        // this operation safe when other messages are already in the trash.
+      await withActionImap(account, async (client) => {
+        if (!client.capabilities.has("UIDPLUS")) {
+          throw new PermanentDeleteUnsupportedError(
+            "This mailbox cannot safely delete one conversation at a time. It is still available in Deleted.",
+          );
+        }
+
+        // One LIST preflight verifies every source mailbox before the first
+        // destructive command. The old code SELECTed every mailbox twice.
+        const available = new Set((await client.list()).map((box) => box.path));
         for (const mailbox of mailboxUids.keys()) {
-          await client.mailboxOpen(mailbox, { readOnly: true });
-          if (!client.capabilities.has("UIDPLUS")) {
-            throw new PermanentDeleteUnsupportedError(
-              "This mailbox cannot safely delete one conversation at a time. It is still available in Deleted.",
-            );
+          if (!available.has(mailbox)) {
+            throw new Error(`IMAP mailbox no longer exists: ${mailbox}`);
           }
         }
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -39,9 +40,12 @@ export function SnoozeSheet({
 
   function pick(durationMinutes: number) {
     if (!thread || !Number.isFinite(durationMinutes) || durationMinutes <= 0) return;
+    // The list update is optimistic; dismiss immediately so the tap feels
+    // native instead of waiting for the request to travel to the server.
+    close();
     snooze.mutate(
       { threadId: thread.id, until: new Date(Date.now() + durationMinutes * 60_000).toISOString() },
-      { onSuccess: close },
+      { onError: (error) => Alert.alert("Could not snooze", (error as Error).message) },
     );
   }
 

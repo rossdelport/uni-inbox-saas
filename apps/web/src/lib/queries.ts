@@ -56,19 +56,15 @@ export function useContacts(query: string, accountId?: string | null) {
   });
 }
 
-/** Ask every selected mailbox syncer to run now. The API nudge is quick, so
- *  keep the pending state visible briefly: otherwise the spinner flashes too
- *  fast to communicate that the click was received. */
+/** Ask every selected mailbox syncer to run now. The icon animates while the
+ * real request is pending; do not hold the interface for an artificial timer. */
 export function useSyncAccounts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (accountIds: string[]) => {
-      await Promise.all([
-        Promise.all(
-          accountIds.map((id) => api(`/api/accounts/${id}/sync`, { method: "POST" })),
-        ),
-        new Promise((resolve) => setTimeout(resolve, 800)),
-      ]);
+      await Promise.all(
+        accountIds.map((id) => api(`/api/accounts/${id}/sync`, { method: "POST" })),
+      );
       return accountIds.length;
     },
     onSuccess: () => {
@@ -80,8 +76,9 @@ export function useSyncAccounts() {
       refresh();
       // The endpoint wakes the background syncer rather than waiting for an
       // IMAP round trip. Follow up after it has had time to ingest new mail.
-      setTimeout(refresh, 2_500);
-      setTimeout(refresh, 6_000);
+      setTimeout(refresh, 700);
+      setTimeout(refresh, 2_000);
+      setTimeout(refresh, 5_500);
     },
   });
 }
@@ -302,6 +299,84 @@ export function useReadAll() {
         method: "POST",
         body: JSON.stringify(scope),
       }),
+    onMutate: async (scope) => {
+      await Promise.all([
+        qc.cancelQueries({ queryKey: ["inbox"] }),
+        qc.cancelQueries({ queryKey: ["unread-counts"] }),
+      ]);
+      const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      const countsBefore = qc.getQueryData<UnreadCounts>(["unread-counts"]);
+      const wantedAccount = scope.account ?? "all";
+      const wantedSplit = scope.split ?? "all";
+      const affected = new Map<string, InboxPage["threads"][number]>();
+
+      for (const [key, data] of snapshots) {
+        if (!data || !Array.isArray(key)) continue;
+        const exactView =
+          key[0] === "inbox" &&
+          key[1] === wantedAccount &&
+          key[2] === Boolean(scope.archived) &&
+          key[3] === Boolean(scope.starred) &&
+          key[4] === Boolean(scope.later) &&
+          key[5] === false &&
+          key[6] === false &&
+          key[7] === wantedSplit &&
+          key[8] === "";
+        if (!exactView) continue;
+        qc.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            threads: page.threads.map((thread) => {
+              if (!thread.unread) return thread;
+              affected.set(thread.id, thread);
+              return { ...thread, unread: false, counts_unread: false };
+            }),
+          })),
+        });
+      }
+
+      const threadSnapshots = [...affected.keys()].map((id) => [
+        id,
+        qc.getQueryData<ThreadDetail>(["thread", id]),
+      ] as const);
+      for (const [id, detail] of threadSnapshots) {
+        if (!detail) continue;
+        qc.setQueryData<ThreadDetail>(["thread", id], {
+          ...detail,
+          thread: { ...detail.thread, unread: false, counts_unread: false },
+        });
+      }
+
+      if (countsBefore) {
+        const counted = [...affected.values()].filter((thread) => thread.counts_unread);
+        const byAccount = { ...countsBefore.by_account };
+        const byAccountSplit = countsBefore.by_account_split
+          ? Object.fromEntries(
+              Object.entries(countsBefore.by_account_split).map(([id, splits]) => [id, { ...splits }]),
+            )
+          : undefined;
+        for (const thread of counted) {
+          byAccount[thread.account_id] = Math.max(0, (byAccount[thread.account_id] ?? 0) - 1);
+          const splits = byAccountSplit?.[thread.account_id];
+          if (splits) splits[thread.split_class] = Math.max(0, (splits[thread.split_class] ?? 0) - 1);
+        }
+        qc.setQueryData<UnreadCounts>(["unread-counts"], {
+          ...countsBefore,
+          total: Math.max(0, countsBefore.total - counted.length),
+          by_account: byAccount,
+          by_account_split: byAccountSplit,
+        });
+      }
+      return { snapshots, countsBefore, threadSnapshots };
+    },
+    onError: (_error, _scope, context) => {
+      for (const [key, data] of context?.snapshots ?? []) qc.setQueryData(key, data);
+      if (context?.countsBefore) qc.setQueryData(["unread-counts"], context.countsBefore);
+      for (const [id, detail] of context?.threadSnapshots ?? []) {
+        if (detail) qc.setQueryData(["thread", id], detail);
+      }
+    },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["accounts"] });
@@ -836,9 +911,80 @@ export function useSnooze() {
         method: "POST",
         body: JSON.stringify({ until }),
       }),
-    onSuccess: () => {
+    onMutate: async ({ threadId, until }) => {
+      await Promise.all([
+        qc.cancelQueries({ queryKey: ["inbox"] }),
+        qc.cancelQueries({ queryKey: ["thread", threadId] }),
+        qc.cancelQueries({ queryKey: ["unread-counts"] }),
+      ]);
+      const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
+      const threadBefore = qc.getQueryData<ThreadDetail>(["thread", threadId]);
+      const countsBefore = qc.getQueryData<UnreadCounts>(["unread-counts"]);
+      const before = threadBefore?.thread ?? snapshots
+        .flatMap(([, data]) => data?.pages.flatMap((page) => page.threads) ?? [])
+        .find((thread) => thread.id === threadId);
+
+      for (const [key, data] of snapshots) {
+        if (!data) continue;
+        const isSnoozedView = Array.isArray(key) && key[0] === "inbox" && key[4] === true;
+        qc.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            threads: isSnoozedView
+              ? page.threads.map((thread) => thread.id === threadId
+                ? { ...thread, read_later: true, snooze_until: until, counts_unread: false }
+                : thread)
+              : page.threads.filter((thread) => thread.id !== threadId),
+          })),
+        });
+      }
+
+      if (threadBefore) {
+        qc.setQueryData<ThreadDetail>(["thread", threadId], {
+          ...threadBefore,
+          thread: {
+            ...threadBefore.thread,
+            read_later: true,
+            snooze_until: until,
+            counts_unread: false,
+          },
+        });
+      }
+      if (before?.counts_unread && countsBefore) {
+        const accountId = before.account_id;
+        const splitCounts = countsBefore.by_account_split?.[accountId];
+        qc.setQueryData<UnreadCounts>(["unread-counts"], {
+          ...countsBefore,
+          total: Math.max(0, countsBefore.total - 1),
+          by_account: {
+            ...countsBefore.by_account,
+            [accountId]: Math.max(0, (countsBefore.by_account[accountId] ?? 0) - 1),
+          },
+          by_account_split: countsBefore.by_account_split
+            ? {
+                ...countsBefore.by_account_split,
+                [accountId]: splitCounts
+                  ? {
+                      ...splitCounts,
+                      [before.split_class]: Math.max(0, (splitCounts[before.split_class] ?? 0) - 1),
+                    }
+                  : {},
+              }
+            : undefined,
+        });
+      }
+      return { snapshots, threadBefore, countsBefore };
+    },
+    onError: (_error, { threadId }, context) => {
+      for (const [key, data] of context?.snapshots ?? []) qc.setQueryData(key, data);
+      if (context?.threadBefore) qc.setQueryData(["thread", threadId], context.threadBefore);
+      if (context?.countsBefore) qc.setQueryData(["unread-counts"], context.countsBefore);
+    },
+    onSettled: (_data, _error, { threadId }) => {
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
+      void qc.invalidateQueries({ queryKey: ["thread", threadId] });
     },
   });
 }

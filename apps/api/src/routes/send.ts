@@ -43,10 +43,10 @@ function decodeAttachments(
   return out;
 }
 
-async function sendGate(uid: string): Promise<string | null> {
+async function sendGate(uid: string): Promise<{ error: string | null; fromName: string | null }> {
   const billing = await getBilling(uid);
   if (billing.trialExpired) {
-    return "Your trial has ended. Pick a plan to keep sending.";
+    return { error: "Your trial has ended. Pick a plan to keep sending.", fromName: billing.displayName };
   }
   const today = new Date().toISOString().slice(0, 10);
   const { data: allowed, error } = await supabase.rpc("bump_send_counter", {
@@ -56,19 +56,12 @@ async function sendGate(uid: string): Promise<string | null> {
   });
   if (error) {
     logger.error({ error, uid }, "send counter failed");
-    return "Sending is temporarily unavailable.";
+    return { error: "Sending is temporarily unavailable.", fromName: billing.displayName };
   }
-  if (!allowed) return `Daily send limit reached (${env.SEND_DAILY_CAP} per day).`;
-  return null;
-}
-
-async function displayName(uid: string): Promise<string | null> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("user_id", uid)
-    .maybeSingle();
-  return (data?.display_name as string | null) ?? null;
+  if (!allowed) {
+    return { error: `Daily send limit reached (${env.SEND_DAILY_CAP} per day).`, fromName: billing.displayName };
+  }
+  return { error: null, fromName: billing.displayName };
 }
 
 // Reply to a thread. From-account is the THREAD'S account — server-resolved,
@@ -105,22 +98,41 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "invalid input" });
   }
-  const gateError = await sendGate(uid);
-  if (gateError) return res.status(402).json({ error: gateError });
-
-  const { data: thread } = await supabase
+  // Billing/counter work and thread ownership are independent. Starting both
+  // together removes several database round-trips from the time between
+  // tapping Reply and beginning the SMTP delivery.
+  const gatePromise = sendGate(uid);
+  const threadResult = await supabase
     .from("threads")
     .select("id, account_id")
     .eq("id", req.params.id)
     .eq("owner_id", uid)
     .maybeSingle();
+  const { data: thread } = threadResult;
   if (!thread) return res.status(404).json({ error: "thread not found" });
 
-  const { data: account } = await supabase
-    .from("email_accounts")
-    .select(ACCOUNT_COLUMNS)
-    .eq("id", thread.account_id)
-    .maybeSingle();
+  // Start the mailbox/message reads as soon as the thread id arrives while
+  // the billing gate performs its second (send-counter) request. That keeps
+  // the critical path to roughly two database phases instead of three.
+  const [gate, accountResult, replyResult] = await Promise.all([
+    gatePromise,
+    supabase
+      .from("email_accounts")
+      .select(ACCOUNT_COLUMNS)
+      .eq("id", thread.account_id)
+      .maybeSingle(),
+    // Latest inbound message = what we're replying to.
+    supabase
+      .from("messages")
+      .select("message_id, references_ids, subject, from_address, to_addresses, cc_addresses")
+      .eq("thread_id", thread.id)
+      .eq("direction", "inbound")
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (gate.error) return res.status(402).json({ error: gate.error });
+  const { data: account } = accountResult;
   if (!account) return res.status(404).json({ error: "account not found" });
   if (account.status !== "active") {
     return res.status(409).json({
@@ -128,15 +140,7 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
     });
   }
 
-  // Latest inbound message = what we're replying to.
-  const { data: replyTo } = await supabase
-    .from("messages")
-    .select("message_id, references_ids, subject, from_address, to_addresses, cc_addresses")
-    .eq("thread_id", thread.id)
-    .eq("direction", "inbound")
-    .order("date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: replyTo } = replyResult;
   if (!replyTo) return res.status(409).json({ error: "nothing in this thread to reply to" });
 
   // Reply-all semantics. The connected account's own address is a valid
@@ -170,7 +174,7 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
     attachments,
     inReplyTo: (replyTo.message_id as string | null) ?? null,
     references,
-    fromName: await displayName(uid),
+    fromName: gate.fromName,
   };
 
   const sendAtErr = checkSendAt(parsed.data.send_at);
@@ -178,7 +182,12 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
 
   try {
     const sent = await smtpSend(account as SendAccount, input);
-    await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
+    // SMTP acceptance is the honest definition of Sent. Do not make the
+    // client keep showing "Sending…" while OneInbox refreshes its local
+    // thread rollup; persistence and the provider Sent copy can settle in the
+    // background, and Sent sync remains the reconciliation safety net.
+    void recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId)
+      .catch((error) => logger.error({ error, threadId: thread.id }, "outbound record failed after send"));
     void appendToSent(account as SendAccount, sent.raw);
     res.json({ ok: true, message_id: sent.messageId });
   } catch (err) {
@@ -206,34 +215,39 @@ sendRouter.post("/threads/:id/forward", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "invalid input" });
   }
-  const gateError = await sendGate(uid);
-  if (gateError) return res.status(402).json({ error: gateError });
-
-  const { data: thread } = await supabase
+  const gatePromise = sendGate(uid);
+  const threadResult = await supabase
     .from("threads")
     .select("id, account_id")
     .eq("id", req.params.id)
     .eq("owner_id", uid)
     .maybeSingle();
+  const { data: thread } = threadResult;
   if (!thread) return res.status(404).json({ error: "thread not found" });
 
-  const { data: account } = await supabase
-    .from("email_accounts")
-    .select(ACCOUNT_COLUMNS)
-    .eq("id", thread.account_id)
-    .maybeSingle();
+  const [gate, accountResult, originalResult] = await Promise.all([
+    gatePromise,
+    supabase
+      .from("email_accounts")
+      .select(ACCOUNT_COLUMNS)
+      .eq("id", thread.account_id)
+      .maybeSingle(),
+    supabase
+      .from("messages")
+      .select("from_name, from_address, to_addresses, subject, date, body_text, body_html")
+      .eq("thread_id", thread.id)
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (gate.error) return res.status(402).json({ error: gate.error });
+  const { data: account } = accountResult;
   if (!account) return res.status(404).json({ error: "account not found" });
   if (account.status !== "active") {
     return res.status(409).json({ error: "This inbox is paused, so it can't send right now." });
   }
 
-  const { data: original } = await supabase
-    .from("messages")
-    .select("from_name, from_address, to_addresses, subject, date, body_text, body_html")
-    .eq("thread_id", thread.id)
-    .order("date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: original } = originalResult;
   if (!original) return res.status(409).json({ error: "nothing in this thread to forward" });
 
   const baseSubject = (original.subject as string | null) ?? "";
@@ -266,7 +280,7 @@ sendRouter.post("/threads/:id/forward", async (req, res) => {
     subject,
     bodyText,
     bodyHtml,
-    fromName: await displayName(uid),
+    fromName: gate.fromName,
   };
 
   const fwdSendAtErr = checkSendAt(parsed.data.send_at);
@@ -274,7 +288,8 @@ sendRouter.post("/threads/:id/forward", async (req, res) => {
 
   try {
     const sent = await smtpSend(account as SendAccount, input);
-    await recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId);
+    void recordOutbound(account as SendAccount, thread.id as string, input, sent.messageId)
+      .catch((error) => logger.error({ error, threadId: thread.id }, "forward record failed after send"));
     void appendToSent(account as SendAccount, sent.raw);
     res.json({ ok: true, message_id: sent.messageId });
   } catch (err) {
@@ -302,15 +317,17 @@ sendRouter.post("/messages/send", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "invalid input" });
   }
-  const gateError = await sendGate(uid);
-  if (gateError) return res.status(402).json({ error: gateError });
-
-  const { data: account } = await supabase
-    .from("email_accounts")
-    .select(ACCOUNT_COLUMNS)
-    .eq("id", parsed.data.account_id)
-    .eq("owner_id", uid)
-    .maybeSingle();
+  const [gate, accountResult] = await Promise.all([
+    sendGate(uid),
+    supabase
+      .from("email_accounts")
+      .select(ACCOUNT_COLUMNS)
+      .eq("id", parsed.data.account_id)
+      .eq("owner_id", uid)
+      .maybeSingle(),
+  ]);
+  if (gate.error) return res.status(402).json({ error: gate.error });
+  const { data: account } = accountResult;
   if (!account) return res.status(404).json({ error: "account not found" });
   if (account.status !== "active") {
     return res.status(409).json({ error: "This inbox is paused, so it can't send right now." });
@@ -327,7 +344,7 @@ sendRouter.post("/messages/send", async (req, res) => {
     bodyText: parsed.data.body_text,
     bodyHtml: parsed.data.body_html,
     attachments,
-    fromName: await displayName(uid),
+    fromName: gate.fromName,
   };
 
   const newSendAtErr = checkSendAt(parsed.data.send_at);

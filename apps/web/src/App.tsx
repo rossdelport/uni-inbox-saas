@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -14,14 +14,29 @@ import { pendingPlanIntent, resumePendingCheckout } from "./lib/checkout.js";
 import { Login } from "./pages/Login.js";
 import { Layout } from "./components/Layout.js";
 import { Inbox } from "./pages/Inbox.js";
-import { Compose } from "./pages/Compose.js";
-import { Accounts } from "./pages/Accounts.js";
-import { Billing } from "./pages/Billing.js";
-import { Settings } from "./pages/Settings.js";
-import { ResetPassword } from "./pages/ResetPassword.js";
-import { Users } from "./pages/Users.js";
-import { Waitlist } from "./pages/Waitlist.js";
-import { DashboardPreview } from "./pages/DashboardPreview.js";
+
+// The inbox is the product's hot path and stays in the first dashboard
+// bundle. Secondary screens are fetched only when opened; previously every
+// settings, billing, admin, compose and development-preview screen had to be
+// downloaded and parsed before the inbox could become interactive.
+const Compose = lazy(() => import("./pages/Compose.js").then((m) => ({ default: m.Compose })));
+const Accounts = lazy(() => import("./pages/Accounts.js").then((m) => ({ default: m.Accounts })));
+const Billing = lazy(() => import("./pages/Billing.js").then((m) => ({ default: m.Billing })));
+const Settings = lazy(() => import("./pages/Settings.js").then((m) => ({ default: m.Settings })));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.js").then((m) => ({ default: m.ResetPassword })));
+const Users = lazy(() => import("./pages/Users.js").then((m) => ({ default: m.Users })));
+const Waitlist = lazy(() => import("./pages/Waitlist.js").then((m) => ({ default: m.Waitlist })));
+const DashboardPreview = lazy(() =>
+  import("./pages/DashboardPreview.js").then((m) => ({ default: m.DashboardPreview })),
+);
+
+function AppLoading() {
+  return (
+    <div className="empty-state" style={{ height: "100vh" }}>
+      <div>Loading…</div>
+    </div>
+  );
+}
 
 function RouteError() {
   const error = useRouteError();
@@ -102,7 +117,11 @@ export function App() {
   // A realistic, local-only dashboard for visual review. It deliberately
   // bypasses auth and APIs in development, and cannot exist in production.
   if (import.meta.env.DEV && window.location.pathname === "/app/design-preview") {
-    return <DashboardPreview />;
+    return (
+      <Suspense fallback={<AppLoading />}>
+        <DashboardPreview />
+      </Suspense>
+    );
   }
 
   return <AuthenticatedApp />;
@@ -146,13 +165,13 @@ function AuthenticatedApp() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="empty-state" style={{ height: "100vh" }}>
-        <div>Loading…</div>
-      </div>
-    );
+    return <AppLoading />;
   }
   if (!session) return <Login />;
   if (handingOff) return <CheckoutSplash />;
-  return <RouterProvider router={router} />;
+  return (
+    <Suspense fallback={<AppLoading />}>
+      <RouterProvider router={router} />
+    </Suspense>
+  );
 }

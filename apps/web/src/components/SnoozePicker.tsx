@@ -41,13 +41,15 @@ export function SnoozePicker({
   useHotkeys({ Escape: () => onClose(), "*": () => {} }, { priority: KP.overlay });
 
   function pick(when: Date, label: string) {
+    // The cache update is optimistic, so close the picker on the click rather
+    // than making the user watch a network request finish.
+    onSnoozed?.();
+    onClose();
     snooze.mutate(
       { threadId, until: when.toISOString() },
       {
         onSuccess: () => {
           toast(`Snoozed for ${label} · back at ${fmt(when)}`, "success");
-          onSnoozed?.();
-          onClose();
         },
         onError: (e) => toast((e as Error).message, "warn"),
       },

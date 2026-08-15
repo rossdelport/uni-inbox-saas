@@ -62,6 +62,93 @@ export async function withImap<T>(
   }
 }
 
+// User-triggered mailbox actions tend to arrive in short bursts (delete,
+// restore, then permanently delete; or several actions while triaging). A
+// fresh TLS + OAuth + IMAP handshake for every click made the safe provider
+// confirmation feel sluggish. Keep one short-lived, serialised action
+// connection per account so repeat actions reuse the authenticated socket.
+//
+// This is deliberately separate from AccountSyncer's long-lived IDLE socket:
+// routes must also work when API and worker run as separate Railway services,
+// and sharing a selected mailbox across concurrent sync/action commands would
+// risk applying UIDs to the wrong folder.
+const ACTION_IMAP_IDLE_MS = 2 * 60_000;
+
+interface ActionImapSlot {
+  client: ImapFlow | null;
+  tail: Promise<void>;
+  pending: number;
+  idleTimer: ReturnType<typeof setTimeout> | null;
+}
+
+const actionImapSlots = new Map<string, ActionImapSlot>();
+
+async function closeActionImap(accountId: string, slot: ActionImapSlot): Promise<void> {
+  if (actionImapSlots.get(accountId) !== slot || slot.pending > 0) return;
+  actionImapSlots.delete(accountId);
+  if (slot.idleTimer) clearTimeout(slot.idleTimer);
+  slot.idleTimer = null;
+  const client = slot.client;
+  slot.client = null;
+  if (client) await client.logout().catch(() => client.close());
+}
+
+/**
+ * Run a user action over a short-lived reusable IMAP connection.
+ *
+ * Operations for one account are serialised because IMAP commands address the
+ * currently selected mailbox. A failed command drops the socket without
+ * retrying the mutation: after an ambiguous network failure, retrying a move
+ * or delete automatically could apply the action twice.
+ */
+export async function withActionImap<T>(
+  account: AccountConn,
+  fn: (client: ImapFlow) => Promise<T>,
+): Promise<T> {
+  let slot = actionImapSlots.get(account.id);
+  if (!slot) {
+    slot = { client: null, tail: Promise.resolve(), pending: 0, idleTimer: null };
+    actionImapSlots.set(account.id, slot);
+  }
+
+  if (slot.idleTimer) clearTimeout(slot.idleTimer);
+  slot.idleTimer = null;
+  slot.pending += 1;
+
+  const previous = slot.tail;
+  let release!: () => void;
+  slot.tail = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+
+  let client = slot.client;
+  try {
+    if (!client?.usable) {
+      if (client) await client.logout().catch(() => client!.close());
+      client = await buildImap(account);
+      await client.connect();
+      slot.client = client;
+    }
+    return await fn(client);
+  } catch (err) {
+    // Do not leave a connection with unknown selected-mailbox/command state in
+    // the pool. The next user action gets a clean socket.
+    if (slot.client === client) slot.client = null;
+    if (client) await client.logout().catch(() => client!.close());
+    throw err;
+  } finally {
+    slot.pending -= 1;
+    release();
+    if (slot.pending === 0 && actionImapSlots.get(account.id) === slot) {
+      slot.idleTimer = setTimeout(() => {
+        void closeActionImap(account.id, slot!);
+      }, ACTION_IMAP_IDLE_MS);
+      slot.idleTimer.unref?.();
+    }
+  }
+}
+
 /** Find a mailbox by special-use flag (e.g. "\\Sent", "\\Archive"). */
 export async function findSpecialUse(
   client: ImapFlow,

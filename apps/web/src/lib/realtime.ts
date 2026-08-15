@@ -18,7 +18,7 @@ import { supabase } from "./supabase.js";
 /** Events are coalesced over this window before one refetch goes out. A
  *  single conversation can touch the row several times as it lands (insert,
  *  then the rollup update), and a first sync lands in bursts. */
-const COALESCE_MS = 400;
+const COALESCE_MS = 150;
 
 // Whether the postgres_changes channel is currently delivering. The polls in
 // queries.ts read this each interval: 60s while realtime carries the load,
