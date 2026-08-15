@@ -9,6 +9,7 @@ import { rememberSplitRule, senderDomain, normalizeSender } from "../services/sp
 import { withImap } from "../services/imapClient.js";
 import {
   enqueueMailboxMove,
+  finishPendingMailboxMove,
   RemoteMailboxMoveError,
 } from "../services/mailboxMoves.js";
 
@@ -748,27 +749,45 @@ class PermanentDeleteMetadataError extends Error {}
 
 inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
   const uid = userId(res);
-  const [threadResult, messagesResult] = await Promise.all([
-    supabase
-      .from("threads")
-      .select("id, account_id, deleted_at")
-      .eq("id", req.params.id)
-      .eq("owner_id", uid)
-      .maybeSingle(),
-    supabase
-      .from("messages")
-      .select("imap_uid, imap_mailbox, message_id")
-      .eq("thread_id", req.params.id)
-      .eq("owner_id", uid),
-  ]);
-  const { data: thread, error: threadError } = threadResult;
+  const { data: thread, error: threadError } = await supabase
+    .from("threads")
+    .select("id, account_id, deleted_at")
+    .eq("id", req.params.id)
+    .eq("owner_id", uid)
+    .maybeSingle();
   if (threadError) return res.status(500).json({ error: "could not find thread" });
-  if (!thread) return res.status(404).json({ error: "thread not found" });
+  // DELETE is idempotent. If the provider deletion succeeded but the response
+  // was lost, the browser's one safe network retry must not resurrect its
+  // stale optimistic snapshot because the local thread is already gone.
+  if (!thread) return res.json({ ok: true, already_deleted: true });
   if (!thread.deleted_at) {
     return res.status(409).json({ error: "Only conversations in Deleted can be removed permanently." });
   }
 
-  const { data: messages, error: messagesError } = messagesResult;
+  // A Deleted row is visible before its slower provider move has necessarily
+  // finished. Sequence permanent deletion behind that queued Trash move so a
+  // fast second click cannot race MOVE against UID EXPUNGE.
+  try {
+    await finishPendingMailboxMove({
+      ownerId: uid,
+      threadId: thread.id as string,
+      destination: "trash",
+    });
+  } catch (err) {
+    if (err instanceof RemoteMailboxMoveError) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+    logger.warn({ err, threadId: thread.id }, "could not sequence permanent deletion after Trash move");
+    return res.status(502).json({ error: "Could not finish moving this conversation to Trash." });
+  }
+
+  // Read message locations only after the move completes; the queue may have
+  // changed both the mailbox and UID while this request was waiting.
+  const { data: messages, error: messagesError } = await supabase
+    .from("messages")
+    .select("imap_uid, imap_mailbox, message_id")
+    .eq("thread_id", thread.id)
+    .eq("owner_id", uid);
   if (messagesError) return res.status(500).json({ error: "could not prepare permanent deletion" });
   const { data: account, error: accountError } = await supabase
     .from("email_accounts")

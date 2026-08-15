@@ -293,6 +293,89 @@ export async function enqueueMailboxMove(args: {
   );
 }
 
+/**
+ * Finish the queued move for one thread before a dependent destructive action
+ * continues. The UI can expose the Deleted row as soon as the local state is
+ * committed, which means a quick "Delete permanently" click may arrive while
+ * the provider is still moving the messages to Trash. Waiting on the durable
+ * queue here keeps those provider commands strictly ordered.
+ */
+export async function finishPendingMailboxMove(args: {
+  ownerId: string;
+  threadId: string;
+  destination: MailboxDestination;
+  timeoutMs?: number;
+}): Promise<void> {
+  const deadline = Date.now() + (args.timeoutMs ?? 20_000);
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("mailbox_move_ops")
+      .select("id, destination, generation, status, not_before, last_error")
+      .eq("thread_id", args.threadId)
+      .eq("owner_id", args.ownerId)
+      .maybeSingle();
+    if (error) {
+      logger.warn({ err: error, threadId: args.threadId }, "pending mailbox move lookup failed");
+      throw new RemoteMailboxMoveError("Could not check whether this conversation finished moving.", 502);
+    }
+    if (!data) return;
+
+    if (data.destination !== args.destination) {
+      throw new RemoteMailboxMoveError(
+        "This conversation is moving to a different folder. Let that action finish, then try again.",
+      );
+    }
+
+    // If this process owns the active drain, awaiting it is the fastest path.
+    // Otherwise this starts a drain for a ready queued job. A job claimed by a
+    // separate worker is observed by the short poll below.
+    await kickMailboxMoveDrain();
+
+    const { data: remaining, error: remainingError } = await supabase
+      .from("mailbox_move_ops")
+      .select("id, destination, generation, status, not_before, last_error")
+      .eq("thread_id", args.threadId)
+      .eq("owner_id", args.ownerId)
+      .maybeSingle();
+    if (remainingError) {
+      logger.warn({ err: remainingError, threadId: args.threadId }, "mailbox move completion lookup failed");
+      throw new RemoteMailboxMoveError("Could not confirm that this conversation finished moving.", 502);
+    }
+    if (!remaining) return;
+    if (remaining.destination !== args.destination) {
+      throw new RemoteMailboxMoveError(
+        "This conversation is moving to a different folder. Let that action finish, then try again.",
+      );
+    }
+
+    // A failed attempt is rescheduled with a future not_before. Surface that
+    // provider failure instead of spinning until the HTTP request times out.
+    if (
+      remaining.status === "queued" &&
+      Date.parse(remaining.not_before as string) > Date.now() &&
+      remaining.last_error
+    ) {
+      logger.warn(
+        { threadId: args.threadId, lastError: remaining.last_error },
+        "mailbox move failed before dependent action",
+      );
+      throw new RemoteMailboxMoveError(
+        "The conversation could not finish moving to Trash. Please try again.",
+        502,
+      );
+    }
+
+    if (Date.now() >= deadline) {
+      throw new RemoteMailboxMoveError(
+        "This conversation is still moving to Trash. Please try permanent deletion again in a moment.",
+        409,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 const CLAIM_STALE_MS = 2 * 60_000;
 const MOVE_BATCH = 10;
 let activeDrain: Promise<void> | null = null;

@@ -121,6 +121,11 @@ const pendingReplyKey = (threadId: string) => ["pending-replies", threadId] as c
 type PendingThreadLocation = "inbox" | "trash" | "gone";
 const pendingThreadLocations = new Map<string, PendingThreadLocation>();
 
+// The Deleted pile is optimistic, so its permanent-delete button can be
+// clicked before the original Delete HTTP request has finished. Keep the
+// request itself addressable and make the destructive follow-up await it.
+const pendingTrashRequests = new Map<string, Promise<unknown>>();
+
 type InboxCache = { pages: InboxPage[] };
 
 function matchesAccountView(key: readonly unknown[], accountId: string) {
@@ -608,7 +613,17 @@ export function useSplitThread() {
 export function useDeleteThread() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (threadId: string) => api(`/api/inbox/threads/${threadId}`, { method: "DELETE" }),
+    mutationFn: async (threadId: string) => {
+      const request = api(`/api/inbox/threads/${threadId}`, { method: "DELETE" });
+      pendingTrashRequests.set(threadId, request);
+      try {
+        return await request;
+      } finally {
+        if (pendingTrashRequests.get(threadId) === request) {
+          pendingTrashRequests.delete(threadId);
+        }
+      }
+    },
     // Optimistic: move the row into any cached Deleted pile immediately.
     onMutate: async (threadId) => {
       pendingThreadLocations.set(threadId, "trash");
@@ -656,8 +671,13 @@ export function useDeleteThread() {
 export function usePermanentDeleteThread() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (threadId: string) =>
-      api(`/api/inbox/threads/${threadId}/permanent`, { method: "DELETE" }),
+    mutationFn: async (threadId: string) => {
+      // Preserve click order even though both rows change immediately in the
+      // interface. The API then performs the equivalent provider-side wait.
+      const pendingTrash = pendingTrashRequests.get(threadId);
+      if (pendingTrash) await pendingTrash;
+      return api(`/api/inbox/threads/${threadId}/permanent`, { method: "DELETE" });
+    },
     // The row disappears immediately after the user confirms. If the mail
     // server rejects the operation, restore the cached Deleted list so the
     // conversation remains recoverable.
