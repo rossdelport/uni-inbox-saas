@@ -7,7 +7,7 @@ import { wakeAccount } from "../services/imapSync.js";
 import { backfillOlder } from "../services/backfill.js";
 import { logger } from "../lib/logger.js";
 import { rememberSplitRule, senderDomain, normalizeSender } from "../services/splitRules.js";
-import { findSpecialUse, withActionImap } from "../services/imapClient.js";
+import { findSpecialUse, withActionImap, withImap } from "../services/imapClient.js";
 
 export const inboxRouter = Router();
 
@@ -840,6 +840,7 @@ inboxRouter.delete("/threads/:id", async (req, res) => {
  * mailbox, not just the conversation the user selected.
  */
 class PermanentDeleteUnsupportedError extends Error {}
+class PermanentDeleteMetadataError extends Error {}
 
 inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
   const uid = userId(res);
@@ -852,7 +853,7 @@ inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
       .maybeSingle(),
     supabase
       .from("messages")
-      .select("imap_uid, imap_mailbox")
+      .select("imap_uid, imap_mailbox, message_id")
       .eq("thread_id", req.params.id)
       .eq("owner_id", uid),
   ]);
@@ -865,12 +866,6 @@ inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
 
   const { data: messages, error: messagesError } = messagesResult;
   if (messagesError) return res.status(500).json({ error: "could not prepare permanent deletion" });
-  if ((messages ?? []).some((message) => message.imap_uid === null || message.imap_uid === undefined || !message.imap_mailbox)) {
-    return res.status(409).json({
-      error: "Some messages are still syncing. Sync this mailbox, then try permanent deletion again.",
-    });
-  }
-
   const { data: account, error: accountError } = await supabase
     .from("email_accounts")
     .select("id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method")
@@ -882,18 +877,38 @@ inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
 
   // A thread can contain messages from INBOX and Sent. Group by mailbox so
   // each UID is deleted from the folder in which it was originally synced.
-  const mailboxUids = new Map<string, number[]>();
+  // A MOVE/COPY response is allowed to omit COPYUID, so a moved message can
+  // have a null local UID even though it is safely in Trash. Keep its stable
+  // RFC Message-ID as a recovery key and resolve that UID in the destination
+  // mailbox immediately before expunging it.
+  const mailboxMessages = new Map<string, {
+    imap_uid: number | string | null;
+    imap_mailbox: string;
+    message_id: string | null;
+  }[]>();
   for (const message of messages ?? []) {
-    const imapUid = Number(message.imap_uid);
-    if (!Number.isSafeInteger(imapUid) || imapUid <= 0) continue;
-    const current = mailboxUids.get(message.imap_mailbox) ?? [];
-    if (!current.includes(imapUid)) current.push(imapUid);
-    mailboxUids.set(message.imap_mailbox, current);
+    if (!message.imap_mailbox) {
+      return res.status(409).json({
+        error: "Some messages are still syncing. Sync this mailbox, then try permanent deletion again.",
+      });
+    }
+    const current = mailboxMessages.get(message.imap_mailbox) ?? [];
+    current.push({
+      imap_uid: message.imap_uid,
+      imap_mailbox: message.imap_mailbox,
+      message_id: message.message_id ?? null,
+    });
+    mailboxMessages.set(message.imap_mailbox, current);
   }
 
   try {
-    if (mailboxUids.size > 0) {
-      await withActionImap(account, async (client) => {
+    if (mailboxMessages.size > 0) {
+      // Permanent deletion is deliberately run on a fresh socket. It is a
+      // rare destructive operation, and reusing the action pool here can
+      // inherit a selected mailbox from a prior move while another sync is
+      // still settling. Fresh state is more important than shaving one TLS
+      // handshake from this path.
+      await withImap(account, async (client) => {
         if (!client.capabilities.has("UIDPLUS")) {
           throw new PermanentDeleteUnsupportedError(
             "This mailbox cannot safely delete one conversation at a time. It is still available in Deleted.",
@@ -903,14 +918,39 @@ inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
         // One LIST preflight verifies every source mailbox before the first
         // destructive command. The old code SELECTed every mailbox twice.
         const available = new Set((await client.list()).map((box) => box.path));
-        for (const mailbox of mailboxUids.keys()) {
+        for (const mailbox of mailboxMessages.keys()) {
           if (!available.has(mailbox)) {
             throw new Error(`IMAP mailbox no longer exists: ${mailbox}`);
           }
         }
 
-        for (const [mailbox, uids] of mailboxUids) {
+        for (const [mailbox, rows] of mailboxMessages) {
           await client.mailboxOpen(mailbox, { readOnly: false });
+          const uids: number[] = [];
+          for (const row of rows) {
+            const localUid = Number(row.imap_uid);
+            if (Number.isSafeInteger(localUid) && localUid > 0) {
+              uids.push(localUid);
+              continue;
+            }
+
+            const messageId = row.message_id?.trim();
+            if (!messageId) throw new PermanentDeleteMetadataError();
+            const found = await client.search(
+              { header: { "Message-ID": messageId } },
+              { uid: true },
+            );
+            const candidateUid = Array.isArray(found) ? found[0] : undefined;
+            if (
+              typeof candidateUid !== "number" ||
+              !Number.isSafeInteger(candidateUid) ||
+              candidateUid <= 0
+            ) {
+              throw new PermanentDeleteMetadataError();
+            }
+            uids.push(candidateUid);
+          }
+          if (uids.length === 0) continue;
           const deleted = await client.messageDelete(uids, { uid: true });
           if (!deleted) throw new Error(`IMAP could not delete messages from ${mailbox}`);
         }
@@ -934,6 +974,11 @@ inboxRouter.delete("/threads/:id/permanent", async (req, res) => {
   } catch (err) {
     if (err instanceof PermanentDeleteUnsupportedError) {
       return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof PermanentDeleteMetadataError) {
+      return res.status(409).json({
+        error: "One message needs a fresh mailbox sync before it can be permanently deleted. Try again in a moment.",
+      });
     }
     logger.warn({ err, threadId: thread.id }, "permanent thread deletion failed");
     return res.status(502).json({ error: "Could not permanently delete this conversation from your mailbox." });
