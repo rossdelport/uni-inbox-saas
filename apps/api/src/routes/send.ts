@@ -139,9 +139,12 @@ sendRouter.post("/threads/:id/reply", async (req, res) => {
     .maybeSingle();
   if (!replyTo) return res.status(409).json({ error: "nothing in this thread to reply to" });
 
-  // Reply-all semantics minus our own address.
+  // Reply-all semantics. The connected account's own address is a valid
+  // recipient too: users can deliberately reply to a message they sent to
+  // themselves (a useful note/test workflow). We still remove it from the
+  // automatically collected CC list so it is not duplicated there.
   const self = (account.email_address as string).toLowerCase();
-  const to = [replyTo.from_address as string].filter((a) => a && a !== self);
+  const to = [replyTo.from_address as string].filter(Boolean);
   const ccAuto = ([...(replyTo.to_addresses ?? []), ...(replyTo.cc_addresses ?? [])] as string[])
     .filter((a) => a && a !== self && !to.includes(a));
   const cc = parsed.data.cc ?? ccAuto;

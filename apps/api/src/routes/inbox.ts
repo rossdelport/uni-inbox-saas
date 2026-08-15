@@ -6,7 +6,7 @@ import { wakeAccount } from "../services/imapSync.js";
 import { backfillOlder } from "../services/backfill.js";
 import { logger } from "../lib/logger.js";
 import { rememberSplitRule, senderDomain, normalizeSender } from "../services/splitRules.js";
-import { withImap } from "../services/imapClient.js";
+import { findSpecialUse, withImap } from "../services/imapClient.js";
 
 export const inboxRouter = Router();
 
@@ -548,8 +548,138 @@ inboxRouter.post("/threads/:id/snooze", async (req, res) => {
   res.json({ ok: true, snooze_until: until.toISOString() });
 });
 
-// Thread-level state flips. Local change is immediate; a flag_ops row queues
-// the same change for the IMAP server, and the account gets nudged.
+class RemoteMailboxMoveError extends Error {
+  readonly statusCode: number;
+
+  constructor(message: string, statusCode = 409) {
+    super(message);
+    this.name = "RemoteMailboxMoveError";
+    this.statusCode = statusCode;
+  }
+}
+
+type MailboxDestination = "trash" | "inbox";
+
+/**
+ * Move every server-backed message in a thread to a real mailbox folder.
+ *
+ * The local Deleted view is deliberately updated only after the provider
+ * confirms the move. UID mappings are stored when the server provides them;
+ * otherwise the next sync must re-address the message before a permanent
+ * delete is allowed.
+ */
+async function moveThreadMailbox(ownerId: string, threadId: string, destinationKind: MailboxDestination): Promise<void> {
+  const { data: thread, error: threadError } = await supabase
+    .from("threads")
+    .select("account_id")
+    .eq("id", threadId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (threadError) throw new RemoteMailboxMoveError("Could not prepare the mailbox move.", 502);
+  if (!thread) throw new RemoteMailboxMoveError("Thread not found.", 404);
+
+  const { data: messages, error: messagesError } = await supabase
+    .from("messages")
+    .select("id, imap_uid, imap_mailbox")
+    .eq("thread_id", threadId)
+    .eq("owner_id", ownerId);
+  if (messagesError) throw new RemoteMailboxMoveError("Could not prepare the mailbox move.", 502);
+
+  const rows = (messages ?? []) as {
+    id: string;
+    imap_uid: number | string | null;
+    imap_mailbox: string | null;
+  }[];
+  if (rows.some((row) => row.imap_uid === null || row.imap_uid === undefined || !row.imap_mailbox)) {
+    throw new RemoteMailboxMoveError("Some messages are still syncing. Sync this mailbox, then try again.");
+  }
+
+  const { data: account, error: accountError } = await supabase
+    .from("email_accounts")
+    .select("id, imap_host, imap_port, imap_username, credentials_enc, provider_preset, auth_method")
+    .eq("id", thread.account_id)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (accountError) throw new RemoteMailboxMoveError("Could not prepare the mailbox move.", 502);
+  if (!account) throw new RemoteMailboxMoveError("Mailbox not found.", 404);
+
+  await withImap(account, async (client) => {
+    let destination: string | null = destinationKind === "inbox" ? "INBOX" : await findSpecialUse(client, "\\Trash");
+    if (!destination && destinationKind === "trash" && account.provider_preset === "gmail") {
+      destination = "[Gmail]/Trash";
+    }
+    if (!destination) {
+      throw new RemoteMailboxMoveError("This mailbox does not expose a Trash folder, so the message was not moved.");
+    }
+
+    try {
+      await client.mailboxOpen(destination, { readOnly: true });
+    } catch {
+      throw new RemoteMailboxMoveError("This mailbox does not expose a usable destination folder, so the message was not moved.");
+    }
+
+    const grouped = new Map<string, { id: string; uid: number }[]>();
+    for (const row of rows) {
+      const uid = Number(row.imap_uid);
+      if (!Number.isSafeInteger(uid) || uid <= 0) {
+        throw new RemoteMailboxMoveError("Some messages are still syncing. Sync this mailbox, then try again.");
+      }
+      const list = grouped.get(row.imap_mailbox!) ?? [];
+      list.push({ id: row.id, uid });
+      grouped.set(row.imap_mailbox!, list);
+    }
+
+    const needsMove = [...grouped.keys()].some((source) => source !== destination);
+    if (needsMove && !client.capabilities.has("MOVE") && !client.capabilities.has("UIDPLUS")) {
+      throw new RemoteMailboxMoveError("This mailbox cannot safely move one conversation at a time.");
+    }
+
+    for (const [source, items] of grouped) {
+      if (source === destination) continue;
+      await client.mailboxOpen(source, { readOnly: false });
+      const uids = items.map((item) => item.uid);
+      // Prefer UID MOVE. If the server has UIDPLUS but not MOVE, do the
+      // copy-then-UID-EXPUNGE sequence ourselves instead of relying on a
+      // library fallback that could expunge before confirming the copy.
+      let moved;
+      if (client.capabilities.has("MOVE")) {
+        moved = await client.messageMove(uids, destination, { uid: true });
+      } else if (client.capabilities.has("UIDPLUS")) {
+        const copied = await client.messageCopy(uids, destination, { uid: true });
+        if (!copied) {
+          throw new RemoteMailboxMoveError("The mail server refused to copy this conversation to Trash.", 502);
+        }
+        const expunged = await client.messageDelete(uids, { uid: true });
+        if (!expunged) {
+          throw new RemoteMailboxMoveError("The mail server copied the conversation but refused to remove the original.", 502);
+        }
+        moved = copied;
+      } else {
+        throw new RemoteMailboxMoveError("This mailbox cannot safely move one conversation at a time.");
+      }
+      if (!moved) {
+        throw new RemoteMailboxMoveError("The mail server refused to move this conversation.", 502);
+      }
+
+      const uidMap = typeof moved === "object" ? moved.uidMap : undefined;
+      for (const item of items) {
+        const nextUid = uidMap?.get(item.uid) ?? null;
+        const { error: updateError } = await supabase
+          .from("messages")
+          .update({ imap_mailbox: destination, imap_uid: nextUid })
+          .eq("id", item.id)
+          .eq("owner_id", ownerId);
+        if (updateError) {
+          throw new RemoteMailboxMoveError("The message moved, but OneInbox could not update its mailbox record.", 502);
+        }
+      }
+    }
+  });
+}
+
+// Thread-level state flips. Local change is immediate for app-only actions;
+// read/archive are queued for IMAP, and restore first moves the message back
+// into the provider's Inbox.
 const flagOps = z.enum([
   "archive", "unarchive", "read", "unread", "star", "unstar", "later", "unlater", "restore",
 ]);
@@ -567,6 +697,18 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
     .eq("owner_id", uid)
     .maybeSingle();
   if (!thread) return res.status(404).json({ error: "thread not found" });
+
+  if (op === "restore") {
+    try {
+      await moveThreadMailbox(uid, thread.id as string, "inbox");
+    } catch (err) {
+      if (err instanceof RemoteMailboxMoveError) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      logger.warn({ err, threadId: thread.id }, "restore mailbox move failed");
+      return res.status(502).json({ error: "Could not restore this conversation to your mailbox." });
+    }
+  }
 
   const local: Record<string, unknown> =
     op === "archive"
@@ -604,8 +746,9 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
       .eq("direction", "inbound");
   }
 
-  // Star, read-later and restore are app-local state; only read/archive ops
-  // mirror to the IMAP server.
+  // Star and read-later are app-local state; read/archive ops mirror to IMAP
+  // through the flag queue. Restore already moved the message into INBOX
+  // above, so it does not need a second queued operation.
   if (op !== "star" && op !== "unstar" && op !== "later" && op !== "unlater" && op !== "restore") {
     await supabase.from("flag_ops").insert({
       account_id: thread.account_id,
@@ -617,9 +760,9 @@ inboxRouter.post("/threads/:id/:op", async (req, res) => {
   res.json({ ok: true });
 });
 
-// DELETE /api/inbox/threads/:id — move the conversation to the trash.
-// Soft delete: it sits in the Deleted view (restorable) until the retention
-// sweep purges it 30 days later. The real mailbox is untouched either way.
+// DELETE /api/inbox/threads/:id — move the conversation to the provider's
+// Trash, then show it in OneInbox's Deleted view. It remains restorable until
+// the user permanently deletes it or the 30-day local retention sweep runs.
 inboxRouter.delete("/threads/:id", async (req, res) => {
   const uid = userId(res);
   const { data: thread } = await supabase
@@ -629,6 +772,17 @@ inboxRouter.delete("/threads/:id", async (req, res) => {
     .eq("owner_id", uid)
     .maybeSingle();
   if (!thread) return res.status(404).json({ error: "thread not found" });
+
+  try {
+    await moveThreadMailbox(uid, thread.id as string, "trash");
+  } catch (err) {
+    if (err instanceof RemoteMailboxMoveError) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+    logger.warn({ err, threadId: thread.id }, "trash mailbox move failed");
+    return res.status(502).json({ error: "Could not move this conversation to your mailbox Trash." });
+  }
+
   const { error } = await supabase
     .from("threads")
     .update({ deleted_at: new Date().toISOString() })
