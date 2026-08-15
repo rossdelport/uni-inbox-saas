@@ -815,9 +815,34 @@ inboxRouter.delete("/threads/:id", async (req, res) => {
     .maybeSingle();
   if (!thread) return res.status(404).json({ error: "thread not found" });
 
+  // Mark the thread as Deleted before the IMAP move starts. A provider move
+  // can take several seconds (copy + expunge), and the sync worker may see
+  // the source message during that window. Setting the local flag first keeps
+  // that in-flight sync from briefly putting the row back in the inbox. If
+  // the provider rejects the move, restore the flag below so the message is
+  // never hidden permanently by a failed remote action.
+  const deletedAt = new Date().toISOString();
+  const { error: markDeletedError } = await supabase
+    .from("threads")
+    .update({ deleted_at: deletedAt })
+    .eq("id", thread.id)
+    .eq("owner_id", uid);
+  if (markDeletedError) {
+    logger.error({ err: markDeletedError, threadId: thread.id }, "could not mark thread deleted");
+    return res.status(500).json({ error: "could not delete thread" });
+  }
+
   try {
     await moveThreadMailbox(uid, thread.id as string, "trash");
   } catch (err) {
+    const { error: rollbackError } = await supabase
+      .from("threads")
+      .update({ deleted_at: null })
+      .eq("id", thread.id)
+      .eq("owner_id", uid);
+    if (rollbackError) {
+      logger.error({ err: rollbackError, threadId: thread.id }, "could not roll back failed trash move");
+    }
     if (err instanceof RemoteMailboxMoveError) {
       return res.status(err.statusCode).json({ error: err.message });
     }
@@ -825,11 +850,6 @@ inboxRouter.delete("/threads/:id", async (req, res) => {
     return res.status(502).json({ error: "Could not move this conversation to your mailbox Trash." });
   }
 
-  const { error } = await supabase
-    .from("threads")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", thread.id);
-  if (error) return res.status(500).json({ error: "could not delete thread" });
   res.json({ ok: true });
 });
 

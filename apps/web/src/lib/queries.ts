@@ -114,6 +114,13 @@ interface PendingReply {
 
 const pendingReplyKey = (threadId: string) => ["pending-replies", threadId] as const;
 
+// A provider-side permanent purge can take several seconds. Realtime may
+// invalidate the inbox while that purge is still running, so keep the row
+// hidden from fresh responses until the API has finished. Without this small
+// client-side guard, the optimistic removal flashes back into Deleted before
+// the provider and local cleanup complete.
+const pendingPermanentDeletes = new Set<string>();
+
 const comparableBody = (body: string | null) =>
   (body ?? "").replace(/\r\n/g, "\n").trim();
 
@@ -188,7 +195,7 @@ export function useInbox(view: InboxView) {
   const { account = null, archived = false, starred = false, later = false, deleted = false, sent = false, split = null, q = "" } = view;
   return useInfiniteQuery({
     queryKey: ["inbox", account ?? "all", archived, starred, later, deleted, sent, split ?? "all", q],
-    queryFn: ({ pageParam }) => {
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set("cursor", pageParam);
       if (q) params.set("q", q);
@@ -199,7 +206,12 @@ export function useInbox(view: InboxView) {
       if (starred) params.set("starred", "1");
       if (later) params.set("later", "1");
       if (split) params.set("split", split);
-      return api<InboxPage>(`/api/inbox?${params.toString()}`);
+      const page = await api<InboxPage>(`/api/inbox?${params.toString()}`);
+      if (pendingPermanentDeletes.size === 0) return page;
+      return {
+        ...page,
+        threads: page.threads.filter((thread) => !pendingPermanentDeletes.has(thread.id)),
+      };
     },
     initialPageParam: "",
     getNextPageParam: (last) => last.next_cursor ?? undefined,
@@ -539,6 +551,7 @@ export function useDeleteThread() {
     mutationFn: (threadId: string) => api(`/api/inbox/threads/${threadId}`, { method: "DELETE" }),
     // Optimistic: drop the row from every cached inbox page immediately.
     onMutate: async (threadId) => {
+      pendingPermanentDeletes.add(threadId);
       await qc.cancelQueries({ queryKey: ["inbox"] });
       const snapshots = qc.getQueriesData<{ pages: InboxPage[] }>({ queryKey: ["inbox"] });
       for (const [key, data] of snapshots) {
@@ -589,9 +602,11 @@ export function usePermanentDeleteThread() {
       return { snapshots };
     },
     onError: (_error, _threadId, context) => {
+      if (_threadId) pendingPermanentDeletes.delete(_threadId);
       for (const [key, data] of context?.snapshots ?? []) qc.setQueryData(key, data);
     },
     onSettled: (_data, error, threadId) => {
+      if (threadId) pendingPermanentDeletes.delete(threadId);
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       void qc.invalidateQueries({ queryKey: ["unread-counts"] });
       if (!error && threadId) void qc.removeQueries({ queryKey: ["thread", threadId] });
