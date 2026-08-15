@@ -485,6 +485,56 @@ function DeliveryStatus({ state }: { state: DeliveryState }) {
   );
 }
 
+async function copyEmailAddress(address: string): Promise<void> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(address);
+      toast("Email address copied", "success");
+      return;
+    }
+    throw new Error("Clipboard API unavailable");
+  } catch {
+    // Keep copy working in browsers where the Clipboard API is unavailable.
+    const textarea = document.createElement("textarea");
+    textarea.value = address;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      if (!document.execCommand("copy")) throw new Error("Copy failed");
+      toast("Email address copied", "success");
+    } catch {
+      toast("Could not copy the email address", "warn");
+    } finally {
+      textarea.remove();
+    }
+  }
+}
+
+function CopyAddressButton({ address }: { address: string }) {
+  return (
+    <button
+      type="button"
+      className="gm-copy-address"
+      aria-label={`Copy ${address}`}
+      title="Copy email address"
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void copyEmailAddress(address);
+      }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  );
+}
+
 // One message in the Gmail-style thread: a clickable header row (avatar,
 // sender, snippet or recipients, date) with the body underneath when open.
 function GmMessage({
@@ -506,12 +556,28 @@ function GmMessage({
   const deliveryState =
     m.client_delivery_state ?? (m.id.startsWith("optimistic-") ? "sending" : null);
   const sender = outbound ? "You" : senderLabel(m.from_name, m.from_address);
+  const copyAddress = outbound ? m.to_addresses.filter(Boolean).join(", ") : m.from_address;
   const meta = outbound
-    ? `to ${m.to_addresses.join(", ")}`
+    ? `to ${m.to_addresses.join(", ") || "(no recipients)"}`
     : `${m.from_address} via ${accountLabel}`;
   return (
     <div className="gm-msg">
-      <button className="gm-head" onClick={onToggle}>
+      <div
+        className="gm-head"
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          // The copy control is a real button inside this header. Only the
+          // header itself should toggle the message open/closed.
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
+      >
         <SenderAvatar
           name={outbound ? sender : m.from_name}
           email={outbound ? accountEmail : m.from_address}
@@ -520,8 +586,13 @@ function GmMessage({
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="gm-top">
             <span className="gm-name">{sender}</span>
-            {open &&
-              (deliveryState ? <DeliveryStatus state={deliveryState} /> : <span className="gm-meta">{meta}</span>)}
+            {open ? (
+              <span className="gm-meta-wrap">
+                {deliveryState ? <DeliveryStatus state={deliveryState} /> : null}
+                <span className="gm-meta">{meta}</span>
+                {copyAddress ? <CopyAddressButton address={copyAddress} /> : null}
+              </span>
+            ) : null}
             <span className="gm-when">{formatWhen(m.date)}</span>
           </div>
           {!open && (
@@ -530,7 +601,7 @@ function GmMessage({
             </div>
           )}
         </div>
-      </button>
+      </div>
       {open && (
         <div className="gm-body">
           <MessageBody messageId={m.id} bodyHtml={m.body_html} bodyText={m.body_text} />
