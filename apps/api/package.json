@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "start": "tsx src/index.ts",
-    "start:worker": "tsx src/worker.ts",
-    "start:all": "tsx src/main.ts",
+    "start": "NODE_OPTIONS=--max-old-space-size=256 node dist/index.js",
+    "start:worker": "NODE_OPTIONS=--max-old-space-size=256 node dist/worker.js",
+    "start:all": "NODE_OPTIONS=--max-old-space-size=256 node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "stripe:setup": "tsx src/scripts/_stripeSetup.ts"
+    "stripe:setup": "tsx src/scripts/_stripeSetup.ts",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
