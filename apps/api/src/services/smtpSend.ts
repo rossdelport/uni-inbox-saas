@@ -18,13 +18,13 @@ import { touchThread } from "./threading.js";
 //
 // Google (OAuth) mailboxes send over HTTPS through the Gmail API instead of
 // SMTP: Railway blocks outbound SMTP ports on every plan below Pro, and the
-// https://mail.google.com/ scope already covers API sends. Gmail keeps the
-// Message-ID we set and files its own Sent copy. Microsoft OAuth mailboxes
+// https://mail.google.com/ scope already covers API sends. Gmail swaps in its own
+// Message-ID, which the send reads back so the Sent copy is adopted rather
+// than shown twice, and files its own Sent copy. Microsoft OAuth mailboxes
 // only hold the SMTP.Send scope (not Graph Mail.Send), so they, and password
 // accounts, still go out over SMTP.
 
-const GMAIL_SEND_URL =
-  "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
+const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me/messages";
 
 /** True for a Google OAuth mailbox: it can send over HTTPS. */
 export function sendsViaGmailApi(
@@ -33,22 +33,54 @@ export function sendsViaGmailApi(
   return providerForAuthMethod(account.auth_method ?? "password") === "google";
 }
 
-/** Send composed RFC822 bytes through the Gmail API (base64url in a JSON body). */
+/**
+ * Gmail replaces the Message-ID header with its own on API sends. Read it back
+ * so the row stored at send time matches the Sent copy the syncer finds later;
+ * null when the lookup fails (the send itself already succeeded).
+ */
+async function readGmailMessageId(
+  sendResponse: Response,
+  headers: Record<string, string>,
+  fetchImpl: typeof fetch,
+): Promise<string | null> {
+  try {
+    const { id } = (await sendResponse.json()) as { id?: string };
+    if (!id) return null;
+    const meta = await fetchImpl(
+      `${GMAIL_API}/${encodeURIComponent(id)}?format=metadata&metadataHeaders=Message-ID`,
+      { headers, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!meta.ok) return null;
+    const body = (await meta.json()) as {
+      payload?: { headers?: { name: string; value: string }[] };
+    };
+    const header = body.payload?.headers?.find(
+      (h) => h.name.toLowerCase() === "message-id",
+    );
+    return header?.value.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Send composed RFC822 bytes through the Gmail API (base64url in a JSON body).
+ *  Resolves to the Message-ID Gmail actually used, or null if that could not be read. */
 export async function sendViaGmailApi(
   accessToken: string,
   raw: Buffer,
   fetchImpl: typeof fetch = fetch,
-): Promise<void> {
-  const res = await fetchImpl(GMAIL_SEND_URL, {
+): Promise<string | null> {
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  const res = await fetchImpl(`${GMAIL_API}/send`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ raw: raw.toString("base64url") }),
     signal: AbortSignal.timeout(60_000),
   });
-  if (res.ok) return;
+  if (res.ok) return readGmailMessageId(res, headers, fetchImpl);
   let detail = "";
   try {
     const body = (await res.json()) as { error?: { message?: string } };
@@ -265,8 +297,8 @@ export async function smtpSend(
       account.auth_method!,
       account.credentials_enc,
     );
-    await sendViaGmailApi(token, raw);
-    return { messageId: finalMessageId, raw };
+    const gmailMessageId = await sendViaGmailApi(token, raw);
+    return { messageId: gmailMessageId ?? finalMessageId, raw };
   }
 
   // Keep the authenticated SMTP socket warm briefly. The old code paid a
