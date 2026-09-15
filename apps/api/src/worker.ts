@@ -9,10 +9,11 @@ import { reconcileBilling } from "./services/stripeBilling.js";
 import { kickMailboxMoveDrain } from "./services/mailboxMoves.js";
 import { markTick, markWorkerStarted } from "./lib/heartbeat.js";
 
-// IMAP sync supervisor. Every 5s: start syncers for due accounts, tear down
-// ones that were removed/paused. Each syncer holds a live IDLE connection, so
-// new mail lands in seconds; the faster tick removes the old worst-case 30s
-// wait when a user presses Sync now while a connection is being rebuilt.
+// IMAP sync supervisor. Every 30s: start syncers for due accounts, tear down
+// ones that were removed/paused. New mail still lands within seconds because
+// each syncer holds a live IDLE connection and pushes on "exists" the moment
+// the provider reports it — this tick only picks up accounts that don't have
+// a syncer running yet (new connections, or ones torn down after a failure).
 logger.info("sync supervisor starting");
 markWorkerStarted();
 
@@ -38,7 +39,7 @@ void import("./lib/supabase.js")
   })
   .catch((err) => logger.error({ err }, "boot placeholder clamp failed"));
 
-const SUPERVISOR_INTERVAL_MS = 5_000;
+const SUPERVISOR_INTERVAL_MS = 30_000;
 let ticking = false;
 
 setInterval(() => {
@@ -56,21 +57,23 @@ void superviseTick()
   .finally(() => markTick());
 
 // Delete and Restore update OneInbox immediately, then this durable queue
-// mirrors the move to Gmail/Outlook. Poll every second so provider state
-// follows quickly even if the API and worker run as separate services or a
-// process restarts after accepting the click.
+// mirrors the move to Gmail/Outlook. Poll every 15s — the dashboard already
+// reflects the action instantly, so this only affects how soon the change
+// shows up on the Gmail/Outlook side, not how soon the user sees it.
 setInterval(() => {
   void kickMailboxMoveDrain().catch((err) =>
     logger.error({ err }, "mailbox move drain failed"),
   );
-}, 1_000);
+}, 15_000);
 void kickMailboxMoveDrain().catch((err) =>
   logger.error({ err }, "initial mailbox move drain failed"),
 );
 
-// Outbox drain: every 5s. The undo window is 10s, so a send goes out at most
-// ~15s after the button. Never overlaps itself: a slow SMTP conversation must
-// not let a second drain claim the next batch while the first still runs.
+// Outbox drain: every 30s. The undo window is 10s, so a send goes out at most
+// ~40s after the button (was ~15s) — a deliberate trade of a little send
+// latency for far fewer idle poll cycles. Never overlaps itself: a slow SMTP
+// conversation must not let a second drain claim the next batch while the
+// first still runs.
 let draining = false;
 if (env.OUTBOX_ENABLED === "1") {
   setInterval(() => {
@@ -81,7 +84,7 @@ if (env.OUTBOX_ENABLED === "1") {
       .finally(() => {
         draining = false;
       });
-  }, 5_000);
+  }, 30_000);
 }
 
 // Snooze sweep: every minute. Cosmetic-but-visible tidying (the read path is

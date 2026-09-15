@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "echo 'no build step — api runs via tsx'",
+    "buildCommand": "npm run build --workspace @uni/api",
     "watchPatterns": ["**"]
   },
   "deploy": {

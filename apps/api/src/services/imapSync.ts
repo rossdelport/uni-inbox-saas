@@ -133,8 +133,13 @@ export class AccountSyncer {
       await this.cycle();
       await this.markHealthy();
 
-      // Reconcile + flag-op pump every 45s while idling; reconnect the
-      // connection defensively every 25 min (RFC 2177 refresh window).
+      // Reconcile + flag-op pump every 5 min while idling; reconnect the
+      // connection defensively every 25 min (RFC 2177 refresh window). New
+      // mail still arrives immediately — imapflow idles between commands and
+      // the "exists"/"flags" listeners above push a cycle the moment the
+      // provider reports a change. This timer only covers the periodic catch-up
+      // reconcile and the liveness probe below, so widening it just means a
+      // dead connection can take up to 5 min (not 45s) to notice and rebuild.
       const startedAt = Date.now();
       while (!this.stopped && this.client?.usable) {
         await new Promise<void>((resolve) => {
@@ -143,7 +148,7 @@ export class AccountSyncer {
             this.wakeTimer = null;
             this.wakeResolve = null;
             resolve();
-          }, 45_000);
+          }, 300_000);
         });
         if (this.stopped) break;
         // The cycle itself gets a hard deadline. A dead socket can leave a
