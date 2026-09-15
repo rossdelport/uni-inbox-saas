@@ -12,9 +12,89 @@ import { touchThread } from "./threading.js";
 // owns the thread — resolved server-side, never client-supplied. That's the
 // whole product promise (no more replying to a client from the wrong address).
 //
-// Flow: compose the RFC822 bytes once (MailComposer), SMTP-send those exact
+// Flow: compose the RFC822 bytes once (MailComposer), send those exact
 // bytes, then APPEND the same bytes to the account's Sent mailbox — so what
 // the recipient got and what sits in Sent are byte-identical.
+//
+// Google (OAuth) mailboxes send over HTTPS through the Gmail API instead of
+// SMTP: Railway blocks outbound SMTP ports on every plan below Pro, and the
+// https://mail.google.com/ scope already covers API sends. Gmail swaps in its own
+// Message-ID, which the send reads back so the Sent copy is adopted rather
+// than shown twice, and files its own Sent copy. Microsoft OAuth mailboxes
+// only hold the SMTP.Send scope (not Graph Mail.Send), so they, and password
+// accounts, still go out over SMTP.
+
+const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me/messages";
+
+/** True for a Google OAuth mailbox: it can send over HTTPS. */
+export function sendsViaGmailApi(
+  account: Pick<SendAccount, "auth_method">,
+): boolean {
+  return providerForAuthMethod(account.auth_method ?? "password") === "google";
+}
+
+/**
+ * Gmail replaces the Message-ID header with its own on API sends. Read it back
+ * so the row stored at send time matches the Sent copy the syncer finds later;
+ * null when the lookup fails (the send itself already succeeded).
+ */
+async function readGmailMessageId(
+  sendResponse: Response,
+  headers: Record<string, string>,
+  fetchImpl: typeof fetch,
+): Promise<string | null> {
+  try {
+    const { id } = (await sendResponse.json()) as { id?: string };
+    if (!id) return null;
+    const meta = await fetchImpl(
+      `${GMAIL_API}/${encodeURIComponent(id)}?format=metadata&metadataHeaders=Message-ID`,
+      { headers, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!meta.ok) return null;
+    const body = (await meta.json()) as {
+      payload?: { headers?: { name: string; value: string }[] };
+    };
+    const header = body.payload?.headers?.find(
+      (h) => h.name.toLowerCase() === "message-id",
+    );
+    return header?.value.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Send composed RFC822 bytes through the Gmail API (base64url in a JSON body).
+ *  Resolves to the Message-ID Gmail actually used, or null if that could not be read. */
+export async function sendViaGmailApi(
+  accessToken: string,
+  raw: Buffer,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+  const res = await fetchImpl(`${GMAIL_API}/send`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ raw: raw.toString("base64url") }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (res.ok) return readGmailMessageId(res, headers, fetchImpl);
+  let detail = "";
+  try {
+    const body = (await res.json()) as { error?: { message?: string } };
+    detail = body.error?.message ?? "";
+  } catch {
+    /* Non-JSON body. */
+  }
+  // "authentication failed" keys into isAuthError, like a failed token refresh.
+  throw new Error(
+    res.status === 401 || res.status === 403
+      ? `authentication failed: Gmail refused the send (${res.status}${detail ? `: ${detail}` : ""})`
+      : `Gmail could not send the message (HTTP ${res.status}${detail ? `: ${detail}` : ""})`,
+  );
+}
 
 export interface SendAccount {
   id: string;
@@ -56,7 +136,10 @@ export interface SentInfo {
 }
 
 const SMTP_IDLE_MS = 2 * 60_000;
-type MailTransport = nodemailer.Transporter<SMTPPool.SentMessageInfo, SMTPPool.Options>;
+type MailTransport = nodemailer.Transporter<
+  SMTPPool.SentMessageInfo,
+  SMTPPool.Options
+>;
 
 interface SmtpSlot {
   transport: MailTransport;
@@ -87,7 +170,10 @@ function closeSmtpSlot(accountId: string, slot: SmtpSlot): void {
   slot.transport.close();
 }
 
-async function buildSmtpSlot(account: SendAccount, signature: string): Promise<SmtpSlot> {
+async function buildSmtpSlot(
+  account: SendAccount,
+  signature: string,
+): Promise<SmtpSlot> {
   const oauth = providerForAuthMethod(account.auth_method ?? "password");
   const creds = oauth ? null : decryptCredentials(account.credentials_enc);
   const transport = nodemailer.createTransport({
@@ -102,7 +188,11 @@ async function buildSmtpSlot(account: SendAccount, signature: string): Promise<S
       ? {
           type: "OAuth2" as const,
           user: account.email_address,
-          accessToken: await getAccessToken(account.id, account.auth_method!, account.credentials_enc),
+          accessToken: await getAccessToken(
+            account.id,
+            account.auth_method!,
+            account.credentials_enc,
+          ),
         }
       : {
           user: account.imap_username,
@@ -139,7 +229,8 @@ async function acquireSmtp(account: SendAccount): Promise<SmtpSlot> {
       }
       smtpSlots.set(account.id, slot);
     } finally {
-      if (smtpBuilds.get(account.id) === building) smtpBuilds.delete(account.id);
+      if (smtpBuilds.get(account.id) === building)
+        smtpBuilds.delete(account.id);
     }
   }
   if (slot.idleTimer) clearTimeout(slot.idleTimer);
@@ -156,7 +247,10 @@ function releaseSmtp(accountId: string, slot: SmtpSlot, failed: boolean): void {
     closeSmtpSlot(accountId, slot);
     return;
   }
-  slot.idleTimer = setTimeout(() => closeSmtpSlot(accountId, slot), SMTP_IDLE_MS);
+  slot.idleTimer = setTimeout(
+    () => closeSmtpSlot(accountId, slot),
+    SMTP_IDLE_MS,
+  );
   slot.idleTimer.unref?.();
 }
 
@@ -189,11 +283,23 @@ export async function smtpSend(
         : undefined,
     inReplyTo: input.inReplyTo ?? undefined,
     references:
-      input.references && input.references.length > 0 ? input.references : undefined,
+      input.references && input.references.length > 0
+        ? input.references
+        : undefined,
   });
   const mail = composer.compile();
   const raw = await mail.build();
   const finalMessageId = mail.messageId() ?? messageId ?? "";
+
+  if (sendsViaGmailApi(account)) {
+    const token = await getAccessToken(
+      account.id,
+      account.auth_method!,
+      account.credentials_enc,
+    );
+    const gmailMessageId = await sendViaGmailApi(token, raw);
+    return { messageId: gmailMessageId ?? finalMessageId, raw };
+  }
 
   // Keep the authenticated SMTP socket warm briefly. The old code paid a
   // fresh DNS/TCP/TLS/auth handshake for every Send or Reply.
@@ -216,9 +322,12 @@ export async function smtpSend(
 }
 
 /** Best-effort copy to the account's Sent mailbox. Gmail auto-saves on SMTP
- *  send, so gmail-preset accounts skip this (it would duplicate). */
-export async function appendToSent(account: SendAccount, raw: Buffer): Promise<void> {
-  if (account.provider_preset === "gmail") return;
+ *  and API sends alike, so Gmail accounts skip this (it would duplicate). */
+export async function appendToSent(
+  account: SendAccount,
+  raw: Buffer,
+): Promise<void> {
+  if (account.provider_preset === "gmail" || sendsViaGmailApi(account)) return;
   try {
     await withActionImap(account, async (client) => {
       // Same resolver as the Sent sync pass, so the folder we APPEND to is the
@@ -228,7 +337,10 @@ export async function appendToSent(account: SendAccount, raw: Buffer): Promise<v
       await client.append(sentBox, raw, ["\\Seen"]);
     });
   } catch (err) {
-    logger.warn({ err, accountId: account.id }, "sent-folder append failed (non-fatal)");
+    logger.warn(
+      { err, accountId: account.id },
+      "sent-folder append failed (non-fatal)",
+    );
   }
 }
 
@@ -239,7 +351,8 @@ export async function recordOutbound(
   input: OutboundInput,
   messageId: string,
 ): Promise<void> {
-  const snippet = input.bodyText.replace(/\s+/g, " ").trim().slice(0, 140) || null;
+  const snippet =
+    input.bodyText.replace(/\s+/g, " ").trim().slice(0, 140) || null;
   const { error } = await supabase.from("messages").insert({
     owner_id: account.owner_id,
     account_id: account.id,
@@ -269,7 +382,8 @@ export async function recordOutbound(
       size: a.content.length,
     })),
   });
-  if (error) logger.error({ error, threadId }, "outbound message record failed");
+  if (error)
+    logger.error({ error, threadId }, "outbound message record failed");
   await Promise.all([
     touchThread(threadId),
     // Replying in a thread promotes it to Important forever, whatever the
@@ -277,7 +391,10 @@ export async function recordOutbound(
     // alongside it instead of adding another wait after every send.
     supabase
       .from("threads")
-      .update({ split_class: "important", split_reason: "Started or replied by you" })
+      .update({
+        split_class: "important",
+        split_reason: "Started or replied by you",
+      })
       .eq("id", threadId)
       .eq("split_manual", false)
       .neq("split_class", "important"),
